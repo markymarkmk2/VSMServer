@@ -6,8 +6,7 @@
             <name>VSM</name>
             <explicit-platform explicit-source-supported="true"/>
             <source-roots>
-                <root id="src.webdav-servlet-2.0.1-sources.dir"/>
-                <root id="src.jpa_src.dir"/>
+                <root id="src.src.dir"/>
             </source-roots>
             <test-roots>
                 <root id="test.test.dir"/>
