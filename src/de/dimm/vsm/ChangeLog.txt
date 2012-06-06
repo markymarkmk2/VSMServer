@@ -1,0 +1,14 @@
+Veränderungen in V1.0.2
+UPD: Excludes in ClientInfo sind aktiv
+FIX: Umlaute in Changelog
+FIX: Dedup nur Änderungen deaktiviert, Tests fehlen noch
+FIX: IndexReader vor der ersten Suche nicht offen
+
+Veränderungen in V1.0.1
+FIX: Löschmarkierung wird nicht mehrfach gesetzt
+FIX: Unwichtige JobManager nicht mehr sichtbar
+
+Veränderungen in V1.0.0
+FIX: Löschen von Dokumenten mit korrekter Historie
+UPD: CDP-Manager lässt sich stoppen / starten
+UPD: FileChange-Events berücksichtigen ClientVolume-Pfad

@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<persistence version="1.0" xmlns="http://java.sun.com/xml/ns/persistence" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://java.sun.com/xml/ns/persistence http://java.sun.com/xml/ns/persistence/persistence_1_0.xsd">
+  <persistence-unit name="VSMOffline">
+    <provider>org.eclipse.persistence.jpa.PersistenceProvider</provider>
+    <class>de.dimm.vsm.records.DeltaNode</class>
+    <class>de.dimm.vsm.records.FileSystemElemNode</class>
+    <class>de.dimm.vsm.records.FileSystemElemAttributes</class>
+    <class>de.dimm.vsm.records.PoolNodeFileLink</class>
+    <class>de.dimm.vsm.records.StoragePool</class>
+    <class>de.dimm.vsm.records.AbstractStorageNode</class>
+    <class>de.dimm.vsm.records.ClientInfo</class>
+    <class>de.dimm.vsm.records.ClientVolume</class>
+    <class>de.dimm.vsm.records.Job</class>
+    <class>de.dimm.vsm.records.Schedule</class>
+    <class>de.dimm.vsm.records.DedupHashBlock</class>
+    <class>de.dimm.vsm.records.HashBlock</class>
+    <class>de.dimm.vsm.records.Excludes</class>
+    <class>de.dimm.vsm.records.XANode</class>
+    <class>de.dimm.vsm.records.HotFolder</class>
+    <properties>
+        <property name="eclipselink.logging.level" value="ALL"/> 
+      <property name="eclipselink.target-database" value="org.eclipse.persistence.platform.database.PostgreSQLPlatform"/>
+      <property name="javax.persistence.jdbc.url" value="jdbc:postgresql://localhost:5432/VSMParamDB"/>
+      <property name="javax.persistence.jdbc.password" value="12345"/>
+      <property name="javax.persistence.jdbc.driver" value="org.postgresql.Driver"/>
+      <property name="javax.persistence.jdbc.user" value="mw"/>      
+    </properties>
+  </persistence-unit>
+
+  <persistence-unit name="VSM">
+    <provider>org.eclipse.persistence.jpa.PersistenceProvider</provider>
+    <class>de.dimm.vsm.records.ArchiveJob</class>
+    <class>de.dimm.vsm.records.ArchiveJobFileLink</class>
+    <class>de.dimm.vsm.records.DeltaNode</class>
+    <class>de.dimm.vsm.records.FileSystemElemNode</class>
+    <class>de.dimm.vsm.records.FileSystemElemAttributes</class>
+    <class>de.dimm.vsm.records.PoolNodeFileLink</class>
+    <class>de.dimm.vsm.records.StoragePool</class>
+    <class>de.dimm.vsm.records.AbstractStorageNode</class>
+    <class>de.dimm.vsm.records.ClientInfo</class>
+    <class>de.dimm.vsm.records.ClientVolume</class>
+    <class>de.dimm.vsm.records.Job</class>
+    <class>de.dimm.vsm.records.Schedule</class>
+    <class>de.dimm.vsm.records.DedupHashBlock</class>
+    <class>de.dimm.vsm.records.HashBlock</class>
+    <class>de.dimm.vsm.records.Excludes</class>
+    <class>de.dimm.vsm.records.XANode</class>
+    <class>de.dimm.vsm.records.Retention</class>
+    <class>de.dimm.vsm.records.Snapshot</class>
+    <class>de.dimm.vsm.records.BackupJobResult</class>
+    <class>de.dimm.vsm.records.BackupVolumeResult</class>
+    <properties>
+     <!-- <property name="eclipselink.logging.level" value="ALL"/> -->
+      <property name="eclipselink.target-database" value="org.eclipse.persistence.platform.database.DerbyPlatform"/>
+      <property name="javax.persistence.jdbc.url" value="jdbc:derby:db/VSMParams;create=true"/>
+      <property name="javax.persistence.jdbc.password" value="12345"/>
+      <property name="javax.persistence.jdbc.driver" value="org.apache.derby.jdbc.EmbeddedDriver"/>
+      <property name="javax.persistence.jdbc.user" value="mw"/>
+      <property name="vsm.persistence.jdbc.pooldatasource" value="org.apache.derby.jdbc.EmbeddedConnectionPoolDataSource"/>
+    <property name="eclipselink.ddl-generation" value="create-tables"/></properties>
+  </persistence-unit>
+  
+  <persistence-unit name="VSMBase">
+    <provider>org.eclipse.persistence.jpa.PersistenceProvider</provider>
+    <class>de.dimm.vsm.records.StoragePoolNub</class>
+    <class>de.dimm.vsm.records.HotFolder</class>
+    <class>de.dimm.vsm.records.HotFolderError</class>
+    <class>de.dimm.vsm.records.Role</class>
+    <class>de.dimm.vsm.records.RoleOption</class>
+    <class>de.dimm.vsm.records.AccountConnector</class>
+    <properties>
+      <property name="eclipselink.target-database" value="org.eclipse.persistence.platform.database.DerbyPlatform"/>
+      <property name="javax.persistence.jdbc.url" value="jdbc:derby:db/VSMBase;create=true"/>
+      <property name="javax.persistence.jdbc.password" value="12345"/>
+      <property name="javax.persistence.jdbc.driver" value="org.apache.derby.jdbc.EmbeddedDriver"/>
+      <property name="javax.persistence.jdbc.user" value="mw"/>
+      <property name="vsm.persistence.jdbc.pooldatasource" value="org.apache.derby.jdbc.EmbeddedConnectionPoolDataSource"/>
+      <property name="eclipselink.ddl-generation" value="create-tables"/>
+    </properties>
+  </persistence-unit>
+
+  <persistence-unit name="VSMLog">
+    <provider>org.eclipse.persistence.jpa.PersistenceProvider</provider>
+    <class>de.dimm.vsm.records.MessageLog</class>
+    <properties>
+      <property name="eclipselink.target-database" value="org.eclipse.persistence.platform.database.DerbyPlatform"/>
+      <property name="javax.persistence.jdbc.url" value="jdbc:derby:db/VSMLog;create=true"/>
+      <property name="javax.persistence.jdbc.password" value="12345"/>
+      <property name="javax.persistence.jdbc.driver" value="org.apache.derby.jdbc.EmbeddedDriver"/>
+      <property name="javax.persistence.jdbc.user" value="mw"/>
+      <property name="vsm.persistence.jdbc.pooldatasource" value="org.apache.derby.jdbc.EmbeddedConnectionPoolDataSource"/>
+      <property name="eclipselink.ddl-generation" value="create-tables"/>
+    </properties>
+  </persistence-unit>
+  
+  <persistence-unit name="VSMText">
+    <provider>org.eclipse.persistence.jpa.PersistenceProvider</provider>
+    <class>de.dimm.vsm.records.TextBase</class>
+    <properties>
+      <property name="eclipselink.target-database" value="org.eclipse.persistence.platform.database.DerbyPlatform"/>
+      <property name="javax.persistence.jdbc.url" value="jdbc:derby:db/VSMText;create=true"/>
+      <property name="javax.persistence.jdbc.password" value="12345"/>
+      <property name="javax.persistence.jdbc.driver" value="org.apache.derby.jdbc.EmbeddedDriver"/>
+      <property name="javax.persistence.jdbc.user" value="mw"/>
+      <property name="vsm.persistence.jdbc.pooldatasource" value="org.apache.derby.jdbc.EmbeddedConnectionPoolDataSource"/>
+      <property name="eclipselink.ddl-generation" value="create-tables"/>
+    </properties>
+  </persistence-unit>
+</persistence>
