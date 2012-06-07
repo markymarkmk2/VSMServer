@@ -6,6 +6,7 @@
 package de.dimm.vsm.backup;
 
 
+import com.caucho.hessian.client.HessianRuntimeException;
 import de.dimm.vsm.CS_Constants;
 import de.dimm.vsm.Exceptions.ClientAccessFileException;
 import de.dimm.vsm.Exceptions.PathResolveException;
@@ -758,7 +759,17 @@ public class Backup
                 public List<RemoteFSElem> call() throws Exception
                 {
                     // HANDLE BACKUP FOR ALL ELEMENTS ON AGENT
-                    ArrayList<RemoteFSElem> fs_list = context.apiEntry.getApi().list_dir(remoteFSElem, lazyAclInfo);
+                    ArrayList<RemoteFSElem> fs_list = null;
+                    try
+                    {
+                        fs_list = context.apiEntry.getApi().list_dir(remoteFSElem, lazyAclInfo);
+                    }
+                    catch (Exception e)
+                    {
+                        Log.warn(Main.Txt("Fehler beim Lesen von Verzeichnis, wiederhole") , remoteFSElem.getPath());
+                        LogicControl.sleep(1000);
+                        fs_list = context.apiEntry.getApi().list_dir(remoteFSElem, lazyAclInfo);
+                    }
                     return fs_list;
                 }
             });
@@ -800,9 +811,10 @@ public class Backup
             catch (InterruptedException interruptedException)
             {
             }
-            catch (ExecutionException executionException)
+            catch (ExecutionException exc)
             {
-                throw executionException.getCause();
+                Log.err(Main.Txt("Fehler beim Lesen von Verzeichnis") , remoteFSElem.getPath(), exc);
+                throw exc.getCause();
             }
 
 
