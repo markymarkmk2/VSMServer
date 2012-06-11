@@ -276,11 +276,11 @@ public class StoragePoolNubHandler
         // MUST CONTAIN EXACTLY ONE POOL
         if (list.size() > 1)
         {
-            throw new IOException( "Too many Pools in PoolDB " + jdbcConnectString );
+            throw new IOException( Main.Txt("Zu viele Storagepools in PoolDB") + " " + jdbcConnectString );
         }
         if (list.isEmpty())
         {
-            throw new IOException( "PoolDB is empty " + jdbcConnectString );
+            throw new IOException( Main.Txt("Keine Storagepools in PoolDB") + " " + jdbcConnectString );
         }
         else
         {
@@ -334,13 +334,23 @@ public class StoragePoolNubHandler
                 StoragePoolNub storagePoolNub = list.get(i);
                 if (storagePoolNub.isDisabled())
                 {
+                    Log.info(Main.Txt("Überspringe deaktivierten StoragePoolNub"), ": " + storagePoolNub.getIdx() + "/" + storagePoolNub.getPoolIdx());
                     continue;
                 }
+
+                String path = getDbPath(storagePoolNub);
+                File dbPath = new File(path);
+                if (!dbPath.exists())
+                {
+                    Log.info(Main.Txt("Überspringe fehlenden StoragePool"), ": " + storagePoolNub.getIdx() + "/" + storagePoolNub.getPoolIdx());
+                    continue;
+                }
+
                 PoolMapper map = loadPoolDB(storagePoolNub);
 
                 if (map != null)
                 {
-                    Log.info("StoragePool Mapping", ": " + map.pool.getName() + " -> " + map.nub.getIdx() + " (" + map.pool.getIdx() + ")" );
+                    Log.info(Main.Txt("StoragePool Zuordnung"), ": " + map.pool.getName() + " -> " + map.nub.getIdx() + " (" + map.pool.getIdx() + ")" );
                     mp.add(map);
                 }
             }
@@ -353,7 +363,7 @@ public class StoragePoolNubHandler
         }
         catch (Exception e)
         {
-            Log.err("Abbruch beim Initialisieren der StoragePoolMapperListe", e);
+            Log.err(Main.Txt("Abbruch beim Initialisieren der StoragePoolMapperListe"), e);
 
             if (em != null)
                 em.close();

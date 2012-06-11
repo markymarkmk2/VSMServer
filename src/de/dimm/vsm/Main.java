@@ -34,7 +34,8 @@ import java.util.Properties;
  */
 public class Main
 {
-    static String version_str = "1.0.3";
+
+    static String version_str = "1.0.3 trunk";
         
     public static int writeThreads = 1;
     public static int maxOpenFiles = 1024;
