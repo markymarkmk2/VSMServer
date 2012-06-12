@@ -87,9 +87,9 @@ public class RestoreTest {
         {
             assertTrue(f.exists());
 
-            FileSystem fs = FileSystems.getDefault();
-            Path file = fs.getPath(f.getAbsolutePath());
-            assertTrue(file.exists());
+//            FileSystem fs = FileSystems.getDefault();
+//            Path file = fs.getPath(f.getAbsolutePath());
+//            assertTrue(file.exists());
 
             String fpath = getLongPath( f.getAbsolutePath() );
 
@@ -99,8 +99,8 @@ public class RestoreTest {
 
 
 
-            file = fs.getPath(f.getAbsolutePath());
-            assertTrue(file.exists());
+//            file = fs.getPath(f.getAbsolutePath());
+//            assertTrue(file.exists());
         }
         catch (Exception exc)
         {
