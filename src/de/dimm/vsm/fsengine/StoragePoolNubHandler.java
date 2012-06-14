@@ -147,7 +147,7 @@ public class StoragePoolNubHandler
         if (!s.endsWith("/"))
             s += "/";
 
-        String dbPath = s + "db_" + nub.getIdx() + "/VSM_Params";
+        String dbPath = s + "db_" + nub.getIdx() + RELPARAMPATH;
         return dbPath;
     }
     protected String getIndexPath( StoragePoolNub nub )
@@ -339,7 +339,7 @@ public class StoragePoolNubHandler
                 }
 
                 String path = getDbPath(storagePoolNub);
-                File dbPath = new File(path);
+                File dbPath = new File(path);dbPath.getAbsolutePath();
                 if (!dbPath.exists())
                 {
                     Log.info(Main.Txt("Überspringe fehlenden StoragePool"), ": " + storagePoolNub.getIdx() + "/" + storagePoolNub.getPoolIdx());
