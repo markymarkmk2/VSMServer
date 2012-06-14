@@ -609,7 +609,14 @@ public class GuiServerApiImpl implements GuiServerApi
     {
         SearchContextManager contextMgr = control.getPoolHandlerServlet().getSearchContextManager();
         StoragePoolHandler sp_handler = contextMgr.getHandlerbyWrapper(searchWrapper);
-        contextMgr.reSearch(searchWrapper, sp_handler.getPool(), slist);
+        try
+        {
+            contextMgr.reSearch(searchWrapper, sp_handler.getPool(), slist);
+        }
+        catch (Exception exc)
+        {
+            // TODO IN TRUNK, TAG 1.0 FINISHES HERE
+        }
     }
 
     @Override
