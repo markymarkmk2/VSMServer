@@ -6,7 +6,6 @@
 package de.dimm.vsm.backup;
 
 
-import com.caucho.hessian.client.HessianRuntimeException;
 import de.dimm.vsm.CS_Constants;
 import de.dimm.vsm.Exceptions.ClientAccessFileException;
 import de.dimm.vsm.Exceptions.PathResolveException;
@@ -15,6 +14,7 @@ import de.dimm.vsm.log.Log;
 import de.dimm.vsm.LogicControl;
 import de.dimm.vsm.Main;
 import de.dimm.vsm.Utilities.CryptTools;
+import de.dimm.vsm.Utilities.SizeStr;
 import de.dimm.vsm.Utilities.StatCounter;
 import de.dimm.vsm.auth.User;
 import de.dimm.vsm.fsengine.ArrayLazyList;
@@ -348,6 +348,15 @@ public class Backup
         if (pool.getStorageNodes().getList( sp_handler.getEm()).isEmpty())
             throw new Exception("No Storage for pool defined");
 
+        if (sp_handler.get_primary_storage_nodes().isEmpty())
+        {
+            throw new Exception(Main.Txt("Keine beschreibbaren StorageNodes für Pool") + "  " + pool.getName());
+        }
+        if (sp_handler.get_primary_dedup_node() == null)
+        {
+            throw new Exception(Main.Txt("Keine beschreibbarer StorageNodes für Dedup bei Pool") + "  " + pool.getName());
+        }
+
         try
         {
             return run_schedule( sched, sp_handler);
@@ -546,6 +555,22 @@ public class Backup
         // IF THIS ROOT WASNT INSTATIATED IN FS, WE DO IT ON THE FLY
         context.poolhandler.realizeInFs();
 
+        // CHECK SPACE AND NODE AVAILABILITY
+        long freeSpace = context.checkStorageNodes();
+        Log.debug("Freier Speicher auf aktuellem SpeicherNode", SizeStr.format(freeSpace));
+
+        if (context.poolhandler.get_primary_dedup_node() == null)
+        {
+            preStartStatus = Main.Txt("Kein StorageNode für Dedup verfügbar") + " " +  context.poolhandler.getPool().getName();
+            return null;
+        }
+        if (context.poolhandler.get_primary_storage_nodes().isEmpty())
+        {
+            preStartStatus = Main.Txt("Kein StorageNodes verfügbar") + " " +  context.poolhandler.getPool().getName();
+            return null;
+        }
+
+
 
         // HANDLE SNAPSHOTS
         SnapshotHandle snapshotHandle = null;
@@ -692,6 +717,13 @@ public class Backup
             context.setJobState(JOBSTATE.ABORTED);
             context.setResult( false );
             throw new IOException( "Indexspeicherplatz erschöpft");
+        }
+
+        if (context.noStorageSpaceLeft())
+        {
+            context.setJobState(JOBSTATE.ABORTED);
+            context.setResult( false );
+            throw new IOException( "Nodespeicherplatz erschöpft");
         }
        
         // HANDLE OPS FOR THIS ENTRY       
