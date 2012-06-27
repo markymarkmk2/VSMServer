@@ -11,7 +11,9 @@ import de.dimm.vsm.net.interfaces.BootstrapHandle;
 import de.dimm.vsm.net.interfaces.FileHandle;
 import de.dimm.vsm.Exceptions.PathResolveException;
 import de.dimm.vsm.Exceptions.PoolReadOnlyException;
+import de.dimm.vsm.LogicControl;
 import de.dimm.vsm.Main;
+import de.dimm.vsm.Utilities.SizeStr;
 import de.dimm.vsm.log.Log;
 import de.dimm.vsm.auth.User;
 import de.dimm.vsm.auth.UserManager;
@@ -215,18 +217,27 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
             long free = StorageNodeHandler.getFreeSpace(abstractStorageNode);
             if (free < nodeMinFreeSpace)
             {
-                Log.warn("SpeicherNode ist voll", abstractStorageNode.getName());
-                abstractStorageNode.setNodeMode(AbstractStorageNode.NM_FULL);
+                LogicControl.sleep(1000);
+                free = StorageNodeHandler.getFreeSpace(abstractStorageNode);
+                if (free < nodeMinFreeSpace)
+                {
+                    free = StorageNodeHandler.getFreeSpace(abstractStorageNode);
+                    Log.warn("SpeicherNode ist voll, Restmenge " + SizeStr.format(free) + ": " +  abstractStorageNode.getName());
+                    abstractStorageNode.setNodeMode(AbstractStorageNode.NM_FULL);
 
-                check_open_transaction();
-                try
-                {
-                    em_merge(abstractStorageNode);
-                    commit_transaction();
-                }
-                catch (SQLException exc)
-                {
-                    Log.err("SpeicherNode kann nicht aktualisiert werden", abstractStorageNode.getName(), exc);
+                    check_open_transaction();
+                    try
+                    {
+                        em_merge(abstractStorageNode);
+                        commit_transaction();
+                    }
+                    catch (SQLException exc)
+                    {
+                        Log.err("SpeicherNode kann nicht aktualisiert werden", abstractStorageNode.getName(), exc);
+                    }
+
+                    // THIS NODE IS NOT ONLINE ANYMORE, TRY NEXT
+                    continue;
                 }
             }
             return free;
@@ -243,7 +254,12 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
 
         // AND DD NODES
         ArrayList<AbstractStorageNode> l = new ArrayList<AbstractStorageNode>();
-        l.add(get_primary_dedup_node());
+
+        AbstractStorageNode ddNode = get_primary_dedup_node();
+        if (ddNode != null)
+        {
+            l.add(ddNode);
+        }
 
         long freeDDSpace = checkStorageNodeSpace( l );
 
@@ -737,7 +753,7 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
         return ret;
     }
 
-    AbstractStorageNode get_primary_dedup_node()
+    public AbstractStorageNode get_primary_dedup_node()
     {
         // TODO: MERKMAL HAS DEDUP BLOCKS
         // WE HAVE NO CLONING YET
