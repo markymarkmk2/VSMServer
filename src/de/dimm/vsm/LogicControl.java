@@ -66,7 +66,6 @@ public class LogicControl
 {
     public static final String PRODUCT_BASE = "VSM";
 
-    public static final int MAX_DERBY_PAGECACHE_SIZE = 100*1000*1000;
 
     public static final int LTM_FTP = 0x0001;
     public static final int LTM_S3 = 0x0002;
@@ -224,26 +223,6 @@ public class LogicControl
 
     }
 
-    private void setDerbyProperties()
-    {
-        long memSize = Runtime.getRuntime().maxMemory();
-        if (memSize != Long.MAX_VALUE)
-        {
-            // NOT MORE THAN 1/20 OF MAX MEM
-            memSize /= 20;
-            if (memSize > MAX_DERBY_PAGECACHE_SIZE)
-            {
-                memSize = MAX_DERBY_PAGECACHE_SIZE;
-            }
-            System.getProperties().setProperty("derby.storage.pageCacheSize",Long.toString(memSize / 4096));
-        }
-
-
-        System.getProperties().setProperty("derby.language.logQueryPlan","false");
-        System.getProperties().setProperty("derby.storage.pageSize", "4096" );
-        System.getProperties().setProperty("derby.locks.deadlockTrace","true");
-        System.getProperties().setProperty("derby.language.disableIndexStatsUpdate","true");
-    }
 
     public BackupManager getBackupManager()
     {
@@ -308,7 +287,6 @@ public class LogicControl
 
         //getChangelog();
         
-        setDerbyProperties();
 
         storagePoolNubHandler = new StoragePoolNubHandler();
 

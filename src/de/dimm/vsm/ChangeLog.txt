@@ -1,3 +1,20 @@
+Veränderungen in V1.0.6
+FIX: Preflight Hotfolder vor Check (Valid Path)
+UPD: bei Start mit "-stats" wird aktuelle Deduprate beim Start berechnet und gelogged
+UPD: Properties für Derby lassen sich in preferences.dat setzen
+
+Veränderungen in V1.0.5
+FIX: Preflight der StorageNodes vor Backup (State, Größe)
+
+Veränderungen in V1.0.5
+FIX: Import von MM-Jobs setzt Datum korrekt
+
+Veränderungen in V1.0.4
+UPD: RollenOption haben Attribut RestorePath
+
+Veränderungen in V1.0.3
+FIX: Restore während Archiv schließt Index
+
 Veränderungen in V1.0.2
 UPD: Excludes in ClientInfo sind aktiv
 FIX: Umlaute in Changelog

@@ -159,5 +159,13 @@ public class GeneralPreferences extends Preferences
         SizeStr.setSI(si);
         Main.setPerformanceDiagnostic( get_boolean_prop(GeneralPreferences.PERFORMANCE_DIAGNOSTIC,  Main.isPerformanceDiagnostic() ));
     }
+
+    @Override
+    protected boolean check_prop( String s )
+    {
+        if (s.startsWith("derby."))
+            return true;
+        return super.check_prop(s);
+    }
     
 }

@@ -35,7 +35,8 @@ import java.util.Properties;
 public class Main
 {
 
-    static String version_str = "1.0.3 trunk";
+    static String source_str = "trunk";
+    static String version_str = "1.0.6";
         
     public static int writeThreads = 1;
     public static int maxOpenFiles = 1024;
@@ -61,6 +62,7 @@ public class Main
     static boolean performanceDiagnostic = false;
 
     ShutdownHook hook;
+    public static final int MAX_DERBY_PAGECACHE_SIZE = 100*1000*1000;
 
 
     static boolean useIpV6()
@@ -149,6 +151,9 @@ public class Main
             LogManager.msg_system( LogManager.LVL_ERR, "Cannot create local dirs: " + exc.getMessage() );
         }
 
+        setDerbyProperties();
+
+
         control = new LogicControl(this);
 
         control.init(agent_tcp);
@@ -160,7 +165,7 @@ public class Main
 
     public static String get_version_str()
     {
-        return version_str;
+        return version_str + " " + source_str;
     }
 
     public static GeneralPreferences get_prefs()
@@ -259,6 +264,7 @@ public class Main
     public static void main( String[] args )
     {
         boolean changeLog = false;
+        boolean doStat = false;
         for (int i = 0; i < args.length; i++)
         {
             String string = args[i];
@@ -271,9 +277,13 @@ public class Main
                 performanceDiagnostic = true;
                 Log.setVerbose(true);
             }
+            if (string.equals("-stats"))
+            {
+                doStat = true;
+            }
             if (string.equals("-version"))
             {
-                System.out.println(get_version_str());
+                System.out.println(version_str);
                 System.exit(0);
             }
             if (string.equals("-changelog"))
@@ -295,6 +305,9 @@ public class Main
         try
         {
             main.init();
+
+            if (doStat)
+                LogicControl.getStorageNubHandler().infoStats();
         }
         catch (SQLException exception)
         {
@@ -537,6 +550,33 @@ public class Main
 
         }
     }
+
+    void setSystemPropPref( String name, String val )
+    {
+        System.getProperties().setProperty(name, general_prefs.get_prop(name, val));
+        Log.debug("Setze Systempref", name + ": " + val);
+    }
+
+    private void setDerbyProperties()
+    {
+        long memSize = Runtime.getRuntime().maxMemory();
+        if (memSize != Long.MAX_VALUE)
+        {
+            // NOT MORE THAN 1/20 OF MAX MEM
+            memSize /= 20;
+            if (memSize > MAX_DERBY_PAGECACHE_SIZE)
+            {
+                memSize = MAX_DERBY_PAGECACHE_SIZE;
+            }
+            setSystemPropPref( "derby.storage.pageCacheSize", Long.toString( memSize / 4096) );
+        }
+
+
+        setSystemPropPref( "derby.storage.pageSize", "4096" );
+        setSystemPropPref( "derby.locks.deadlockTrace","true");
+        setSystemPropPref( "derby.language.disableIndexStatsUpdate","true");
+    }
+
     public static void set_service_shutdown()
     {
         ShutdownHook hook = Main.me.hook;
