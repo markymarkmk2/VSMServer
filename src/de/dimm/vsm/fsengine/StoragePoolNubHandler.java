@@ -667,4 +667,17 @@ public class StoragePoolNubHandler
             }
         }
     }
+
+    public void infoStats()
+    {
+        synchronized(mapperList)
+        {
+            for (int i = 0; i < mapperList.size(); i++)
+            {
+                PoolMapper poolMapper = mapperList.get(i);
+                poolMapper.calcStats();
+                poolMapper.logStats();
+            }
+        }
+    }
 }
