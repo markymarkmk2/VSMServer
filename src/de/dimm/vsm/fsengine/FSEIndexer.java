@@ -27,20 +27,16 @@ import java.util.List;
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.document.Field;
-import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.Term;
 import org.apache.lucene.queryParser.ParseException;
 import org.apache.lucene.queryParser.QueryParser;
-import org.apache.lucene.search.BooleanClause;
 import org.apache.lucene.search.BooleanClause.Occur;
 import org.apache.lucene.search.BooleanFilter;
 import org.apache.lucene.search.BooleanQuery;
 import org.apache.lucene.search.FieldCache;
 import org.apache.lucene.search.Filter;
 import org.apache.lucene.search.FilterClause;
-import org.apache.lucene.search.FilteredTermEnum;
 import org.apache.lucene.search.MatchAllDocsQuery;
-import org.apache.lucene.search.MultiTermQuery;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.Sort;
 import org.apache.lucene.search.SortField;
@@ -844,6 +840,7 @@ public class FSEIndexer
         }
         return null;
     }
+    
 
     public List<Document> searchFSEDocuments(String qry, Filter addFilter, int maxCnt)
     {
@@ -1087,10 +1084,16 @@ public class FSEIndexer
     }
 
 
-
     public void updateJobAsync( ArchiveJob job )
     {
-        throw new UnsupportedOperationException("Not yet implemented");
+        QueueElem elem = new UpdateJobQueueElem(job, this);
+        qr.addElem(elem);
+        n++;
+        if (n >= autoflushCnt)
+        {
+            n = 0;
+            qr.addElem( new FlushQueueElem(this));
+        }
     }
 
 
