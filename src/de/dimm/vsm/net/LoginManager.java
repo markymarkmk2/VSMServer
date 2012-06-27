@@ -10,7 +10,6 @@ import de.dimm.vsm.LogicControl;
 import de.dimm.vsm.Main;
 import de.dimm.vsm.WorkerParent;
 import de.dimm.vsm.auth.GenericRealmAuth;
-import de.dimm.vsm.auth.LDAPAuth;
 import de.dimm.vsm.auth.User;
 import de.dimm.vsm.net.interfaces.GuiLoginApi;
 import de.dimm.vsm.net.interfaces.GuiServerApi;
@@ -184,11 +183,11 @@ public class LoginManager extends WorkerParent implements GuiLoginApi
         {
             Log.warn("!!!!!!!!!!!!!!!!!!! System Login !!!!!!!!!!!!!!!!!!!!!!!!!!!");
             // OKAY, LOGIN SUCCEDED; WE GOT THE GROUPS, NOW BUILD AND RETURN CONTEXT
-            User user = new User(userName, userName);
+            User user = new User(userName, userName, userName);
             Role role = new Role();
-            role.getRoleOptions().addIfRealized( new RoleOption(0, role, RoleOption.RL_ADMIN, 0));
-            role.getRoleOptions().addIfRealized( new RoleOption(0, role, RoleOption.RL_ALLOW_EDIT_PARAM, 0));
-            role.getRoleOptions().addIfRealized( new RoleOption(0, role, RoleOption.RL_ALLOW_VIEW_PARAM, 0));
+            role.getRoleOptions().addIfRealized( new RoleOption(0, role, RoleOption.RL_ADMIN, 0, ""));
+            role.getRoleOptions().addIfRealized( new RoleOption(0, role, RoleOption.RL_ALLOW_EDIT_PARAM, 0, ""));
+            role.getRoleOptions().addIfRealized( new RoleOption(0, role, RoleOption.RL_ALLOW_VIEW_PARAM, 0, ""));
             user.setRole(role);
 
 
@@ -202,10 +201,10 @@ public class LoginManager extends WorkerParent implements GuiLoginApi
         {
             Log.warn("!!!!!!!!!!!!!!!!!!! System Login !!!!!!!!!!!!!!!!!!!!!!!!!!!");
             // OKAY, LOGIN SUCCEDED; WE GOT THE GROUPS, NOW BUILD AND RETURN CONTEXT
-            User user = new User(userName, userName);
+            User user = new User(userName, userName, userName);
             user.setIgnoreAcl(true);
             Role role = new Role();
-            role.getRoleOptions().addIfRealized( new RoleOption(0, role, RoleOption.RL_ALLOW_VIEW_PARAM, 0));
+            role.getRoleOptions().addIfRealized( new RoleOption(0, role, RoleOption.RL_ALLOW_VIEW_PARAM, 0, ""));
             user.setRole(role);
 
             GuiServerApiImpl guiServerApi = new GuiServerApiImpl(System.currentTimeMillis(), null, user);
@@ -217,7 +216,7 @@ public class LoginManager extends WorkerParent implements GuiLoginApi
         {
             Log.warn("!!!!!!!!!!!!!!!!!!! System Login !!!!!!!!!!!!!!!!!!!!!!!!!!!");
             // OKAY, LOGIN SUCCEDED; WE GOT THE GROUPS, NOW BUILD AND RETURN CONTEXT
-            User user = new User(userName, userName);
+            User user = new User(userName, userName, userName);
             user.setIgnoreAcl(true);
             Role role = new Role();
             //role.getRoleOptions().add( new RoleOption(0, role, RoleOption.RL_ALLOW_VIEW_PARAM, 0));
@@ -243,6 +242,12 @@ public class LoginManager extends WorkerParent implements GuiLoginApi
                     continue;
                 }
 
+                if (!acc.isAllowEmptyPwd() && pwd.isEmpty())
+                {
+                    Log.debug(Main.Txt("Benutzer") + " " + userName + " " +  Main.Txt("hat ein leeres Passwort, ist nicht erlaubt für") + " " + acc.toString(), role.getName());
+                    continue;
+                }
+
                 GenericRealmAuth auth = GenericRealmAuth.factory_create_realm(acc);
                 if (auth.connect())
                 {
@@ -251,33 +256,33 @@ public class LoginManager extends WorkerParent implements GuiLoginApi
 
                         List<String> groupsThisUser = new ArrayList<String>();
 
-                        User user = auth.createUser(role);
+                        User user = auth.createUser(role, userName);
                         try
                         {
-                            groupsThisUser = auth.list_groups(user.getUserName());
+                            groupsThisUser = auth.list_groups(user);
 
-                            // IN LDAP DOUBLECHECK
-                            if (auth instanceof LDAPAuth && groupsThisUser.isEmpty())
-                            {
-                                List<String> groups = auth.list_groups();
-                                for (int j = 0; j < groups.size(); j++)
-                                {
-                                    String g = groups.get(j);
-                                    List<String> users = auth.list_users_for_group(g);
-
-                                    for (int k = 0; k < users.size(); k++)
-                                    {
-                                        String u = users.get(k);
-                                        if (u.equals(user.getUserName()))
-                                        {
-                                            if (!groupsThisUser.contains(g))
-                                            {
-                                                groupsThisUser.add(g);
-                                            }
-                                        }
-                                    }
-                                }
-                            }
+//                            // IN LDAP DOUBLECHECK
+//                            if (auth instanceof LDAPAuth && groupsThisUser.isEmpty())
+//                            {
+//                                List<String> groups = auth.list_groups();
+//                                for (int j = 0; j < groups.size(); j++)
+//                                {
+//                                    String g = groups.get(j);
+//                                    List<String> users = auth.list_users_for_group(g);
+//
+//                                    for (int k = 0; k < users.size(); k++)
+//                                    {
+//                                        String u = users.get(k);
+//                                        if (u.equals(user.getUserName()))
+//                                        {
+//                                            if (!groupsThisUser.contains(g))
+//                                            {
+//                                                groupsThisUser.add(g);
+//                                            }
+//                                        }
+//                                    }
+//                                }
+//                            }
                         }
                         catch (NamingException namingException)
                         {
