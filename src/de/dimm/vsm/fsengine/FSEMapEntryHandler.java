@@ -57,7 +57,7 @@ public class FSEMapEntryHandler
             if (fh != null)
             {
                 openFileHandleMap.put(newFileNo, new FSEMapEntry(node, fh) );
-                Log.debug( "open_fh: opening " + node.getName() + " -> " + newFileNo );
+                //Log.debug( "open_fh: opening " + node.getName() + " -> " + newFileNo );
                 return newFileNo;
             }
         }
@@ -72,7 +72,7 @@ public class FSEMapEntryHandler
             FileHandle fh = poolHandler.open_xa_handle(node, create);
             openFileHandleMap.put(newFileNo, new FSEMapEntry(node, fh) );
         }
-        Log.debug( "open_fh: opening " + node.getName() + " -> " + newFileNo );
+        //Log.debug( "open_fh: opening " + node.getName() + " -> " + newFileNo );
         return newFileNo;
     }
 
@@ -83,7 +83,7 @@ public class FSEMapEntryHandler
 
         if (fh != null)
         {
-            Log.debug( "close_fh: " + fileNo );
+            //Log.debug( "close_fh: " + fileNo );
 
             fh.close();
             removeByFileNo( fileNo );
@@ -119,7 +119,7 @@ public class FSEMapEntryHandler
         if (entry == null)
             Log.debug( "removeByFileIdx: Cannot resolve fh " + idx );
 
-        Log.debug("handleMap entries: " + openFileHandleMap.size());
+        //Log.debug("handleMap entries: " + openFileHandleMap.size());
     }
 
 }
