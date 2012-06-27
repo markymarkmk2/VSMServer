@@ -8,6 +8,7 @@ package de.dimm.vsm.backup;
 import de.dimm.vsm.CS_Constants;
 import de.dimm.vsm.Exceptions.PathResolveException;
 import de.dimm.vsm.GeneralPreferences;
+import de.dimm.vsm.LogicControl;
 import de.dimm.vsm.log.Log;
 import de.dimm.vsm.Main;
 import de.dimm.vsm.Utilities.StatCounter;
@@ -57,6 +58,8 @@ public abstract class GenericContext
     protected FSEIndexer indexer;
     protected HashCache hashCache;
 
+    long lastCheckedSpace = -1;
+
 
    
      /**
@@ -69,7 +72,7 @@ public abstract class GenericContext
         this.apiEntry = apiEntry;
         this.poolhandler = poolhandler;
         this.hash_block_size = Main.get_int_prop(GeneralPreferences.FILE_HASH_BLOCKSIZE, CS_Constants.FILE_HASH_BLOCKSIZE);
-        indexer = Main.get_control().getStorageNubHandler().getIndexer(poolhandler.getPool());
+        indexer = LogicControl.getStorageNubHandler().getIndexer(poolhandler.getPool());
         stat = new StatCounter("");
         result = false;
         basePath = getClientInfoRootPath( apiEntry.getAddr() ,apiEntry.getPort());
@@ -88,7 +91,7 @@ public abstract class GenericContext
              indexer.open();
          }
 
-         hashCache = Main.get_control().getStorageNubHandler().getHashCache(poolhandler.getPool());
+         hashCache = LogicControl.getStorageNubHandler().getHashCache(poolhandler.getPool());
 
 
          Log.debug("Opened " + openCounter + " Contexts");
@@ -171,7 +174,7 @@ public abstract class GenericContext
         }
         if (indexer != null)
         {
-            indexer.close();
+            indexer.flush();
         }
         openCounter--;
         Log.debug("Closed Context");
@@ -214,14 +217,24 @@ public abstract class GenericContext
         return writeRunner;
     }
 
-    void checkStorageNodes()
+    public boolean noStorageSpaceLeft()
+    {
+        if (lastCheckedSpace  != -1)
+        {
+            return lastCheckedSpace <= poolhandler.getNodeMinFreeSpace();
+        }
+        return false;
+    }
+
+    long checkStorageNodes()
     {
         // DO WE HAVE TO CHECK SPACE AGAIN?
-        if (stat.getByteTransfered() < nextCheckByteSize)
-            return;
+        if (stat.getByteTransfered() < nextCheckByteSize && lastCheckedSpace != -1)
+            return lastCheckedSpace;
 
         // HOW MUCH LEFT ON ACTUAL NODE?
         long space = poolhandler.checkStorageNodeSpace();
+        lastCheckedSpace = space;
 
         // CALC NEXT LEN
         // THIS WAY WE CHECK MORE OFTEN WHEN WE GET CLOSER TO THE END OF A STORAGENODE
@@ -233,6 +246,8 @@ public abstract class GenericContext
             diff = poolhandler.getNodeMinFreeSpace() / 5;
 
         nextCheckByteSize = stat.getByteTransfered() + diff;
+
+        return space;
     }
 
     public int getHashBlockSize()
