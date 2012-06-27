@@ -64,7 +64,7 @@ public class Preferences
         return s;
     }
 
-    boolean check_prop( String s )
+    protected boolean check_prop( String s )
     {
         for (int i = 0; i < prop_names.size(); i++)
         {
