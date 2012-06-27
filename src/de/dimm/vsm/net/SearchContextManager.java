@@ -86,6 +86,19 @@ public class SearchContextManager extends WorkerParent
         }
     }
 
+    SearchContext getValidContext(SearchWrapper wrapper) throws SQLException
+    {
+        synchronized( handlerMap )
+        {
+            SearchContext ret =  handlerMap.get(wrapper);
+            if (ret == null)
+                throw new SQLException(Main.Txt("Der Sucheintrag ist nicht mehr gültig"));
+            ret.touch();
+
+            return ret;
+        }
+    }
+
 
     public StoragePoolHandler getHandlerbyWrapper( SearchWrapper pool )
     {
@@ -175,26 +188,26 @@ public class SearchContextManager extends WorkerParent
 
     List<RemoteFSElem> get_child_nodes( SearchWrapper wrapper, RemoteFSElem path ) throws SQLException
     {
-        SearchContext context = getContext(wrapper);
+        SearchContext context = getValidContext(wrapper);
 
         return Main.get_control().getPoolHandlerServlet().get_child_nodes(context.sp_handler, path);
     }
 
     boolean restoreFSElem( SearchWrapper wrapper, RemoteFSElem path, String targetIP, int targetPort, String targetPath, int flags, User user ) throws SQLException, IOException
     {
-        SearchContext context = getContext(wrapper);
+        SearchContext context = getValidContext(wrapper);
 
         return Main.get_control().getPoolHandlerServlet().restoreFSElem(context.sp_handler, path, targetIP, targetPort, targetPath, flags, user);
     }
-    boolean restoreJob( SearchWrapper searchWrapper, ArchiveJob job, String targetIP, int targetPort, String targetPath, int rflags, User user )
+    boolean restoreJob( SearchWrapper searchWrapper, ArchiveJob job, String targetIP, int targetPort, String targetPath, int rflags, User user ) throws SQLException
     {
-        SearchContext context = getContext(searchWrapper);
+        SearchContext context = getValidContext(searchWrapper);
         return Main.get_control().getPoolHandlerServlet().restoreJob(context.sp_handler, job, targetIP, targetPort, targetPath, rflags, user);
     }
 
     boolean removeJob( SearchWrapper searchWrapper, ArchiveJob job ) throws  SQLException, PoolReadOnlyException
     {
-        SearchContext context = getContext(searchWrapper);
+        SearchContext context = getValidContext(searchWrapper);
         return Main.get_control().getPoolHandlerServlet().removeJob(context.sp_handler, job);
     }
 
@@ -212,9 +225,9 @@ public class SearchContextManager extends WorkerParent
         return poolWrapper;
     }
 
-    void reSearch( SearchWrapper wrapper, StoragePool pool, ArrayList<SearchEntry> slist )
+    void reSearch( SearchWrapper wrapper, StoragePool pool, ArrayList<SearchEntry> slist ) throws SQLException
     {
-        SearchContext context = getContext(wrapper);
+        SearchContext context = getValidContext(wrapper);
 
         context.slist = slist;        
         context.startSearch();        
