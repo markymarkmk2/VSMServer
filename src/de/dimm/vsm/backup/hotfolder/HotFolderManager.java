@@ -169,6 +169,11 @@ public class HotFolderManager extends WorkerParent
         int folderIdx = 0;
         RemoteFSElem elem = null;
         RemoteFSElem mountPath = hotFolder.getMountPath();
+        if (mountPath == null || mountPath.getPath() == null || mountPath.getPath().isEmpty())
+        {
+            Log.err("Ungültiger Pfad bei Hotfolder" , hotFolder.getName());
+            return pathList;
+        }
         long getSetttleTime_s = hotFolder.getSettleTime();
         String filter = hotFolder.getFilter();
         boolean onlyFiles = hotFolder.onlyFiles();
