@@ -5,7 +5,6 @@
 
 package de.dimm.vsm.fsengine;
 
-import de.dimm.vsm.Main;
 import de.dimm.vsm.Utilities.SizeStr;
 import de.dimm.vsm.log.Log;
 import de.dimm.vsm.records.DedupHashBlock;
@@ -14,7 +13,9 @@ import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.Formatter;
 import java.util.HashMap;
+import java.util.Locale;
 
 /**
  *
@@ -58,11 +59,13 @@ public class HashCache
             }
             rs.close();
             long maxMem = Runtime.getRuntime().maxMemory();
+            long freeMem = Runtime.getRuntime().freeMemory();
+            long totalMem = Runtime.getRuntime().totalMemory();
 
             Log.info("Block-Cachegröße für Pool", pool.getName() + ": " + cnt);
-            Log.info("Max. Speicher", ": " + SizeStr.format(maxMem) );
+            Log.info("Speicher", "Max: " + SizeStr.format(maxMem) + " Total: " + SizeStr.format(totalMem) + " Free: " + SizeStr.format(freeMem)  );
 
-            rs = st.executeQuery("select idx, hashvalue from DedupHashBlock");
+            rs = st.executeQuery("select idx, hashvalue, blockLen from DedupHashBlock");
 
             while (rs.next())
             {
@@ -71,6 +74,7 @@ public class HashCache
 
                 hashMap.put(has, idx);
             }
+            rs.close();
             inited = true;
             return true;
         }
