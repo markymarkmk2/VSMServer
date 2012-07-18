@@ -13,9 +13,11 @@ import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
-import java.util.Formatter;
+import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.Locale;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Set;
 
 /**
  *
@@ -73,8 +75,12 @@ public class HashCache
                 String has = rs.getString(2);
 
                 hashMap.put(has, idx);
+
             }
             rs.close();
+
+            
+
             inited = true;
             return true;
         }
@@ -94,18 +100,7 @@ public class HashCache
                 catch (SQLException sQLException)
                 {
                 }
-            }
-
-            if (conn != null)
-            {
-                try
-                {
-                    conn.close();
-                }
-                catch (SQLException sQLException)
-                {
-                }
-            }
+            }           
         }
     }
 
@@ -130,5 +125,41 @@ public class HashCache
     void removeDhb( DedupHashBlock dhb )
     {
         hashMap.remove(dhb.getHashvalue());
+    }
+
+    public List<String> getUrlUnsafeHashes()
+    {
+        ArrayList<String> ret = new ArrayList<String>();
+        Set<String> set = hashMap.keySet();
+
+        for (Iterator<String> it = set.iterator(); it.hasNext();)
+        {
+            String hash = it.next();
+            boolean found = false;
+
+            char lastCh = hash.charAt( hash.length() - 1 );
+            
+            // DETECT PADDED HASHES
+            if (lastCh == '=')
+                found = true;
+            
+            if (!found)
+            {
+                for (int i = 0; i < hash.length(); i++)
+                {
+                    char ch = hash.charAt(i);
+                    if (ch == '/' || ch == '+')
+                    {
+                        found = true;
+                        break;
+                    }
+                }
+            }
+            if (found)
+            {
+                ret.add(hash);
+            }
+        }
+        return ret;
     }
 }
