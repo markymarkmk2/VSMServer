@@ -7,6 +7,7 @@ package de.dimm.vsm.backup.hotfolder;
 
 import de.dimm.vsm.Exceptions.PathResolveException;
 import de.dimm.vsm.Exceptions.PoolReadOnlyException;
+import de.dimm.vsm.LogicControl;
 import de.dimm.vsm.MMapi.JobError;
 import de.dimm.vsm.MMapi.JobInfo;
 import de.dimm.vsm.MMapi.JobStatus;
@@ -388,8 +389,8 @@ public class MMImportManager
         AgentApiEntry a = null;
         try
         {
-            a = Main.get_control().getApiEntry(hotFolder.getIp(), hotFolder.getPort());
-            if (!a.check_online())
+            a = LogicControl.getApiEntry(hotFolder.getIp(), hotFolder.getPort());
+            if (!a.check_online(/*wthMsg*/true))
             {
                 return null;
             }
@@ -619,7 +620,7 @@ public class MMImportManager
                 {
                     close();
                 }
-                catch (SQLException sQLException)
+                catch (Exception sQLException)
                 {
                     Log.err(Main.Txt("Fehler beim Schließen des Contextes"), sQLException);
                 }
@@ -662,7 +663,14 @@ public class MMImportManager
         public HotFolder getHotFolder()
         {
             return hotFolder;
-        }       
+        }
+        @Override
+        public void close()
+        {
+
+        }
+
+
     }
 
 }
