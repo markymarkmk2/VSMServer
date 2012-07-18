@@ -183,6 +183,8 @@ public class CDPManager extends WorkerParent
         while (!isShutdown())
         {
             LogicControl.sleep(10*1000);
+            if (isShutdown())
+                break;
 
             if (isInPause != isPaused())
             {
@@ -191,6 +193,7 @@ public class CDPManager extends WorkerParent
                     setStatusTxt(Main.Txt("Stoppe Client-Dienste"));
                     stopAllStarted();
                 }
+                isInPause = isPaused();
             }
             if (isPaused())
             {
@@ -205,7 +208,6 @@ public class CDPManager extends WorkerParent
             int minute = cal.get(GregorianCalendar.MINUTE);
             if (minute == last_minute_checked)
             {
-
                 continue;
             }
             last_minute_checked = minute;
@@ -220,7 +222,7 @@ public class CDPManager extends WorkerParent
             catch (SQLException sQLException)
             {
                 Log.err("ClientvolumeList nicht lesbar", sQLException);
-            }            
+            }
         }
 
         // STOP ON SHUTDOWN
@@ -249,6 +251,9 @@ public class CDPManager extends WorkerParent
         try
         {
             AgentApiEntry api = LogicControl.getApiEntry(t.volume.getClinfo());
+            if (api == null || !api.isOnline())
+                throw new IOException(Main.Txt("Agent kann nicht kontaktiert werden") + ": " + t.volume.getClinfo().toString() );
+
             api.getApi().stop_cdp(t.ticket);
             t.ticket = null;
             api.close();
@@ -271,11 +276,12 @@ public class CDPManager extends WorkerParent
         {
             try
             {
-                api = LogicControl.getApiEntry(clientVolume.getClinfo().getIp(), clientVolume.getClinfo().getPort());
+                api = LogicControl.getApiEntry(clientVolume.getClinfo().getIp(), clientVolume.getClinfo().getPort(), /*msg*/ false);
                 startCDP(name, api, t);
             }
-            catch (UnknownHostException unknownHostException)
+            catch (UnknownHostException exc)
             {
+                 Log.err("CDP kann nicht gestartet werden werden", name, exc);
             }
         }
         finally
@@ -299,18 +305,22 @@ public class CDPManager extends WorkerParent
         {
             try
             {
-                boolean online = api.check_online();
+                boolean online = api.check_online(false);
 
                 if (!online)
                 {
-                    Log.debug("CDP Agent ist nicht erreichbar", name );
+                    if (!offlineCheck)
+                        Log.debug("CDP Agent ist nicht erreichbar", name );
+                    offlineCheck = true;
                     t.ticket = null;
                 }
                 return;
             }
             catch (Exception ex)
             {
-                Log.debug("CDP Agent ist nicht erreichbar", name, ex );
+                if (!offlineCheck)
+                    Log.debug("CDP Agent ist nicht erreichbar", name, ex );
+                offlineCheck = true;
                 t.ticket = null;
                 return;
             }
@@ -319,7 +329,7 @@ public class CDPManager extends WorkerParent
         
         try
         {
-            if (!api.check_online())
+            if (!api.check_online(false))
             {
                 if (!offlineCheck)
                 {
