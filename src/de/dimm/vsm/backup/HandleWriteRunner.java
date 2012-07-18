@@ -245,6 +245,13 @@ public class HandleWriteRunner
         {
         }
         keepRunning = false;
+        try
+        {
+            writeThread.join(30 * 1000);
+        }
+        catch (InterruptedException interruptedException)
+        {
+        }
     }
 
     int idxCnt = 0;
