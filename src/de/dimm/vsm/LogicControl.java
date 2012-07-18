@@ -20,7 +20,11 @@ import de.dimm.vsm.jobs.JobManager;
 import de.dimm.vsm.lifecycle.RetentionManager;
 import de.dimm.vsm.records.ClientInfo;
 import de.dimm.vsm.log.VSMLogger;
+import de.dimm.vsm.mail.NotificationEntry;
+import de.dimm.vsm.mail.NotificationServer;
+import de.dimm.vsm.mail.SmtpNotificationServer;
 import de.dimm.vsm.net.CDPManager;
+import de.dimm.vsm.net.FixHashUrlBug;
 import de.dimm.vsm.net.LogQuery;
 import de.dimm.vsm.net.LoginManager;
 import de.dimm.vsm.net.NetServer;
@@ -43,7 +47,6 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
@@ -93,6 +96,8 @@ public class LogicControl
     SearchContextManager searchContextManager;
     UserManager userManager;
     CDPManager cdpManager;
+    NotificationServer notificationServer;
+    
 
 
 
@@ -199,6 +204,9 @@ public class LogicControl
                 sleep(100);
                 maxWait--;
             }
+            if (wp.isFinished())
+                wp.close();
+            
             if (maxWait <= 0)
             {
                 Log.err("Der Dienst kann nicht gestoppt werden", wp.getName());
@@ -228,6 +236,7 @@ public class LogicControl
     {
         return backupmanager;
     }
+
 
 
 
@@ -284,9 +293,7 @@ public class LogicControl
     }
     void init( boolean agent_tcp) throws SQLException
     {
-
-        //getChangelog();
-        
+        notificationServer = SmtpNotificationServer.createSmtpNotificationServer();
 
         storagePoolNubHandler = new StoragePoolNubHandler();
 
@@ -297,8 +304,9 @@ public class LogicControl
         {
             check_db_changes();
         }
-        
 
+        checkFixes();
+        
         schedulerList = new ArrayList<Backup>();
 
         createApiEntry();
@@ -350,6 +358,15 @@ public class LogicControl
             Log.err("Rollen können nicht geladen werden", sQLException);
         }
         userManager = new UserManager(roles);
+
+        try
+        {
+            notificationServer.loadNotifications(get_base_util_em());
+        }
+        catch (IOException iOException)
+        {
+            Log.err("Benachrichtigungen können nicht geladen werden", iOException);
+        }
         
         StringBuffer sb = new StringBuffer();
         for (int i = 0; i < workerList.size(); i++)
@@ -372,8 +389,27 @@ public class LogicControl
 
         threadPoolWatcher = new ThreadPoolWatcher("MainPoolWatcher");
 
+
     }
 
+    public NotificationServer getNotificationServer()
+    {
+        return notificationServer;
+    }
+    
+
+    public void addNotification(NotificationEntry e)
+    {
+        if (notificationServer == null)
+            return;
+
+
+        notificationServer.addNotificationEntry( e );
+    }
+    public List<NotificationEntry> listNotificationEntries()
+    {
+        return notificationServer.listNotificationEntries();
+    }
 
 
     public void addScheduler( Backup sch )
@@ -702,13 +738,21 @@ public class LogicControl
     {
         api_disp = new AgentApiDispatcher(use_ssl, "vsmkeystore2.jks", "123456", /*tcp*/ true);
     }
+    public static AgentApiEntry getApiEntry( InetAddress addr, int port, boolean withMsg )
+    {
+        if (api_disp == null)
+        {
+            createApiEntry();
+        }
+        return api_disp.get_api(addr, port, withMsg);
+    }
     public static AgentApiEntry getApiEntry( InetAddress addr, int port )
     {
         if (api_disp == null)
         {
             createApiEntry();
         }
-        return api_disp.get_api(addr, port);
+        return api_disp.get_api(addr, port, /*withMsg*/ true);
     }
 
     public static AgentApiEntry getApiEntry( ClientInfo info ) throws UnknownHostException
@@ -718,35 +762,25 @@ public class LogicControl
             createApiEntry();
         }
         InetAddress addr = InetAddress.getByName(info.getIp());
-        AgentApiEntry api = api_disp.get_api(addr, info.getPort());
-        try
+        AgentApiEntry api = api_disp.get_api(addr, info.getPort(),/*withMsg*/ false);
+
+        if (!api.isOnline())
         {
-            api.getApi().get_properties();
-        }
-        catch (Exception e)
-        {
-            try
-            {
-                api.resetSocket();
-                api.getApi().get_properties();
-            }
-            catch (Exception e2)
-            {
-                Log.warn("Verbindung kann nicht aufgebaut werden", info.toString() + ": " + e2.getMessage() );
-                return null;
-            }
+            Log.warn("Verbindung kann nicht aufgebaut werden", info.toString());
+            return null;            
         }
         return api;
     }
 
+    public static AgentApiEntry getApiEntry( String ip, int port, boolean withMsg ) throws UnknownHostException
+    {
+        InetAddress addr = InetAddress.getByName(ip);
+        return getApiEntry(addr, port, withMsg);
+    }
     public static AgentApiEntry getApiEntry( String ip, int port ) throws UnknownHostException
     {
-        if (api_disp == null)
-        {
-            createApiEntry();
-        }
         InetAddress addr = InetAddress.getByName(ip);
-        return api_disp.get_api(addr, port);
+        return getApiEntry(addr, port, /*withMsg*/true);
     }
 
     public static boolean isLicensed()
@@ -920,5 +954,14 @@ public class LogicControl
         }
         return sb.toString();
     }
+
+    private void checkFixes()
+    {
+        if (Main.get_bool_prop(GeneralPreferences.HASH_URL_FORMAT_FIX, false))
+        {
+            FixHashUrlBug.fix(this);
+        }
+    }
+
 
 }
