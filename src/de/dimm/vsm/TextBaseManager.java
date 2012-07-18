@@ -7,6 +7,7 @@ package de.dimm.vsm;
 
 import de.dimm.vsm.log.Log;
 import com.thoughtworks.xstream.XStream;
+import de.dimm.vsm.Utilities.TextProvider;
 import de.dimm.vsm.fsengine.JDBCEntityManager;
 import de.dimm.vsm.records.TextBase;
 import java.io.File;
@@ -20,15 +21,34 @@ import java.util.List;
  *
  * @author Administrator
  */
-public class TextBaseManager
+public class TextBaseManager implements TextProvider
 {
     static HashMap<String, String> missing_transl_tokens = new HashMap<String, String>();
     static HashMap<String, String> transl_tokens = new HashMap<String, String>();
 
-    public static String lastLang;
+    String lang;
+
+    public TextBaseManager( String lang )
+    {
+        setLang(lang);
+    }
 
 
-    public static String Txt(String key, String lang )
+    public final void setLang( String lang )
+    {
+        if (this.lang == null || !this.lang.equals( lang ) )
+        {
+            transl_tokens.clear();
+            missing_transl_tokens.clear();
+            this.lang = lang;
+        }
+    }
+
+
+
+
+    @Override
+    public String Txt( String key )
     {
         if (key == null)
             return "";
@@ -36,12 +56,6 @@ public class TextBaseManager
         // CHECK FOR NEW TEXTUPDATES
         checkUpdate();
 
-        if (lastLang == null || !lastLang.equals( lang ) )
-        {
-            transl_tokens.clear();
-            missing_transl_tokens.clear();
-            lastLang = lang;
-        }
 
         // CACHED
         String val = transl_tokens.get(key);
