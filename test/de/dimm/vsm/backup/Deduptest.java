@@ -5,6 +5,7 @@
 
 package de.dimm.vsm.backup;
 
+import de.dimm.vsm.net.interfaces.GuiServerApi;
 import de.dimm.vsm.LogicControl;
 import de.dimm.vsm.lifecycle.RetentionResultList;
 import java.sql.SQLException;
@@ -174,7 +175,7 @@ public class Deduptest {
         Snapshot s1 = null;
         Snapshot s2 = null;
 
-        int restoreFlags = RestoreContext.RF_RECURSIVE;
+        int restoreFlags = GuiServerApi.RF_RECURSIVE;
 
         File restoreTestfile = new File(restore_path_data, "testfile.dat");
 

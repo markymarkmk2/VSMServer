@@ -63,7 +63,7 @@ public class AgentApiDispatcherTest {
             {
                 try
                 {
-                    AgentApiEntry apie = instance.get_api(addr, port);
+                    AgentApiEntry apie = instance.get_api(addr, port, false);
 
                     Properties p = apie.getApi().get_properties();
 
@@ -79,7 +79,7 @@ public class AgentApiDispatcherTest {
                 }
             }
             long start2 = System.currentTimeMillis();
-             AgentApiEntry apie = instance.get_api(addr, port);
+             AgentApiEntry apie = instance.get_api(addr, port, false);
             for (int i = 0; i < 1000; i++)
             {
                 try

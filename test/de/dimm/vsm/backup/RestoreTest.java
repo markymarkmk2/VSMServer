@@ -5,7 +5,7 @@
 
 package de.dimm.vsm.backup;
 
-import de.dimm.vsm.fsengine.LazyList;
+import de.dimm.vsm.net.interfaces.GuiServerApi;
 import de.dimm.vsm.fsengine.ArrayLazyList;
 import java.nio.file.Path;
 import java.nio.file.FileSystem;
@@ -20,6 +20,7 @@ import de.dimm.vsm.fsengine.StoragePoolHandlerTest;
 import de.dimm.vsm.net.RemoteFSElem;
 import de.dimm.vsm.net.StoragePoolQry;
 import de.dimm.vsm.records.ClientInfo;
+import de.dimm.vsm.records.ClientVolume;
 import de.dimm.vsm.records.Excludes;
 import de.dimm.vsm.records.FileSystemElemNode;
 import java.net.InetAddress;
@@ -160,7 +161,7 @@ public class RestoreTest {
         {
             apiEntry = LogicControl.getApiEntry(ip, port);
 
-            if (!apiEntry.check_online())
+            if (!apiEntry.check_online(false))
             {
                 fail("Agent is not online: " + ip + ":" + port);
             }
@@ -173,8 +174,13 @@ public class RestoreTest {
             excl.add( new Excludes("exclfile.txt", /*dir*/false, /*fullPath*/false, /*includeM*/false, /*ignoreCase*/true, Excludes.MD_EXACTLY) );
             excl.add( new Excludes("ExclFolder", /*dir*/true, /*fullPath*/false, /*includeM*/false, /*ignoreCase*/false, Excludes.MD_EXACTLY) );
             info.setExclList( excl );
+            info.setCompression(true);
+            info.setEncryption(true);
+            ClientVolume vol = new ClientVolume();
+            vol.setVolumePath(elem);
 
-            GenericContext context = backup.init_context( apiEntry, pool_handler, null, null);
+
+            GenericContext context = backup.init_context( apiEntry, pool_handler, info, vol);
             context.setHashCache( StoragePoolHandlerTest.getNubHandler().getHashCache(pool_handler.getPool()));
 
             String abs_path = context.getRemoteElemAbsPath( elem );
@@ -236,10 +242,45 @@ public class RestoreTest {
         assertNull("Excluded Elem",  pool_handler.resolve_node_by_remote_elem(new RemoteFSElem(new File("Z:\\unittest\\unittestdata\\a\\ExclFolder"))) );
 
         
-        int flags = RestoreContext.RF_RECURSIVE;
+        int flags = GuiServerApi.RF_RECURSIVE;
         StoragePoolQry qry = pool_handler.getPoolQry();
 
         boolean result = false;
+        try
+        {
+            InetAddress targetIP = InetAddress.getByName(ip);
+            int targetPort = port;
+            RemoteFSElem target = new RemoteFSElem(restore_path, FileSystemElemNode.FT_DIR, 0, 0, 0, 0, 0);
+
+            Restore instance = new Restore(pool_handler, node, flags, qry, targetIP, targetPort, target);
+
+            instance.run_restore();
+
+            assertTrue("RestoreElem:", instance.actualContext.getResult());
+
+            RemoteFSElem restorelist = new RemoteFSElem(restore_path_data, FileSystemElemNode.FT_DIR, 0, 0, 0, 0, 0);
+            apiEntry = LogicControl.getApiEntry(targetIP, targetPort);
+            restoreResult = apiEntry.getApi().list_dir(restorelist, true);
+
+            //instance.close_entitymanager();
+
+        }
+        catch (UnknownHostException unknownHostException)
+        {
+            fail("Unknown host: " + unknownHostException.getMessage());
+        }
+        catch (Exception exc)
+        {
+            exc.printStackTrace(System.out);
+            fail("Unknown Exception: " + exc.getMessage());
+        }
+
+        compareDirLists( apiEntry, expResult, restoreResult, /*mtime*/ true);
+
+        flags = GuiServerApi.RF_RECURSIVE | GuiServerApi.RF_COMPRESSION | GuiServerApi.RF_ENCRYPTION;
+
+
+        result = false;
         try
         {
             InetAddress targetIP = InetAddress.getByName(ip);
@@ -274,6 +315,20 @@ public class RestoreTest {
     
     public static void compareDirLists( AgentApiEntry apiEntry, List<RemoteFSElem> l1, List<RemoteFSElem> l2, boolean check_mtime )
     {
+        for (int i = 0; i < l1.size(); i++)
+        {
+            RemoteFSElem remoteFSElem = l1.get(i);
+            if (remoteFSElem.getName().equalsIgnoreCase("ExclFile.txt"))
+            {
+                l1.remove(remoteFSElem);
+                i--;
+            }
+            if (remoteFSElem.getName().equalsIgnoreCase("ExclFolder"))
+            {
+                l1.remove(remoteFSElem);
+                i--;
+            }
+        }
         assertEquals("DirSize", l1.size(), l2.size());
 
         for (int i = 0; i < l1.size(); i++)
