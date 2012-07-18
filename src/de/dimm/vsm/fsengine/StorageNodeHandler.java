@@ -11,9 +11,12 @@ import de.dimm.vsm.Utilities.Hex;
 import de.dimm.vsm.records.AbstractStorageNode;
 import de.dimm.vsm.records.DedupHashBlock;
 import de.dimm.vsm.records.FileSystemElemNode;
+import de.dimm.vsm.records.HashBlock;
 import de.dimm.vsm.records.XANode;
 import java.io.File;
+import java.io.IOException;
 import java.io.UnsupportedEncodingException;
+import java.sql.SQLException;
 import net.sf.ehcache.Cache;
 import net.sf.ehcache.CacheManager;
 import net.sf.ehcache.Element;
@@ -32,8 +35,9 @@ public class StorageNodeHandler
     public static final String PATH_FSNODES_PREFIX = "/fs";
     public static final String PATH_DEDUPNODES_PREFIX = "/dd";
 
-    public static final String BOOTSRAP_PATH = "bootstrap";
+    public static final String BOOTSTRAP_PATH = "bootstrap";
     public static final String XA_PATH = "xa";
+
 
     AbstractStorageNode storageNode;
 
@@ -42,33 +46,47 @@ public class StorageNodeHandler
     public static final String NODECACHE = "NodeCache";
     
 
-    public StorageNodeHandler( AbstractStorageNode storageNode, StoragePoolHandler fsh_handler )
+    protected StorageNodeHandler( AbstractStorageNode storageNode, StoragePoolHandler fsh_handler )
     {
         this.storageNode = storageNode;
         this.storage_pool_handler = fsh_handler;
     }
 
-    public static boolean initNode(AbstractStorageNode storageNode)
+    static StorageNodeHandler createStorageNodeHandler( AbstractStorageNode fs_node, StoragePoolHandler aThis )
     {
-        if (storageNode.isVirgin())
+        if (fs_node.getCloneNode() != null && fs_node.getCloneNode() != fs_node)
         {
-            if (storageNode.isFS() && storageNode.getMountPoint() != null)
+            return new CloneStorageNodeHandler(fs_node, aThis);
+        }
+        return new StorageNodeHandler(fs_node, aThis);
+    }
+
+    public static boolean initNode(AbstractStorageNode node)
+    {
+        if (node.isVirgin())
+        {
+            if (node.isFS() && node.getMountPoint() != null)
             {
-                File f = new File( storageNode.getMountPoint() );
+                File f = new File( node.getMountPoint() );
                 f.mkdirs();
                 if (!f.exists())
                     return false;
 
-                f = new File( storageNode.getMountPoint() + PATH_FSNODES_PREFIX  );
+                f = new File( node.getMountPoint() + PATH_FSNODES_PREFIX  );
                 f.mkdir();
-                f = new File( storageNode.getMountPoint() + PATH_DEDUPNODES_PREFIX );
+                f = new File( node.getMountPoint() + PATH_DEDUPNODES_PREFIX );
                 f.mkdir();
 
-                storageNode.setNodeMode( AbstractStorageNode.NM_ONLINE);
+                node.setNodeMode( AbstractStorageNode.NM_ONLINE);
                 return true;
             }
         }
         return false;
+
+    }
+    public boolean initNode()
+    {
+        return initNode(storageNode);
     }
 
     public static Cache getCache()
@@ -151,41 +169,14 @@ public class StorageNodeHandler
         sb.insert(0, PATH_FSNODES_PREFIX);
     }
 
-    // CREATE SHORTER PATHS FOR DD FS
-    private static boolean reverseHashPath = false;
-
     public static void build_node_path( DedupHashBlock dhb, StringBuilder sb ) throws PathResolveException, UnsupportedEncodingException
     {
         String val = Hex.fromLong(dhb.getIdx(), true);
 
-        if (!reverseHashPath)
-        {
-            sb.append(PATH_DEDUPNODES_PREFIX);
-            build_block_path( dhb.getIdx(), sb );
-            
-            sb.append( dhb.getHashvalue());
-            return;
-        }
+        sb.append(PATH_DEDUPNODES_PREFIX);
+        build_block_path( dhb.getIdx(), sb );
 
-        // FILENAME IS INDEX
-        sb.insert(0, dhb.getHashvalue());
-        sb.insert(0, "/");
-
-        // PATH IS HASHVAL SPLITTED INTO 4-CHAR LENGTH SUBDIRS
-        int max_len = val.length();
-        int pos = 0;
-        while (pos < max_len)
-        {
-            int end = pos + DEDUPBLOCK_IDX_CHARACTERS_PER_DIRLEVEL;
-            if (end < max_len)
-                sb.insert(0, val.substring(pos, end) );
-            else
-                sb.insert(0, val.substring(pos) );
-
-            pos += DEDUPBLOCK_IDX_CHARACTERS_PER_DIRLEVEL;
-            sb.insert(0, "/");
-        }
-        sb.insert(0, PATH_DEDUPNODES_PREFIX);
+        sb.append( dhb.getHashvalue());
     }
     
     public static void build_xa_node_path( FileSystemElemNode file_node, StringBuilder sb ) throws PathResolveException, UnsupportedEncodingException
@@ -195,16 +186,6 @@ public class StorageNodeHandler
 
         sb.insert(0, getFullParentPath( file_node ) );
 
-//        int max_depth = 1024;
-//
-//        while (file_node.getParent() != null)
-//        {
-//            file_node = file_node.getParent();
-//            sb.insert(0, Hex.fromLong(file_node.getIdx()) );
-//            sb.insert(0, "/");
-//            if (max_depth-- <= 0)
-//                throw new PathResolveException("Path_is_too_deep");
-//        }
         sb.insert(0, PATH_FSNODES_PREFIX);
 
     }
@@ -213,20 +194,10 @@ public class StorageNodeHandler
     {
         sb.insert(0, ".xml" );
         sb.insert(0, Hex.fromLong(file_node.getIdx()));
-        sb.insert(0, "/" + BOOTSRAP_PATH + "/fs_");
+        sb.insert(0, "/" + BOOTSTRAP_PATH + "/fs_");
 
         sb.insert(0, getFullParentPath( file_node ) );
 
-//        int max_depth = 1024;
-//
-//        while (file_node.getParent() != null)
-//        {
-//            file_node = file_node.getParent();
-//            sb.insert(0, Hex.fromLong(file_node.getIdx()) );
-//            sb.insert(0, "/");
-//            if (max_depth-- <= 0)
-//                throw new PathResolveException("Path_is_too_deep");
-//        }
         sb.insert(0, PATH_FSNODES_PREFIX);
     }
 
@@ -234,60 +205,31 @@ public class StorageNodeHandler
     {
         sb.insert(0, ".xml" );
         sb.insert(0, Hex.fromLong(node.getIdx()));
-        sb.insert(0, "/" + BOOTSRAP_PATH + "/xa_");
+        sb.insert(0, "/" + BOOTSTRAP_PATH + "/xa_");
 
         sb.insert(0, getFullParentPath( node.getFileNode() ) );
 
-//        int max_depth = 1024;
-//
-//        FileSystemElemNode file_node = node.getFileNode();
-//        while (file_node.getParent() != null)
-//        {
-//            file_node = file_node.getParent();
-//            sb.insert(0, Hex.fromLong(file_node.getIdx()) );
-//            sb.insert(0, "/");
-//            if (max_depth-- <= 0)
-//                throw new PathResolveException("Path_is_too_deep");
-//        }
+        sb.insert(0, PATH_FSNODES_PREFIX);
+    }
+    static void build_bootstrap_path( HashBlock node, StringBuilder sb ) throws PathResolveException
+    {
+        sb.insert(0, ".xml" );
+        sb.insert(0, Hex.fromLong(node.getIdx()));
+        sb.insert(0, "/" + BOOTSTRAP_PATH + "/hb_");
+
+        sb.insert(0, getFullParentPath( node.getFileNode() ) );
+
         sb.insert(0, PATH_FSNODES_PREFIX);
     }
 
     static void build_bootstrap_path( DedupHashBlock dhb, StringBuilder sb ) throws PathResolveException, UnsupportedEncodingException
     {
-        String val = Hex.fromLong(dhb.getIdx(), true);
+        sb.append(PATH_DEDUPNODES_PREFIX);
+        build_block_path( dhb.getIdx(), sb );
 
-        if (!reverseHashPath)
-        {
-            sb.append(PATH_DEDUPNODES_PREFIX);
-            build_block_path( dhb.getIdx(), sb );
-
-            sb.append( BOOTSRAP_PATH + "/dd_");
-            sb.append( dhb.getHashvalue());
-            sb.append(".xml" );
-            return;
-        }
-
-
-        // FILENAME IS INDEX
-        sb.insert(0, ".xml" );
-        sb.insert(0, dhb.getHashvalue());
-        sb.insert(0, "/" + BOOTSRAP_PATH + "/dd_");
-
-        // PATH IS HASHVAL SPLITTED INTO 4-CHAR LENGTH SUBDIRS
-        int max_len = val.length();
-        int pos = 0;
-        while (pos < max_len)
-        {
-            int end = pos + DEDUPBLOCK_IDX_CHARACTERS_PER_DIRLEVEL;
-            if (end < max_len)
-                sb.insert(0, val.substring(pos, end) );
-            else
-                sb.insert(0, val.substring(pos) );
-
-            pos += DEDUPBLOCK_IDX_CHARACTERS_PER_DIRLEVEL;
-            sb.insert(0, "/");
-        }
-        sb.insert(0, PATH_DEDUPNODES_PREFIX);
+        sb.append( BOOTSTRAP_PATH + "/dd_");
+        sb.append( dhb.getHashvalue());
+        sb.append(".xml" );
     }
 
     
@@ -295,7 +237,7 @@ public class StorageNodeHandler
     {
         sb.insert(0, ".xml" );
         sb.insert(0, object.getClass().getSimpleName());
-        sb.insert(0, "/" + BOOTSRAP_PATH + "/");
+        sb.insert(0, "/" + BOOTSTRAP_PATH + "/");
         sb.insert(0, PATH_FSNODES_PREFIX);
     }
 
@@ -399,11 +341,13 @@ public class StorageNodeHandler
         return storageNode;
     }
 
+
+
     public FileHandle create_file_handle(FileSystemElemNode node, boolean create) throws PathResolveException
     {
         if (storageNode.isFS())
         {
-            FileHandle ret = FS_FileHandle.create_fs_handle(this, node, create );
+            FileHandle ret = FS_FileHandle.create_fs_handle(storageNode, node, create );
             return ret;
         }
         throw new UnsupportedOperationException("Not yet implemented");
@@ -412,7 +356,7 @@ public class StorageNodeHandler
     {
         if (storageNode.isFS())
         {
-            FileHandle ret = FS_FileHandle.create_xa_handle(this, node, create );
+            FileHandle ret = FS_FileHandle.create_xa_handle(storageNode, node, create );
             return ret;
         }
         throw new UnsupportedOperationException("Not yet implemented");
@@ -421,7 +365,7 @@ public class StorageNodeHandler
     {
         if (storageNode.isFS())
         {
-            FileHandle ret = FS_FileHandle.create_dedup_handle(this, block, create );
+            FileHandle ret = FS_FileHandle.create_dedup_handle(storageNode, block, create );
             return ret;
         }
         throw new UnsupportedOperationException("Not yet implemented");
@@ -430,7 +374,7 @@ public class StorageNodeHandler
     {
         if (storageNode.isFS())
         {
-            BootstrapHandle ret = new FS_BootstrapHandle(this, node );
+            BootstrapHandle ret = new FS_BootstrapHandle(this.storageNode, node );
             return ret;
         }
         throw new UnsupportedOperationException("Not yet implemented");
@@ -439,7 +383,7 @@ public class StorageNodeHandler
     {
         if (storageNode.isFS())
         {
-            BootstrapHandle ret = new FS_BootstrapHandle(this, block );
+            BootstrapHandle ret = new FS_BootstrapHandle(this.storageNode, block );
             return ret;
         }
         throw new UnsupportedOperationException("Not yet implemented");
@@ -448,7 +392,7 @@ public class StorageNodeHandler
     {
         if (storageNode.isFS())
         {
-            BootstrapHandle ret = new FS_BootstrapHandle(this, node );
+            BootstrapHandle ret = new FS_BootstrapHandle(this.storageNode, node );
             return ret;
         }
         throw new UnsupportedOperationException("Not yet implemented");
@@ -458,6 +402,12 @@ public class StorageNodeHandler
     {
        return storage_pool_handler.isReadOnly();
     }
+
+    public FileHandle create_DDFS_handle( StoragePoolHandler aThis, FileSystemElemNode node, boolean create, boolean b ) throws PathResolveException, IOException, SQLException
+    {
+        return DDFS_FileHandle.create_fs_handle(this.storageNode, aThis, node, create, /*isStream*/ b );
+    }
+    
 /*
     void update_filesize( FileSystemElemNode node, long size ) throws PoolReadOnlyException, SQLException, DBConnException
     {
