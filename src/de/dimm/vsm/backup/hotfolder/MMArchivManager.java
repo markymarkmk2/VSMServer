@@ -257,24 +257,24 @@ public class MMArchivManager
         {
         }
     }
-
-    AgentApiEntry openAgentApi(HotFolder hotFolder)
-    {
-        AgentApiEntry a = null;
-        try
-        {
-            a = Main.get_control().getApiEntry(hotFolder.getIp(), hotFolder.getPort());
-            if (!a.check_online())
-            {
-                return null;
-            }
-        }
-        catch (Exception unknownHostException)
-        {
-            return null;
-        }
-        return a;
-    }
+//
+//    AgentApiEntry openAgentApi(HotFolder hotFolder)
+//    {
+//        AgentApiEntry a = null;
+//        try
+//        {
+//            a = Main.get_control().getApiEntry(hotFolder.getIp(), hotFolder.getPort());
+//            if (!a.check_online())
+//            {
+//                return null;
+//            }
+//        }
+//        catch (Exception unknownHostException)
+//        {
+//            return null;
+//        }
+//        return a;
+//    }
 
     JobInterface createJob(User user)
     {
@@ -412,7 +412,7 @@ public class MMArchivManager
                 {
                     close();
                 }
-                catch (SQLException sQLException)
+                catch (Exception sQLException)
                 {
                     Log.err(Main.Txt("Fehler beim Schließen des Contextes"), sQLException);
                 }
@@ -441,6 +441,12 @@ public class MMArchivManager
         {
             jobState = jOBSTATE;
         }
+        @Override
+        public void close()
+        {
+
+        }
+
        
     }
 
