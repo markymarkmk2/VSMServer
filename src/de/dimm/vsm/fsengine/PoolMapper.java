@@ -57,6 +57,8 @@ public class PoolMapper
     long actFileCnt = 0;
     long totalFsDataLen = 0;
     long totalFileCnt = 0;
+    long removeDDCnt = 0;
+    long removeDDLen = 0;
 
     int getActDedupRatio()
     {
@@ -84,6 +86,7 @@ public class PoolMapper
         Log.info("Virtuelle komplette Dateisystemgröße für Pool", pool.getName() + ": " + SizeStr.format(totalFsDataLen) + " bei " + totalFileCnt + " Elementen");
         Log.info("Dedupfaktor aktuell  für Pool", pool.getName() + ": " + getActDedupRatio() + "%%");
         Log.info("Dedupfaktor komplett für Pool", pool.getName() + ": " + getTotalDedupRatio() + "%%");
+        Log.info("Löschbare Dedupblöcke: " + removeDDCnt + " Löschbare Größe: " +  SizeStr.format(removeDDLen) );
     }
     void calcStats( Connection conn)
     {
@@ -120,7 +123,16 @@ public class PoolMapper
             }
             rs.close();
 
-
+            rs = st.executeQuery("select count(*), sum(bigint(DEDUPHASHBLOCK.BLOCKLEN)) from DEDUPHASHBLOCK"
+                    + " LEFT OUTER JOIN XANODE  ON DEDUPHASHBLOCK.idx = XANODE.dedupblock_idx"
+                    + " left outer join hashblock on DEDUPHASHBLOCK.idx = hashblock.dedupblock_idx"
+                    + " where XANODE.idx is null and hashblock.idx is null");
+            
+            if (rs.next())
+            {
+                removeDDCnt = rs.getLong(1);
+                removeDDLen = rs.getLong(2);
+            }
             
         }
         catch (SQLException sQLException)
