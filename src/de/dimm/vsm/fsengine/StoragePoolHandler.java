@@ -29,6 +29,7 @@ import de.dimm.vsm.records.HashBlock;
 import de.dimm.vsm.records.PoolNodeFileLink;
 import de.dimm.vsm.records.StoragePool;
 import de.dimm.vsm.records.XANode;
+import java.io.File;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.sql.SQLException;
@@ -245,11 +246,29 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
         return 0;
     }
 
+    public boolean checkStorageNodeExists()
+    {
+        // CHECK FOR EXISTENCE
+        List<AbstractStorageNode> node_list = get_primary_storage_nodes();
+        if (node_list.isEmpty())
+            return false;
+        
+        for (int i = 0; i < node_list.size(); i++)
+        {
+            AbstractStorageNode abstractStorageNode = node_list.get(i);
+            File f = new File(abstractStorageNode.getMountPoint());
+            if (!f.exists())
+                return false;
+        }
+        return true;
+
+    }
+
+
     public long checkStorageNodeSpace()
     {
         // CHECK FOR SPACE ON REG NODES
         List<AbstractStorageNode> node_list = get_primary_storage_nodes();
-
         long freeSpace = checkStorageNodeSpace( node_list );
 
         // AND DD NODES
@@ -279,14 +298,14 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
 
             try
             {
-                BootstrapHandle handle = new FS_BootstrapHandle<AbstractStorageNode>(node_handler, abstractStorageNode);
+                BootstrapHandle handle = new FS_BootstrapHandle<AbstractStorageNode>(abstractStorageNode, abstractStorageNode);
                 Object o = handle.read_object(abstractStorageNode);
                 if (o == null)
                 {
                     handle.write_object(abstractStorageNode);
                 }
 
-                handle = new FS_BootstrapHandle<StoragePool>(node_handler, pool);
+                handle = new FS_BootstrapHandle<StoragePool>(abstractStorageNode, pool);
                 o = handle.read_object(pool);
                 if (o == null)
                 {
@@ -571,7 +590,8 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
                 em_remove(node);
                 commit_transaction();
 
-
+                // WE ARE GOING TO DELETE THE DEDUPBLOCKS IN AN EXTERNAL PROCESS
+/*
                 List<HashBlock> hbList = node.getHashBlocks(getEm());
                 for (int i = 0; i < hbList.size(); i++)
                 {
@@ -586,7 +606,7 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
                     XANode xaNode = xaList.get(i);
                     removeXANode( xaNode );
                 }
-
+*/
 
                 commit_transaction();
 
@@ -742,8 +762,14 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
             if (s_node.isOnline())
             {
                 ret.add( s_node );
+//                // ALLOW MULTIPLE CONCATENATED CLONE NODES
+//                while (s_node.getCloneNode() != null && s_node.getCloneNode().isOnline())
+//                {
+//                    s_node = s_node.getCloneNode();
+//                    ret.add(s_node);
+//                }
 
-                // NO CLONING, FIRST MATCH IS OKAY
+                // FIRST MATCH IS OKAY
                 break;
             }
         }
@@ -957,11 +983,15 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
 
     public void instantiate_in_fs( List<AbstractStorageNode> s_nodes, FileSystemElemNode node ) throws PathResolveException, IOException, PoolReadOnlyException
     {
+        if (isReadOnly())
+            throw new PoolReadOnlyException(pool);
+
         for (int i = 0; i < s_nodes.size(); i++)
         {
             AbstractStorageNode s_node = s_nodes.get(i);
             StorageNodeHandler sn_handler = get_handler_for_node(s_node);
-            FileHandle ret = FS_FileHandle.create_fs_handle(sn_handler, node, true );
+
+            FileHandle ret = sn_handler.create_file_handle(node, true);
             ret.create();
         }
     }
@@ -1165,13 +1195,13 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
 
             if (s_node.isFS())
             {
-                StorageNodeHandler sn_handler = get_handler_for_node(s_node);
+                StorageNodeHandler snHandler = get_handler_for_node(s_node);
 
                 FileHandle fs_ret = null;
                 if (getPool().isLandingZone())
-                    fs_ret = FS_FileHandle.create_fs_handle(sn_handler, node, create );
+                    fs_ret = snHandler.create_file_handle(node, create );
                 else
-                    fs_ret = DDFS_FileHandle.create_fs_handle(sn_handler, node, create, /*isStream*/ false );
+                    fs_ret = snHandler.create_DDFS_handle( this, node, create, /*isStream*/ false );
 
                 // IF WE HAVE MORE THAN ONE HANDLE
                 if (ret != null)
@@ -1211,8 +1241,7 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
 
             if (s_node.isFS())
             {
-                StorageNodeHandler sn_handler = get_handler_for_node(s_node);
-                FS_BootstrapHandle fs_ret = new FS_BootstrapHandle(sn_handler, node );
+                FS_BootstrapHandle fs_ret = new FS_BootstrapHandle(s_node, node );
 
                 // IF WE HAVE MORE THAN ONE HANDLE
                 if (ret != null)
@@ -1247,8 +1276,7 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
 
         if (s_node.isFS())
         {
-            StorageNodeHandler sn_handler = get_handler_for_node(s_node);
-            FS_BootstrapHandle ret = new FS_BootstrapHandle(sn_handler, block );
+            FS_BootstrapHandle ret = new FS_BootstrapHandle(s_node, block );
 
             return ret;
         }
@@ -1262,8 +1290,7 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
 
         if (s_node.isFS())
         {
-            StorageNodeHandler sn_handler = get_handler_for_node(s_node);
-            FS_BootstrapHandle ret = new FS_BootstrapHandle(sn_handler, block );
+            FS_BootstrapHandle ret = new FS_BootstrapHandle(s_node, block );
 
             return ret;
         }
@@ -1311,7 +1338,7 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
 
     public void add_storage_node_handler( AbstractStorageNode fs_node )
     {
-        StorageNodeHandler sn_handler = new StorageNodeHandler(fs_node, this);
+        StorageNodeHandler sn_handler = StorageNodeHandler.createStorageNodeHandler(fs_node, this);
 
         storage_node_handlers.add( sn_handler );
     }
@@ -1492,8 +1519,8 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
         AbstractStorageNode s_node = get_primary_dedup_node();
         if (s_node.isFS())
         {
-            StorageNodeHandler sn_handler = get_handler_for_node(s_node);
-            FileHandle ret = FS_FileHandle.create_dedup_handle(sn_handler, dhb, create );
+            StorageNodeHandler snHandler = get_handler_for_node(s_node);
+            FileHandle ret = snHandler.create_file_handle(dhb, create);
             return ret;
         }
         throw new IOException("Unsupperted StorageNode " + s_node.getName());
@@ -1528,12 +1555,14 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
     {
         BootstrapHandle handle = open_bootstrap_handle(node);
         handle.write_bootstrap( node );
+        handle.write_bootstrap( node.getAttributes() );
     }
 
     public void write_bootstrap_data( DedupHashBlock block, HashBlock node ) throws IOException, PathResolveException
     {
         BootstrapHandle handle = open_bootstrap_handle(block);
         handle.write_bootstrap( node );
+
     }
 
     public void write_bootstrap_data( DedupHashBlock block, XANode node ) throws IOException, PathResolveException
@@ -1883,23 +1912,7 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
 
     }
 
-//    <T> void addtoLazyList( List<T> l, T elem )
-//    {
-//        // ADD TO HISTORY BUT AVOID LOADING AN UNLOADED LAZY LIST
-//        if (l instanceof LazyList)
-//        {
-//            LazyList ll = (LazyList)l;
-//            if (ll.isRealized())
-//            {
-//                ll.add( getEm(), elem);
-//            }
-//        }
-//        else
-//        {
-//            l.add(elem);
-//        }
-//    }
-//
+
     public FileHandle open_xa_handle( FileSystemElemNode node, boolean create ) throws PathResolveException, UnsupportedEncodingException, IOException, SQLException
     {
         List<AbstractStorageNode> s_nodes = resolve_storage_nodes( node );
@@ -1915,9 +1928,9 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
                 FileHandle fs_ret = null;
 
                 if (getPool().isLandingZone())
-                    fs_ret = FS_FileHandle.create_xa_handle(sn_handler, node, create );
+                    fs_ret = sn_handler.create_xa_node_handle( node, create );
                 else
-                    fs_ret = DDFS_FileHandle.create_fs_handle(sn_handler, node, create, /*isStream*/ true );
+                    fs_ret = sn_handler.create_DDFS_handle( this, node, create, /*isStream*/ true );
 
 
                 // IF WE HAVE MORE THAN ONE HANDLE
@@ -2112,75 +2125,91 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
     {
         List<PoolNodeFileLink> link_list = get_pool_node_file_links(node );
         if (link_list == null)
-            throw new IOException("No PoolNodeLinks found");
-
-        // REMOVE FROM ALL CONNECTED NODES
-        for (int i = 0; i < link_list.size(); i++)
         {
-            PoolNodeFileLink poolNodeFileLink = link_list.get(i);
+            List<AbstractStorageNode> snodes = get_primary_storage_nodes();
+            for (int i = 0; i < snodes.size(); i++)
+            {
+                AbstractStorageNode s_node = snodes.get(i);
+                StorageNodeHandler sn_handler = get_handler_for_node(s_node);
+                FileHandle fh = sn_handler.create_file_handle( dhb, /*create*/ false);
+                fh.delete();
 
-            AbstractStorageNode s_node = poolNodeFileLink.getStorageNode();
+                BootstrapHandle bfh = sn_handler.create_bootstrap_handle(dhb);
+                bfh.delete();                
+            }
+        }
 
-            StorageNodeHandler sn_handler = get_handler_for_node(s_node);
-            FileHandle fh = sn_handler.create_file_handle( dhb, /*create*/ false);
+        else
+        {
 
-            fh.delete();
+            // REMOVE FROM ALL CONNECTED NODES
+            for (int i = 0; i < link_list.size(); i++)
+            {
+                PoolNodeFileLink poolNodeFileLink = link_list.get(i);
 
-            BootstrapHandle bfh = sn_handler.create_bootstrap_handle(dhb);
-            bfh.delete();
+                AbstractStorageNode s_node = poolNodeFileLink.getStorageNode();
+
+                StorageNodeHandler sn_handler = get_handler_for_node(s_node);
+                FileHandle fh = sn_handler.create_file_handle( dhb, /*create*/ false);
+
+                fh.delete();
+
+                BootstrapHandle bfh = sn_handler.create_bootstrap_handle(dhb);
+                bfh.delete();
+            }
         }
 
         em_remove(dhb);
 
     }
 
-    public void removeHashBlock( HashBlock hashBlock ) throws IOException, PoolReadOnlyException, SQLException, PathResolveException
-    {
-        // REMOVE BLOCK FROM DATABASE
-        em_remove(hashBlock);
+//    public void removeHashBlock( HashBlock hashBlock ) throws IOException, PoolReadOnlyException, SQLException, PathResolveException
+//    {
+//        // REMOVE BLOCK FROM DATABASE
+//        em_remove(hashBlock);
+//
+//        // DO WE HAVE DEDUP DATABLOCK CONNECTED ?
+//        if (hashBlock.getDedupBlock() != null)
+//        {
+//            // NOT IN USE OTHERWISE?
+//            if (checkDedupBlockNotUsed(hashBlock.getDedupBlock()))
+//            {
+//                removeDedupBlock( hashBlock.getDedupBlock(), hashBlock.getFileNode() );
+//            }
+//        }
+//    }
 
-        // DO WE HAVE DEDUP DATABLOCK CONNECTED ?
-        if (hashBlock.getDedupBlock() != null)
-        {
-            // NOT IN USE OTHERWISE?
-            if (checkDedupBlockNotUsed(hashBlock.getDedupBlock()))
-            {
-                removeDedupBlock( hashBlock.getDedupBlock(), hashBlock.getFileNode() );
-            }
-        }
-    }
+//
+//    public void removeXANode( XANode xaBlock ) throws IOException, PoolReadOnlyException, SQLException, PathResolveException
+//    {
+//        // REMOVE BLOCK FROM DATABASE
+//        em_remove(xaBlock);
+//
+//        // DO WE HAVE DEDUP DATABLOCK CONNECTED ?
+//        if (xaBlock.getDedupBlock() != null)
+//        {
+//            // NOT IN USE OTHERWISE?
+//            if (checkDedupBlockNotUsed(xaBlock.getDedupBlock()))
+//            {
+//                removeDedupBlock( xaBlock.getDedupBlock(), xaBlock.getFileNode() );
+//            }
+//        }
+//    }
 
-
-    public void removeXANode( XANode xaBlock ) throws IOException, PoolReadOnlyException, SQLException, PathResolveException
-    {
-        // REMOVE BLOCK FROM DATABASE
-        em_remove(xaBlock);
-
-        // DO WE HAVE DEDUP DATABLOCK CONNECTED ?
-        if (xaBlock.getDedupBlock() != null)
-        {
-            // NOT IN USE OTHERWISE?
-            if (checkDedupBlockNotUsed(xaBlock.getDedupBlock()))
-            {
-                removeDedupBlock( xaBlock.getDedupBlock(), xaBlock.getFileNode() );
-            }
-        }
-    }
-
-    private boolean checkDedupBlockNotUsed(DedupHashBlock dhb) throws SQLException
-    {
-        // TODO LOCKING!!!
-
-        List<Object[]> list = createNativeQuery("select idx from HashBlock where dedupBlock_idx=" + dhb.getIdx(), 2);
-        if (!list.isEmpty())
-            return false;
-
-        List<Object[]> xa_list = createNativeQuery("select idx from XANode where dedupBlock_idx=" + dhb.getIdx(), 2);
-        if (!xa_list.isEmpty())
-            return false;
-
-        return true;
-    }
+//    private boolean checkDedupBlockNotUsed(DedupHashBlock dhb) throws SQLException
+//    {
+//        // TODO LOCKING!!!
+//
+//        List<Object[]> list = createNativeQuery("select idx from HashBlock where dedupBlock_idx=" + dhb.getIdx(), 2);
+//        if (!list.isEmpty())
+//            return false;
+//
+//        List<Object[]> xa_list = createNativeQuery("select idx from XANode where dedupBlock_idx=" + dhb.getIdx(), 2);
+//        if (!xa_list.isEmpty())
+//            return false;
+//
+//        return true;
+//    }
 
     public void moveHashBlock( HashBlock hashBlock, StoragePool targetPool )
     {
