@@ -17,6 +17,7 @@ import de.dimm.vsm.records.ClientInfo;
 import de.dimm.vsm.records.ClientVolume;
 import de.dimm.vsm.records.Schedule;
 import de.dimm.vsm.records.StoragePool;
+import java.io.IOException;
 import java.util.Properties;
 
 /**
@@ -65,6 +66,8 @@ public class ServerApiImpl implements ServerApi
             ClientVolume vol = em.em_find(ClientVolume.class, ticket.getClientVolumeIdx());
 
             AgentApiEntry api = LogicControl.getApiEntry(info);
+            if (api == null || !api.isOnline())
+                throw new IOException(Main.Txt("Agent kann nicht kontaktiert werden") + ": " + info.toString() );
 
             JobInterface job = bm.createCDPJob(api, sched, info, vol, file);
 
