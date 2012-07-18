@@ -5,7 +5,9 @@
 
 package de.dimm.vsm;
 
+import de.dimm.vsm.Utilities.DefaultTextProvider;
 import de.dimm.vsm.Utilities.SizeStr;
+import de.dimm.vsm.Utilities.TextProvider;
 import de.dimm.vsm.log.Log;
 import de.dimm.vsm.log.LogManager;
 import de.dimm.vsm.backup.Backup;
@@ -36,7 +38,7 @@ public class Main
 {
 
     static String source_str = "trunk";
-    static String version_str = "1.0.6";
+    static String version_str = "1.0.9";
         
     public static int writeThreads = 1;
     public static int maxOpenFiles = 1024;
@@ -53,6 +55,8 @@ public class Main
     private static String work_dir;
 
     private static GeneralPreferences general_prefs;
+
+    private static TextBaseManager textManager;
     
     private static Main me;
     public final static String APPNAME = "VSM";
@@ -73,6 +77,7 @@ public class Main
     
     public  Main()
     {
+
     }
 
     public static boolean isPerformanceDiagnostic()
@@ -97,6 +102,8 @@ public class Main
     }
     public void init() throws SQLException
     {
+        textManager = new TextBaseManager("DE");
+        DefaultTextProvider.setProvider(textManager);
 
         work_dir = new File(".").getAbsolutePath();
         if (work_dir.endsWith("."))
@@ -339,8 +346,10 @@ public class Main
 
     public static String Txt( String key)
     {
-        String ret = TextBaseManager.Txt(key, getLang());
-        return ret;
+        if (textManager != null)
+            return textManager.Txt(key);
+        
+        return key;
     }
 
 
