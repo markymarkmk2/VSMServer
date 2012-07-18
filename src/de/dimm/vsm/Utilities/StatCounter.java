@@ -10,6 +10,8 @@ import de.dimm.vsm.GeneralPreferences;
 import de.dimm.vsm.Main;
 import de.dimm.vsm.net.RemoteFSElem;
 import de.dimm.vsm.net.ScheduleStatusEntry;
+import de.dimm.vsm.net.ScheduleStatusEntry.ValueEntry;
+import java.util.List;
 
 /**
  *
@@ -341,7 +343,29 @@ public class StatCounter {
     }
 
 
+    public String buildSummary()
+    {
+        ScheduleStatusEntry ste = new ScheduleStatusEntry(null);
+        fillStatusEntry(ste);
+        StringBuilder sb = new StringBuilder();
+        List<ValueEntry> list = ste.getValues();
+        for (int i = 0; i < list.size(); i++)
+        {
+            ValueEntry ve = list.get(i);
+            if (sb.length() > 0)
+                sb.append("\n");
 
+            sb.append( ve.getNiceName() );
+            for (int j = ve.getNiceName().length(); j < 30; j++)
+            {
+                sb.append( " ");
+            }
+            sb.append( ": ");
+            sb.append(ve.getValue());
+        }
+
+        return sb.toString();
+    }
     
 
 }
