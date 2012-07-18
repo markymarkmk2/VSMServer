@@ -10,6 +10,7 @@ import de.dimm.vsm.Exceptions.RetentionException;
 import de.dimm.vsm.log.Log;
 import de.dimm.vsm.LogicControl;
 import de.dimm.vsm.Main;
+import de.dimm.vsm.Utilities.SizeStr;
 import de.dimm.vsm.WorkerParent;
 import de.dimm.vsm.auth.User;
 import de.dimm.vsm.fsengine.GenericEntityManager;
@@ -17,6 +18,7 @@ import de.dimm.vsm.fsengine.LazyList;
 import de.dimm.vsm.fsengine.StoragePoolHandler;
 import de.dimm.vsm.fsengine.StoragePoolHandlerFactory;
 import de.dimm.vsm.fsengine.StoragePoolNubHandler;
+import de.dimm.vsm.records.DedupHashBlock;
 import de.dimm.vsm.records.FileSystemElemAttributes;
 import de.dimm.vsm.records.FileSystemElemNode;
 import de.dimm.vsm.records.HashBlock;
@@ -24,6 +26,7 @@ import de.dimm.vsm.records.Retention;
 import de.dimm.vsm.records.Snapshot;
 import de.dimm.vsm.records.StoragePool;
 import java.io.IOException;
+import java.io.UnsupportedEncodingException;
 import java.sql.SQLException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -166,6 +169,52 @@ public class RetentionManager extends WorkerParent
     {
         return retention.getArgType().equals(Retention.ARG_NAME);
     }
+
+    void handleCleanDedups( StoragePoolHandler handler) throws SQLException, IOException, PathResolveException, UnsupportedEncodingException, PoolReadOnlyException
+    {
+        GenericEntityManager em = nubHandler.getUtilEm(handler.getPool());
+
+        setStatusTxt("Berechne freien DedupSpeicher");
+
+        // SEARCH FÜR DEDUP NODES NOT NEEDED AS HASHBLOCK OR AS XANODE
+        List<Object[]> oList = em.createNativeQuery("select DEDUPHASHBLOCK.IDX from DEDUPHASHBLOCK LEFT OUTER JOIN XANODE ON DEDUPHASHBLOCK.idx = XANODE.dedupblock_idx "
+                + "left outer join hashblock on DEDUPHASHBLOCK.idx = hashblock.dedupblock_idx "
+                + "where XANODE.idx is null and hashblock.idx is null", 0);
+        
+       
+        if (!oList.isEmpty())
+        {
+            setStatusTxt("Entferne freien DedupSpeicher");
+
+            long cnt = 0;
+            long size = 0;
+            for (int i = 0; i < oList.size(); i++)
+            {
+                Object[] oarr = oList.get(i);
+                if (oarr.length == 1)
+                {
+                    String idxStr = oarr[0].toString();
+
+                    long l = Long.parseLong(idxStr);
+                    if (l > 0)
+                    {
+                        DedupHashBlock hb = em.em_find(DedupHashBlock.class, l);
+                        if (hb != null)
+                        {
+                            handler.removeDedupBlock( hb, null );                           
+                            cnt++;
+                            size += hb.getBlockLen();
+                        }
+                    }
+                }
+            }
+            Log.debug("Enfernte DedupBlöcke", Long.toString(cnt));
+            Log.debug("Freigewordener DedupSpeicher", SizeStr.format(size));
+        }
+        setStatusTxt("");
+
+    }
+
 
     public RetentionResultList createRetentionResult( Retention retention,StoragePool pool, long startIdx, int qryCount, long absTs ) throws IOException, SQLException
     {        
@@ -545,7 +594,9 @@ public class RetentionManager extends WorkerParent
                         Log.debug("Block wird gelöscht", hashBlock.getIdx() + ": " + fname + " pos:" + hashBlock.getBlockOffset() +  " TS:" + sdf.format(hashBlock.getTs()) );
                         if (!retention.isTestmode())
                         {
-                            sp_handler.removeHashBlock( hashBlock );
+                            sp_handler.em_remove(hashBlock);
+                            // NO BLOCK DELETION HERE, THIS IS DONE AFTERWARDS, SO RETENTION AND BLOCK-REMOVAL CANNOT COLLIDE
+                            //sp_handler.removeHashBlock( hashBlock );
                             if (!fse.getHashBlocks().removeIfRealized(hashBlock))
                                 throw new RetentionException("Cannot remove deleted hashblock from Node");
                         }
@@ -606,12 +657,15 @@ public class RetentionManager extends WorkerParent
         StoragePoolHandler sp_handler = null;
 
         RetentionResult ret = null;
+
+        List<Snapshot> snapshots = em.createQuery("select T1 from Snapshot T1 where T1.pool_idx=" + pool.getIdx() + " order by creation desc", Snapshot.class);
+        List<Retention> retentions = em.createQuery("select T1 from Retention T1 where T1.disabled=0 and T1.pool_idx=" + pool.getIdx(), Retention.class);
+        if (retentions.isEmpty())
+            return null;
+
+        
         try
         {
-            List<Snapshot> snapshots = em.createQuery("select T1 from Snapshot T1 where T1.pool_idx=" + pool.getIdx() + " order by creation desc", Snapshot.class);
-            List<Retention> retentions = em.createQuery("select T1 from Retention T1 where T1.disabled=0 and T1.pool_idx=" + pool.getIdx(), Retention.class);
-            if (retentions.isEmpty())
-                return null;
 
             sp_handler = StoragePoolHandlerFactory.createStoragePoolHandler(pool, user, /*rdonly*/ false);
             if (pool.getStorageNodes().isEmpty(sp_handler.getEm()))
@@ -632,43 +686,35 @@ public class RetentionManager extends WorkerParent
                     continue;
                 }
 
-//                while (true)
-//                {
+                // CREATE A LIST OF ALL ENTRIES TO BE REMOVED BASED ON RETENTION PARAMS
+                RetentionResultList retentionResult = createRetentionResult(retention, pool, startIdx, qryCount, absTs);
 
-                    // CREATE A LIST OF ALL ENTRIES TO BE REMOVED BASED ON RETENTION PARAMS
-                    RetentionResultList retentionResult = createRetentionResult(retention, pool, startIdx, qryCount, absTs);
+                if (retentionResult.list.isEmpty())
+                {
+                    break;
+                }
 
-                    if (retentionResult.list.isEmpty())
-                    {
-                        break;
-                    }
-
-
-//                    List<Object[]> list = retentionResult.list;
-//                    Object[] os = list.get(list.size() - 1);
-//                    long nextStartIdx = (Long) os[aIdxCol]; // AIDX
+                // CREATE SUBLIST OF RETENTION ENTRIES WHICH CAN BE REMOVED REGARDING SNAPSHOTS
+                RetentionResultList snapshotRetentionResult = createSnapshotRetentionList(snapshots, retentionResult, pool);
 
 
-                    // CREATE SUBLIST OF RETENTION ENTRIES WHICH CAN BE REMOVED REGARDING SNAPSHOTS
-                    RetentionResultList snapshotRetentionResult = createSnapshotRetentionList(snapshots, retentionResult, pool);
-
-
-                    // DO RETENTION WITH THE FINAL LIST
-                    RetentionResult localret = handleRetentionList(sp_handler, snapshotRetentionResult);
-                    ret.add(localret);
+                // DO RETENTION WITH THE FINAL LIST
+                RetentionResult localret = handleRetentionList(sp_handler, snapshotRetentionResult);
+                ret.add(localret);
                     
-//                    if (nextStartIdx < 0)
-//                    {
-//                        break;
-//                    }
-//                    startIdx = nextStartIdx;
-                //}
             }
+
+            // NOW REMOVE UNUSED DEDUPBLOCKS
+            handleCleanDedups(sp_handler);
         }
         finally
         {
             if (sp_handler != null)
+            {
+                sp_handler.commit_transaction();
+                sp_handler.close_transaction();
                 sp_handler.close_entitymanager();
+            }
         }
         return ret;
     }
