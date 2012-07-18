@@ -10,6 +10,7 @@ import de.dimm.vsm.jobs.InteractionEntry;
 import de.dimm.vsm.log.Log;
 import de.dimm.vsm.LogicControl;
 import de.dimm.vsm.Main;
+import de.dimm.vsm.Utilities.VariableResolver;
 import de.dimm.vsm.WorkerParent;
 import de.dimm.vsm.auth.User;
 import de.dimm.vsm.backup.Backup.BackupJobInterface;
@@ -21,6 +22,7 @@ import de.dimm.vsm.fsengine.StoragePoolNubHandler;
 import de.dimm.vsm.jobs.JobEntry;
 import de.dimm.vsm.jobs.JobInterface;
 import de.dimm.vsm.jobs.JobManager;
+import de.dimm.vsm.mail.NotificationEntry;
 import de.dimm.vsm.net.CdpEvent;
 import de.dimm.vsm.net.RemoteFSElem;
 import de.dimm.vsm.records.BackupJobResult;
@@ -68,11 +70,56 @@ public class BackupManager extends WorkerParent
 
     final List<ScheduleStart> startList;
     Thread runner;
+
+    public static final String BA_AGENT_OFFLINE = "BA_AGENT_OFFLINE";
+    public static final String BA_ERROR = "BA_ERROR";
+    public static final String BA_ABORT = "BA_ABORT";
+    public static final String BA_FILE_ERROR = "BA_FILE_ERROR";
+    public static final String BA_SNAPSHOT_FAILED = "BA_SNAPSHOT_FAILED";
+
+   
+    public static final String BA_OKAY = "BA_OKAY";
+    public static final String BA_VOLUME_OKAY = "BA_VOLUME_OKAY";
+    public static final String BA_CLIENT_OKAY = "BA_CLIENT_OKAY";
+
+    public static final String BA_GROUP_ERROR = "BA_GROUP_ERROR";
+
+
+
     public BackupManager()
     {
         super("BackupManager");
 
         startList = new ArrayList<ScheduleStart>();
+
+
+        Main.get_control().addNotification( new NotificationEntry(BA_AGENT_OFFLINE,
+                "Agent ist offline", "Der Agent $AGENT für Backup $NAME kann nicht kontaktiert werden", NotificationEntry.Level.WARNING, true));
+
+
+        Main.get_control().addNotification( new NotificationEntry(BA_ERROR,
+                "Fehler beim Sichern in Backup $NAME", "In Volume $VOLUME bei Agent $AGENT im Backup $NAME traten Fehler auf", NotificationEntry.Level.ERROR, false));
+        Main.get_control().addNotification( new NotificationEntry(BA_FILE_ERROR,
+                "Fehler beim Sichern in Backup $NAME", "In Volume $VOLUME bei Agent $AGENT im Backup $NAME können folgende Einträge nicht gesichert werden", NotificationEntry.Level.WARNING, false));
+
+        Main.get_control().addNotification( new NotificationEntry(BA_ABORT,
+                "Abbruch beim Sichern in Backup $NAME", "In Volume $VOLUME bei Agent $AGENT im Backup $NAME wurde folgende Datei nicht gesichert", NotificationEntry.Level.ERROR, false));
+
+
+        Main.get_control().addNotification( new NotificationEntry(BA_VOLUME_OKAY,
+                "Volume $VOLUME beendet", "Volume $VOLUME auf $AGENT bei Backup $NAME wurde erfolgreich gesichert", NotificationEntry.Level.INFO, false));
+
+        Main.get_control().addNotification( new NotificationEntry(BA_CLIENT_OKAY,
+                "Client $AGENT beendet", "Client $AGENT bei Backup $NAME wurde erfolgreich gesichert", NotificationEntry.Level.INFO, false));
+
+        Main.get_control().addNotification( new NotificationEntry(BA_OKAY,
+                "Backup $NAME beendet", "Element $PATH bei Agent $AGENT im Hotfolder $NAME wurde erfolgreich gesichert", NotificationEntry.Level.INFO, false));
+
+        Main.get_control().addNotification( new NotificationEntry(BA_SNAPSHOT_FAILED,
+                "Fehler beim Erzeugen des Snapshots in Backup $NAME", "In Volume $VOLUME bei Agent $AGENT im Backup $NAME konnte kein Snapshot erzeugt werden", NotificationEntry.Level.WARNING, false));
+
+        Main.get_control().addNotification( new NotificationEntry(BA_GROUP_ERROR,
+                "Alle Fehler in Backup", "BA_AGENT_OFFLINE,BA_ERROR,BA_FILE_ERROR,BA_ABORT", NotificationEntry.Level.GROUP, false));
     }
 
     @Override
@@ -85,7 +132,7 @@ public class BackupManager extends WorkerParent
     // THIS HAS TO BE CALLED AT END OF EVERY BACKUP AND AFTER PARAMETER
     public void updateStartList()
     {
-        List<StoragePool> pools = Main.get_control().getStorageNubHandler().listStoragePools();
+        List<StoragePool> pools = LogicControl.getStorageNubHandler().listStoragePools();
 
         synchronized(startList)
         {
@@ -577,6 +624,12 @@ public class BackupManager extends WorkerParent
                 }
             }
         }
+        @Override
+        public void close()
+        {
+
+        }
+
 
         @Override
         public User getUser()
@@ -669,4 +722,6 @@ public class BackupManager extends WorkerParent
 
         return actualContext;
     }
+
+   
 }

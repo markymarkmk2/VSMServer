@@ -10,6 +10,8 @@ import de.dimm.vsm.GeneralPreferences;
 import de.dimm.vsm.LogicControl;
 import de.dimm.vsm.log.Log;
 import de.dimm.vsm.Main;
+import de.dimm.vsm.Utilities.CryptTools;
+import de.dimm.vsm.Utilities.ZipUtilities;
 import de.dimm.vsm.VSMFSLogger;
 import de.dimm.vsm.auth.User;
 import de.dimm.vsm.fsengine.LazyList;
@@ -244,6 +246,14 @@ public class Restore
             }
             return "";
         }
+        
+        @Override
+        public void close()
+        {
+
+        }
+
+
 
     }
 
@@ -544,7 +554,21 @@ public class Restore
                         throw new IOException( "No hashblocks found" );
 
                     byte[] data = handle.read((int) len, 0);
-                    actualContext.apiEntry.getApi().write(remote_handle, data, 0);
+
+                    if (actualContext.isEncrypted() || actualContext.isCompressed())
+                    {
+                        if (actualContext.isCompressed())
+                            data = ZipUtilities.lzf_compressblock(data);
+
+                        int encLen = data.length;
+                        if (actualContext.isEncrypted())
+                            data = CryptTools.encryptXTEA8(data);
+
+                        actualContext.apiEntry.getApi().writeEncryptedCompressed(remote_handle, data, 0, encLen, actualContext.isEncrypted(), actualContext.isCompressed());
+                    }
+                    else
+                        actualContext.apiEntry.getApi().write(remote_handle, data, 0);
+
                     actualContext.stat.addTransferLen((int)len);
                     readLen = data.length;
                 }
@@ -778,7 +802,18 @@ public class Restore
         }
 
         byte[] data = handle.read(read_len, readOffset);
-        actualContext.apiEntry.getApi().write(remote_handle, data, offset);
+
+        if (actualContext.isEncrypted() || actualContext.isCompressed())
+        {
+            if (actualContext.isCompressed())
+                data = ZipUtilities.lzf_compressblock(data);
+            int encLen = data.length;
+            if (actualContext.isEncrypted())
+                data = CryptTools.encryptXTEA8(data);
+            actualContext.apiEntry.getApi().writeEncryptedCompressed(remote_handle, data, offset, encLen, actualContext.isEncrypted(), actualContext.isCompressed());
+        }
+        else
+            actualContext.apiEntry.getApi().write(remote_handle, data, offset);
 
         if (dedup_handle != null)
             dedup_handle.close();
@@ -802,7 +837,20 @@ public class Restore
         }
 
         byte[] data = handle.read(read_len, readOffset);
-        actualContext.apiEntry.getApi().write(remote_handle, data, offset);
+
+
+        if (actualContext.isEncrypted() || actualContext.isCompressed())
+        {
+            if (actualContext.isCompressed())
+                data = ZipUtilities.lzf_compressblock(data);
+            int encLen = data.length;
+            if (actualContext.isEncrypted())
+                data = CryptTools.encryptXTEA8(data);
+
+            actualContext.apiEntry.getApi().writeEncryptedCompressed(remote_handle, data, offset, encLen, actualContext.isEncrypted(), actualContext.isCompressed());
+        }
+        else
+            actualContext.apiEntry.getApi().write(remote_handle, data, offset);
 
         if (dedup_handle != null)
             dedup_handle.close();

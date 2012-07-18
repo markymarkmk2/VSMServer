@@ -89,15 +89,15 @@ public class ArchiveJobContext extends GenericContext
         if (remoteFSElem.getPath().length() == relPath.length())
             return basePath;
 
-        String relPath = remoteFSElem.getPath().substring(this.relPath.length() + 1);
+        String _relPath = remoteFSElem.getPath().substring(this.relPath.length() + 1);
 
         if (remoteFSElem.getSeparatorChar() != '/')
         {
-            relPath = relPath.replace( remoteFSElem.getSeparatorChar(), '/' );
+            _relPath = _relPath.replace( remoteFSElem.getSeparatorChar(), '/' );
         }
 
 
-        return basePath + "/" + relPath;
+        return basePath + "/" + _relPath;
     }
 
     @Override
@@ -109,7 +109,7 @@ public class ArchiveJobContext extends GenericContext
 
     boolean isErrorFree()
     {
-        return errCounter == 0;
+        return getErrList().isEmpty();
     }
 
     void createJob() throws SQLException, PoolReadOnlyException, PathResolveException, IOException
@@ -130,8 +130,22 @@ public class ArchiveJobContext extends GenericContext
         }
     }
 
+    @Override
     public StoragePoolHandler getPoolhandler()
     {
         return poolhandler;
     }
+
+    @Override
+    public boolean isCompressed()
+    {
+        return hotfolder.isHfcompression();
+    }
+
+    @Override
+    public boolean isEncrypted()
+    {
+        return hotfolder.isHfencryption();
+    }
+
 }

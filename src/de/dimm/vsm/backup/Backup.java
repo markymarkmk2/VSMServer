@@ -16,6 +16,8 @@ import de.dimm.vsm.Main;
 import de.dimm.vsm.Utilities.CryptTools;
 import de.dimm.vsm.Utilities.SizeStr;
 import de.dimm.vsm.Utilities.StatCounter;
+import de.dimm.vsm.Utilities.VariableResolver;
+import de.dimm.vsm.Utilities.ZipUtilities;
 import de.dimm.vsm.auth.User;
 import de.dimm.vsm.fsengine.ArrayLazyList;
 import de.dimm.vsm.fsengine.FS_FileHandle;
@@ -31,6 +33,7 @@ import de.dimm.vsm.fsengine.StoragePoolHandler;
 import de.dimm.vsm.fsengine.StoragePoolHandlerFactory;
 import de.dimm.vsm.jobs.JobInterface;
 import de.dimm.vsm.jobs.JobInterface.JOBSTATE;
+import de.dimm.vsm.net.CompEncDataResult;
 import de.dimm.vsm.net.HashDataResult;
 import de.dimm.vsm.net.interfaces.AgentApi;
 import de.dimm.vsm.net.RemoteFSElem;
@@ -99,7 +102,7 @@ public class Backup
     private BackupContext actualContext;
 
 
-    public static boolean _withBootstrap = false;
+    public static boolean _withBootstrap = true;
 
     
     public Backup(Schedule sched)
@@ -111,6 +114,15 @@ public class Backup
             this.sched = em.em_find(Schedule.class, sched.getIdx());
         }
         abort = false;         
+    }
+
+    private void baNotify( String key, String extraText, VariableResolver vr )
+    {
+        Main.get_control().getNotificationServer().fire(key, extraText, vr );
+    }
+    private void baRelease( String key)
+    {
+        Main.get_control().getNotificationServer().release(key);
     }
 
     JobInterface createJob(User user)
@@ -147,6 +159,12 @@ public class Backup
             return startTime;
         }
         
+        @Override
+        public void close()
+        {
+
+        }
+
 
 
         @Override
@@ -252,7 +270,9 @@ public class Backup
                 if (actualContext != null)
                 {
                     actualContext.setJobState( JOBSTATE.FINISHED_ERROR );
-                    actualContext.setStatus("Backup was aborted" + ":" + exception.getMessage());
+                    actualContext.setStatus(Main.Txt("Das Backup wurde abgebrochen") + ": " + exception.getMessage());                    
+
+                    baNotify( BackupManager.BA_ABORT, actualContext.getStatus(), actualContext );
                 }
                 else
                 {
@@ -344,36 +364,46 @@ public class Backup
         StoragePool pool = sched.getPool();
         // CREATE RW POOLHANDLER
         User user = User.createSystemInternal();
-        StoragePoolHandler sp_handler = StoragePoolHandlerFactory.createStoragePoolHandler( pool, user, /*rdonly*/ false );
-        if (pool.getStorageNodes().getList( sp_handler.getEm()).isEmpty())
-            throw new Exception("No Storage for pool defined");
 
-        if (sp_handler.get_primary_storage_nodes().isEmpty())
-        {
-            throw new Exception(Main.Txt("Keine beschreibbaren StorageNodes für Pool") + "  " + pool.getName());
-        }
-        if (sp_handler.get_primary_dedup_node() == null)
-        {
-            throw new Exception(Main.Txt("Keine beschreibbarer StorageNodes für Dedup bei Pool") + "  " + pool.getName());
-        }
-
+        StoragePoolHandler sp_handler = null;
         try
         {
-            return run_schedule( sched, sp_handler);
-        }
-        catch (PoolReadOnlyException poolReadOnlyException)
-        {
-            // CANNOT HAPPEN, POOL IS NOT RDONLY
-            Log.err("StoragePool ist schreibgeschützt", poolReadOnlyException );
+            sp_handler = StoragePoolHandlerFactory.createStoragePoolHandler( pool, user, /*rdonly*/ false );
+
+            if (pool.getStorageNodes().getList( sp_handler.getEm()).isEmpty())
+            {
+                throw new Exception("No Storage for pool defined");
+            }
+
+            if (sp_handler.get_primary_storage_nodes().isEmpty())
+            {
+                throw new Exception(Main.Txt("Keine beschreibbaren StorageNodes für Pool") + "  " + pool.getName());
+            }
+            if (sp_handler.get_primary_dedup_node() == null)
+            {
+                throw new Exception(Main.Txt("Keine beschreibbarer StorageNodes für Dedup bei Pool") + "  " + pool.getName());
+            }
+
+            try
+            {
+                return run_schedule( sched, sp_handler);
+            }
+            catch (PoolReadOnlyException poolReadOnlyException)
+            {
+                // CANNOT HAPPEN, POOL IS NOT RDONLY
+                throw new Exception(Main.Txt("StoragePool ist schreibgeschützt"), poolReadOnlyException );
+            }
         }
         finally
         {
-            sp_handler.commit_transaction();
-            sp_handler.close_transaction();
-            sp_handler.close_entitymanager();
-
+            if (sp_handler != null)
+            {
+                sp_handler.commit_transaction();
+                sp_handler.close_transaction();
+                sp_handler.close_entitymanager();
+            }
         }
-        return false;
+        
     }
 
     static void buildStatusText( GenericContext context, String text)
@@ -401,7 +431,47 @@ public class Backup
         }
     }
 
-    private boolean run_schedule( Schedule sched, StoragePoolHandler hdl ) throws PoolReadOnlyException, SQLException
+    private VariableResolver createLocalVr(final ClientInfo clientInfo, final ClientVolume clientVolume)
+    {
+        VariableResolver vr = new VariableResolver()
+        {
+
+            @Override
+            public String resolveVariableText( String s )
+            {
+                if (s.indexOf("$NAME") >= 0)
+                {
+                    String f = "";
+                    f = clientInfo.getSched().getName();
+                    s = s.replace("$NAME", f );
+                }
+
+                if (s.indexOf("$POOL") >= 0)
+                {
+                    String f = "";
+                    f = clientInfo.getSched().getPool().getName();
+                    s = s.replace("$POOL", f );
+                }
+                if (s.indexOf("$VOLUME") >= 0)
+                {
+                    String f = "";
+                    f = clientVolume.getVolumePath().getPath();
+                    s = s.replace("$VOLUME", f );
+                }
+                if (s.indexOf("$AGENT") >= 0)
+                {
+                    String f = "";
+                    f = clientInfo.getIp();
+                    s = s.replace("$AGENT", f );
+                }
+                return s;
+            }
+        };
+        return vr;
+    }
+
+
+    private boolean run_schedule( final Schedule sched, StoragePoolHandler hdl ) throws PoolReadOnlyException, SQLException
     {
         StatCounter overallCounter = new StatCounter("Total");
         
@@ -421,12 +491,14 @@ public class Backup
 
             for (int i = 0; i < client_list.size(); i++)
             {
-                ClientInfo clientInfo = client_list.get(i);
+                final ClientInfo clientInfo = client_list.get(i);
                 if (clientInfo.getDisabled())
                     continue;
 
                 if (abort)
                     break;
+
+                boolean allVolsOkay = true;
 
                 List<ClientVolume> volume_list = clientInfo.getVolumeList().getList(hdl.getEm());
                 //hdl.updateLazyListsHandler(volume_list);
@@ -436,12 +508,14 @@ public class Backup
 
                 for (int j = 0; j < volume_list.size(); j++)
                 {
-                    ClientVolume clientVolume = volume_list.get(j);
+                    final ClientVolume clientVolume = volume_list.get(j);
                     if (clientVolume.getDisabled())
                         continue;
 
                     if (abort)
                         break;
+
+                    VariableResolver vr = createLocalVr(clientInfo, clientVolume);
 
 
                     BackupVolumeResult baVolumeResult = new BackupVolumeResult();
@@ -466,7 +540,11 @@ public class Backup
                     {
                         baVolumeResult.setOk( false);
                         baVolumeResult.setStatus( preStartStatus );
+                        baNotify(BackupManager.BA_ABORT, preStartStatus, vr);
                     }
+                    if (!baVolumeResult.isOk())
+                        allVolsOkay = false;
+
                     hdl.em_merge(baVolumeResult);
 
                     baJobResult.getBackupVolumeResults().addIfRealized(baVolumeResult);
@@ -480,6 +558,12 @@ public class Backup
                     }
                 }
                 clientCounter.check_stat();
+
+                if (allVolsOkay)
+                {
+                    String summary = clientCounter.buildSummary();
+                    baNotify(BackupManager.BA_CLIENT_OKAY, Main.Txt("Zusammenfassung") + ":\n\n" + summary, actualContext);
+                }
             }
             globalOk = true;
 
@@ -487,6 +571,7 @@ public class Backup
             {
                 baJobResult.setStatus( Main.Txt("Aborted") + " " + Main.getActDateString());
                 globalOk = false;
+                baNotify(BackupManager.BA_ABORT, baJobResult.getStatus(), actualContext);
             }
             List<BackupVolumeResult> list = baJobResult.getBackupVolumeResults().getList( hdl.getEm() );
             for (int i = 0; i < list.size(); i++)
@@ -494,6 +579,12 @@ public class Backup
                 BackupVolumeResult baVolumeResult = list.get(i);
                 if (!baVolumeResult.isOk())
                     globalOk = false;
+            }
+
+            if (globalOk)
+            {
+                String summary = overallCounter.buildSummary();
+                baNotify(BackupManager.BA_OKAY, Main.Txt("Zusammenfassung") + ":\n\n" + summary, actualContext);
             }
         }
         finally
@@ -511,19 +602,39 @@ public class Backup
         //return true;
     }
 
-    private BackupContext backupClientVolume(  StoragePoolHandler hdl, ClientInfo clientInfo, ClientVolume clientVolume ) throws PoolReadOnlyException, SQLException
+    private BackupContext backupClientVolume(  StoragePoolHandler hdl, final ClientInfo clientInfo, ClientVolume clientVolume ) throws PoolReadOnlyException, SQLException
     {
         Properties p;
         
         AgentApiEntry apiEntry = null;
 
+        VariableResolver connectVr = new VariableResolver() {
+
+            @Override
+            public String resolveVariableText( String s )
+            {
+                if (s.indexOf("$AGENT") >= 0)
+                {
+                    String f = "";
+                    if (clientInfo != null)
+                        f = clientInfo.getIp();
+
+                    s = s.replace("$AGENT", f );
+                }
+                return s;
+            }
+        };
+
         try
         {
             apiEntry = LogicControl.getApiEntry( clientInfo );
-            if (apiEntry == null)
+            if (apiEntry == null || !apiEntry.isOnline())
             {
                 preStartStatus = Main.Txt("Kann Agenten nicht kontaktieren") + " " + clientInfo.toString();
-                Log.err("Kann Agenten nicht kontaktieren", clientInfo.toString());
+                String msg = "Backup " + clientInfo.getSched().getName() + Main.Txt("Kann Agenten nicht kontaktieren") + clientInfo.toString();
+                Log.err(msg);
+
+                baNotify(BackupManager.BA_AGENT_OFFLINE, msg, connectVr);
                 return null;
             }
             p = apiEntry.getApi().get_properties();
@@ -531,9 +642,13 @@ public class Backup
         catch (Exception e)
         {
             preStartStatus = Main.Txt("Abbruch beim Connect zu Agent") + " " + clientInfo.toString();
-            Log.err(preStartStatus, e);
+            String msg = "Backup " + clientInfo.getSched().getName() + Main.Txt("Abbruch beim Connect zu Agent") + clientInfo.toString();
+            baNotify(BackupManager.BA_AGENT_OFFLINE, msg, connectVr);
+            Log.err(msg, e);
             return null;
         }
+        
+        baRelease(BackupManager.BA_AGENT_OFFLINE);
 
         String agent_ver = p.getProperty(AgentApi.OP_AG_VER);
         String agent_os = p.getProperty(AgentApi.OP_OS);
@@ -541,7 +656,23 @@ public class Backup
         String agent_os_arch = p.getProperty(AgentApi.OP_OS_VER);
 
         Log.debug("Verbunden mit Agent", clientInfo.toString() + ", " + agent_ver + ", " + agent_os + " " + agent_os_arch + " " + agent_os_ver);
-       
+
+        ArrayList<RemoteFSElem> start = apiEntry.getApi().list_dir(clientVolume.getVolumePath(),/*lazyacl*/true);
+        if (start == null || start.isEmpty())
+        {
+            try
+            {
+                apiEntry.close();
+            }
+            catch (IOException iOException)
+            {
+            }
+            preStartStatus = Main.Txt("Quellpfad ist leer oder existiert nicht") + " " + clientVolume.getVolumePath().getPath();
+            baNotify(BackupManager.BA_ERROR, preStartStatus, connectVr);
+            String msg = "Backup " + clientInfo.getSched().getName() + ": " + preStartStatus;
+            Log.err(msg);
+            return null;
+        }
 
         BackupContext context = init_context( /*em,*/ apiEntry, hdl, clientInfo, clientVolume);
         context.stat.initStat();
@@ -569,6 +700,11 @@ public class Backup
             preStartStatus = Main.Txt("Kein StorageNodes verfügbar") + " " +  context.poolhandler.getPool().getName();
             return null;
         }
+        if (!context.checkStorageNodesExists())
+        {
+            preStartStatus = Main.Txt("StorageNode existiert nicht") + " " +  context.poolhandler.getPool().getName();
+            return null;
+        }
 
 
 
@@ -578,6 +714,8 @@ public class Backup
         {
             buildStatusText(context, Main.Txt("Erzeuge Snapshot") + "...");
             snapshotHandle = context.apiEntry.getApi().create_snapshot(clientVolume.getVolumePath());
+            if (snapshotHandle == null)
+                baNotify(BackupManager.BA_SNAPSHOT_FAILED, "", context);
         }
 
         context.poolhandler.check_open_transaction();
@@ -599,7 +737,27 @@ public class Backup
 
 
             backupRemoteFSElem(context, clientVolume.getVolumePath(), node, /*recursive*/true, clientInfo.isOnlyNewer());
-            
+
+            if (context.isAbort())
+            {
+                baNotify(BackupManager.BA_ABORT, context.getStatus(), context);
+            }
+            if (context.getResult())
+            {
+                String summary = actualContext.getStat().buildSummary(  );
+                baNotify(BackupManager.BA_VOLUME_OKAY, Main.Txt("Zusammenfassung") + ":\n\n" + summary, context );
+            }
+            else
+            {
+                if (context.getErrList().isEmpty())
+                {
+                    baNotify(BackupManager.BA_ERROR, context.getStatus(), context );
+                }
+                else
+                {
+                    baNotify(BackupManager.BA_FILE_ERROR, context.getErrListString(), context );
+                }
+            }
         }
         catch (Throwable exc)
         {
@@ -611,9 +769,10 @@ public class Backup
             }
             else
             {
+                context.setStatus(Main.Txt("Backupfehler") + ": " + exc.getMessage());
                 Log.err("Backupfehler", exc);
             }
-            
+            baNotify(BackupManager.BA_ABORT, context.getStatus(), context);
         }
 
         finally
@@ -724,6 +883,12 @@ public class Backup
             context.setJobState(JOBSTATE.ABORTED);
             context.setResult( false );
             throw new IOException( "Nodespeicherplatz erschöpft");
+        }
+        if (!context.checkStorageNodesExists())
+        {
+            context.setJobState(JOBSTATE.ABORTED);
+            context.setResult( false );
+            throw new IOException( "Nodespeicherplatz nicht gefunden");
         }
        
         // HANDLE OPS FOR THIS ENTRY       
@@ -1103,18 +1268,60 @@ public class Backup
                     // READ DATA FROM CLIENT
                     int realLen = 0;
                     byte[] data = null;
-                    String hash_value = null;
+                    String hashValue = null;
 
                     if (hashOnAgent)
-                    {
-                        HashDataResult res = context.apiEntry.getApi().read_and_hash(remote_handle, offset, rlen);
-                        if (res == null || res.getData() == null || res.getData().length == 0)
+                    {                        
+                        if (context.isCompressed() || context.isEncrypted())
+                        {
+                            CompEncDataResult res = context.apiEntry.getApi().read_and_hash_encrypted_compressed(remote_handle,
+                                    offset, rlen, context.isEncrypted(), context.isCompressed());
+
+                            if (res != null)
+                            {
+                                data = res.getData();
+                                hashValue = res.getHashValue();
+                                // FIRST DECRYPT, THEN DECOPMPRESS, OPPOSITE TO ENCODING AND ENCRYPTING IN AGENTAPI
+                                if (context.isEncrypted())
+                                {
+                                    // DECRYPT DATA TO LENGTH AFTER DECOMPRESSION BEFORE ENCRYPTION
+                                    data = CryptTools.decryptXTEA8(data, res.getCompLen());
+                                }
+                                if (context.isCompressed())
+                                {
+                                    data = ZipUtilities.lzf_decompressblock(data);
+                                }
+                                if (data.length != rlen)
+                                {
+                                    Log.err("Cannot decompress read_and_hash remote file handle " + remoteFSElem.toString());
+                                    // FALLBACK
+                                    HashDataResult _res = null;
+                                    _res = context.apiEntry.getApi().read_and_hash(remote_handle, offset, rlen);
+                                    if (_res != null)
+                                    {
+                                        hashValue = _res.getHashValue();
+                                        data = _res.getData();
+                                    }
+                                }
+                            }
+                        }
+                        else
+                        {
+                            HashDataResult _res = null;
+                            _res = context.apiEntry.getApi().read_and_hash(remote_handle, offset, rlen);
+                            if (_res != null)
+                            {
+                                hashValue = _res.getHashValue();
+                                data = _res.getData();
+                            }
+
+                        }
+
+                        if (data == null || data.length != rlen)
                         {
                             throw new IOException("Cannot read_and_hash remote file handle " + remoteFSElem.toString());
                         }
 
-                        hash_value = res.getHashValue();
-                        data = res.getData();
                         realLen = data.length;
                     }
 
@@ -1127,7 +1334,7 @@ public class Backup
                         }
 
                         byte[] hash = ((BackupContext)context).digest.digest(data);
-                        hash_value = CryptTools.encodeUrlsafe( hash );
+                        hashValue = CryptTools.encodeUrlsafe( hash );
                         realLen = data.length;
                     }
 
@@ -1149,7 +1356,7 @@ public class Backup
                     
 
                     // ADD HASHENTRY TO DB
-                    HashBlock hb = context.poolhandler.create_hashentry(node, hash_value, null, offset, realLen, reorganize, ts);
+                    HashBlock hb = context.poolhandler.create_hashentry(node, hashValue, null, offset, realLen, reorganize, ts);
 
                     node.getHashBlocks().addIfRealized(hb);
                     
@@ -1256,20 +1463,17 @@ public class Backup
 
                 try
                 {
-                    block = check_for_existing_block(context, remote_hash, checkDHBExistance);
-
-                    // TODO: WE HAVE TO WRITE NEW BLOCK IF WE SHOULD HAVE LOST IT ON FS
+                    block = check_for_existing_block( context, remote_hash, checkDHBExistance );
+//                    if (block != null && context.getBugFixHash() != null)
+//                    {
+//                        remote_hash = context.getBugFixHash();
+//                    }
                 }
                 catch (PathResolveException pathResolveException)
                 {
                     // DID WE FIND A BLOCK WITH NO FS ENTRY?
                     Log.err("Verlorener Hashblock wird wiederbelebt", remote_hash, pathResolveException);
-                    block = check_for_existing_block(context, remote_hash, false);
-                    if (block != null)
-                    {
-                        context.poolhandler.em_remove(block);
-                        block = null;
-                    }
+                    block = reviveHashBlock(  context, node, remote_handle, remote_hash, remoteFSElem.getStreaminfo(), offset, read_len );
                 }
 
 
@@ -1318,7 +1522,7 @@ public class Backup
         catch (Exception e)
         {
 
-            Log.err( "Fehler beim Schreiben von DedupNode", node.toString(), e);
+            Log.err( "Fehler beim Schreiben von Node", node.toString(), e);
             context.setStatus(VSMCMain.Txt("Entferne") + " " + remoteFSElem.getPath() );
             context.poolhandler.remove_fse_node(node, true);
             context.apiEntry.getApi().get_properties();
@@ -1484,28 +1688,73 @@ public class Backup
                 // READ DATA FROM CLIENT
                 int realLen = 0;
 
-                HashDataResult res = context.apiEntry.getApi().read_and_hash(remote_handle, offset, rlen);
-                if (res == null || res.getData() == null || res.getData().length == 0)
+                String hashValue = null;
+                byte[] data = null;
+                
+                if (context.isCompressed() || context.isEncrypted())
+                {
+                    CompEncDataResult res = context.apiEntry.getApi().read_and_hash_encrypted_compressed(remote_handle,
+                            offset, rlen, context.isEncrypted(), context.isCompressed());
+
+                    if (res != null)
+                    {
+                        data = res.getData();
+                        hashValue = res.getHashValue();
+                        // FIRST DECRYPT, THEN DECOPMPRESS, OPPOSITE TO ENCODING AND ENCRYPTING IN AGENTAPI
+                        if (context.isEncrypted())
+                        {
+                            // DECRYPT DATA TO LENGTH AFTER DECOMPRESSION BEFORE ENCRYPTION
+                            data = CryptTools.decryptXTEA8(data, res.getCompLen());
+                        }
+                        if (context.isCompressed())
+                        {
+                            data = ZipUtilities.lzf_decompressblock(data);
+                        }
+                        if (data.length != rlen)
+                        {
+                            Log.err("Cannot decompress read_and_hash remote file handle " + remoteFSElem.toString());
+                            // FALLBACK
+                            HashDataResult _res = null;
+                            _res = context.apiEntry.getApi().read_and_hash(remote_handle, offset, rlen);
+                            if (_res != null)
+                            {
+                                hashValue = _res.getHashValue();
+                                data = _res.getData();
+                            }
+                        }
+                    }
+                }
+                else
+                {
+                    HashDataResult res = null;
+                    res = context.apiEntry.getApi().read_and_hash(remote_handle, offset, rlen);
+                    if (res != null)
+                    {
+                        hashValue = res.getHashValue();
+                        data = res.getData();
+                    }
+                }
+
+                if (data == null || data.length != rlen)
                 {
                     throw new IOException("Cannot read_and_hash remote file handle " + remoteFSElem.toString());
                 }
 
-                realLen = res.getData().length;
 
+                realLen = data.length;
                 // WRITE FILE TO FILEBUFF
                 if (!speed_test_no_write)
                 {
                     if (len - realLen == 0)
-                        context.getWriteRunner().addAndCloseElem(handle, res.getData(), realLen, offset );
+                        context.getWriteRunner().addAndCloseElem(handle, data, realLen, offset );
                     else
-                        context.getWriteRunner().addElem(handle, res.getData(), realLen, offset );
+                        context.getWriteRunner().addElem(handle, data, realLen, offset );
                     //handle.writeFile(res.getData(), realLen, offset);
                 }
 
-                String hash_value = res.getHashValue();
-
+                
                 // ADD HASHENTRY TO DB
-                XANode xaNode = context.poolhandler.create_xa_hashentry(node, hash_value, remoteFSElem.getStreaminfo(), null, offset, realLen, reorganize, ts);
+                XANode xaNode = context.poolhandler.create_xa_hashentry(node, hashValue, remoteFSElem.getStreaminfo(), null, offset, realLen, reorganize, ts);
                 node.getXaNodes().addIfRealized(xaNode);
 
                 context.stat.addTransferLen( realLen );
@@ -1602,17 +1851,16 @@ public class Backup
                 try
                 {
                     block = check_for_existing_block(context, remote_hash, checkDHBExistance);
+//                    if (block != null && context.getBugFixHash() != null)
+//                    {
+//                        remote_hash = context.getBugFixHash();
+//                    }
                 }
                 catch (PathResolveException pathResolveException)
                 {
                     // DID WE FIND A BLOCK WITH NO FS ENTRY?
                     Log.err("Verlorener Hashblock wird wiederbelebt", remote_hash, pathResolveException);
-                    block = check_for_existing_block(context, remote_hash, false);
-                    if (block != null)
-                    {
-                        context.poolhandler.em_remove(block);
-                        block = null;
-                    }
+                    block = reviveHashBlock(  context, node, remote_handle, remote_hash, remoteFSElem.getStreaminfo(), offset, read_len );
                 }
 
                 if (block != null)
@@ -1831,17 +2079,16 @@ public class Backup
                 try
                 {
                     block = check_for_existing_block(context, remote_hash, checkDHBExistance);
+//                    if (block != null && context.getBugFixHash() != null)
+//                    {
+//                        remote_hash = context.getBugFixHash();
+//                    }
                 }
                 catch (PathResolveException pathResolveException)
                 {
                     // DID WE FIND A BLOCK WITH NO FS ENTRY?
                     Log.err("Verlorener Hashblock wird wiederbelebt", remote_hash, pathResolveException);
-                    block = check_for_existing_block(context, remote_hash, false);
-                    if (block != null)
-                    {
-                        context.poolhandler.em_remove(block);
-                        block = null;
-                    }
+                    block = reviveHashBlock(  context, node, remote_handle, remote_hash, remoteFSElem.getStreaminfo(), offset, read_len );
                 }
 
                 if (block != null)
@@ -1981,17 +2228,16 @@ public class Backup
                 try
                 {
                     block = check_for_existing_block(context, remote_hash, checkDHBExistance);
+//                    if (block != null && context.getBugFixHash() != null)
+//                    {
+//                        remote_hash = context.getBugFixHash();
+//                    }
                 }
                 catch (PathResolveException pathResolveException)
                 {
                     // DID WE FIND A BLOCK WITH NO FS ENTRY?
                     Log.err("Verlorener Hashblock wird wiederbelebt", remote_hash, pathResolveException);
-                    block = check_for_existing_block(context, remote_hash, false);
-                    if (block != null)
-                    {
-                        context.poolhandler.em_remove(block);
-                        block = null;
-                    }
+                    block = reviveHashBlock(  context, node, remote_handle, remote_hash, remoteFSElem.getStreaminfo(), offset, read_len );
                 }
                 
                 if (block != null)
@@ -2108,7 +2354,7 @@ public class Backup
             dhb = context.poolhandler.findHashBlock(remote_hash );
         }
 
-        
+
         // TAKE FIRST HIT AND RETURN
         //
         if (dhb == null)
@@ -2164,7 +2410,32 @@ public class Backup
 
 
             // READ DATA FROM CLIENT
-            byte[] data = context.apiEntry.getApi().read(remote_handle, offset, read_len);
+            byte[] data = null;
+
+            if (context.isCompressed() || context.isEncrypted())
+            {
+                CompEncDataResult res = context.apiEntry.getApi().readEncryptedCompressed(remote_handle, offset, read_len, context.isEncrypted(), context.isCompressed());
+
+                data = res.getData();
+
+                if (context.isEncrypted())
+                {
+                    // DECRYPT DATA TO LENGTH AFTER DECOMPRESSION BEFORE ENCRYPTION
+                    data = CryptTools.decryptXTEA8(data, res.getCompLen());
+                }
+                if (context.isCompressed())
+                {
+                    data = ZipUtilities.lzf_decompressblock(data);
+                }
+                if (data.length != read_len)
+                {
+                    Log.err("Cannot uncompress file data");
+                    // FALLBACK
+                    data = context.apiEntry.getApi().read(remote_handle, offset, read_len);
+                }
+            }
+            else
+                data = context.apiEntry.getApi().read(remote_handle, offset, read_len);
 
             if (data == null || data.length == 0)
             {
@@ -2298,6 +2569,22 @@ public class Backup
             actualContext.poolhandler.close_entitymanager();
         }
     }
+
+    private static DedupHashBlock reviveHashBlock(  GenericContext context, FileSystemElemNode node, RemoteFSElemWrapper remote_handle, String remote_hash, int streaminfo, long offset, int read_len )
+    {
+        try
+        {
+            DedupHashBlock block = check_for_existing_block(context, remote_hash, false);
+
+            Log.err("Todo: Rebuild lost hash");
+            return null;
+        }
+        catch (PathResolveException pathResolveException)
+        {
+        }
+        return null;
+    }
+
 
 
 }

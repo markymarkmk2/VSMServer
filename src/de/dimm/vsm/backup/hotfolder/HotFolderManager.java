@@ -7,6 +7,7 @@ package de.dimm.vsm.backup.hotfolder;
 import de.dimm.vsm.log.Log;
 import de.dimm.vsm.LogicControl;
 import de.dimm.vsm.Main;
+import de.dimm.vsm.Utilities.VariableResolver;
 import de.dimm.vsm.WorkerParent;
 import de.dimm.vsm.auth.User;
 import de.dimm.vsm.backup.AgentApiEntry;
@@ -16,6 +17,7 @@ import de.dimm.vsm.fsengine.StoragePoolHandler;
 import de.dimm.vsm.fsengine.StoragePoolHandlerFactory;
 import de.dimm.vsm.fsengine.StoragePoolNubHandler;
 import de.dimm.vsm.jobs.JobInterface;
+import de.dimm.vsm.mail.NotificationEntry;
 import de.dimm.vsm.net.RemoteFSElem;
 import de.dimm.vsm.records.HotFolder;
 import de.dimm.vsm.records.HotFolderError;
@@ -32,16 +34,43 @@ import java.util.List;
  *
  * @author Administrator
  */
-public class HotFolderManager extends WorkerParent
+public class HotFolderManager extends WorkerParent implements VariableResolver
 {  
     StoragePoolNubHandler nubHandler;
     ArchiveJobContext actualContext;
+    HotFolder actHotfolder;
+    private static final String HF_AGENT_OFFLINE = "HF_AGENT_OFFLINE";
+    private static final String HF_MM_ARCHIVE_ERROR = "HF_MM_ARCHIVE_ERROR";
+    private static final String HF_BACKUP_ERR = "HF_BACKUP_ERR";
+    private static final String HF_DELETE_ERR = "HF_DELETE_ERR";
+    private static final String HF_OKAY = "HF_OKAY";
+    private static final String HF_GROUP_ERROR = "HF_GROUP_ERROR";
 
     public HotFolderManager(StoragePoolNubHandler nubHandler)
     {
         super("HotFolderManager");
         this.nubHandler = nubHandler;
         actualContext = null;
+        actHotfolder = null;
+
+        Main.get_control().addNotification( new NotificationEntry(HF_AGENT_OFFLINE, 
+                "Agent $AGENT ist offline", "Der Agent $AGENT für Hotfolder $NAME kann nicht kontaktiert werden", NotificationEntry.Level.WARNING, true));
+
+        Main.get_control().addNotification( new NotificationEntry(HF_MM_ARCHIVE_ERROR,
+                "Sicherung über MediaManager schlug fehl", "Hotfolder $NAME kann Element $PATH nicht bei MM sichern", NotificationEntry.Level.ERROR, false));
+    
+        Main.get_control().addNotification( new NotificationEntry(HF_BACKUP_ERR,
+                "Fehler beim Sichern von Hotfolder", "Element $PATH bei Agent $AGENT im Hotfolder $NAME kann nicht gesichert werden", NotificationEntry.Level.ERROR, false));
+
+        Main.get_control().addNotification( new NotificationEntry(HF_DELETE_ERR,
+                "Fehler beim Löschen von Hotfolder", "Element $PATH bei Agent $AGENT im Hotfolder $NAME kann nicht gelöscht werden", NotificationEntry.Level.ERROR, false));
+
+        Main.get_control().addNotification( new NotificationEntry(HF_OKAY,
+                "Hotfolderauftrag $PATH beendet", "Element $PATH bei Agent $AGENT im Hotfolder $NAME wurde erfolgreich gesichert", NotificationEntry.Level.INFO, false));
+
+        Main.get_control().addNotification( new NotificationEntry(HF_GROUP_ERROR,
+                "Alle Fehler bei Hotfoldersicherung", "HF_AGENT_OFFLINE,HF_MM_ARCHIVE_ERROR,HF_BACKUP_ERR,HF_DELETE_ERR,BA_GROUP_ERROR", NotificationEntry.Level.GROUP, false));
+
     }
 
     public boolean isHotFolderBusy( HotFolder hf )
@@ -54,6 +83,8 @@ public class HotFolderManager extends WorkerParent
         }
         return false;
     }
+
+
    
 
     @Override
@@ -133,6 +164,8 @@ public class HotFolderManager extends WorkerParent
         for (int i = 0; i < res.size(); i++)
         {
             HotFolder hotFolder = res.get(i);
+            actHotfolder = hotFolder;
+            
             setStatusTxt(Main.Txt("Prüfe") + " " + hotFolder.getName());
 
             // SKIP HF IF WE ARE ALREADY BUSY
@@ -144,6 +177,7 @@ public class HotFolderManager extends WorkerParent
                 checkHotfolder(hotFolder);
             }
         }
+        actHotfolder = null;
         setStatusTxt("");
     }
 
@@ -153,11 +187,13 @@ public class HotFolderManager extends WorkerParent
         AgentApiEntry api = null;
         try
         {
-            api = LogicControl.getApiEntry(hotFolder.getIp(), hotFolder.getPort());
-            if (!api.check_online())
+            api = LogicControl.getApiEntry(hotFolder.getIp(), hotFolder.getPort(), /*withMsg*/ false);
+            if (!api.isOnline())
             {
+                Main.get_control().getNotificationServer().fire(HF_AGENT_OFFLINE, hotFolder.getIp(), this);
                 return pathList;
             }
+            Main.get_control().getNotificationServer().release(HF_AGENT_OFFLINE);
         }
         catch (Exception unknownHostException)
         {
@@ -229,6 +265,7 @@ public class HotFolderManager extends WorkerParent
             catch (Throwable e)
             {
                 Log.err("Hotfolder kann nicht abgearbeitet werden", e );
+                Main.get_control().getNotificationServer().fire(HF_BACKUP_ERR, "Hotfolder kann nicht abgearbeitet werden: " +  e.getMessage(), this);
                 addHFError( hotFolder, elem, e.getMessage());
             }
         }
@@ -271,15 +308,6 @@ public class HotFolderManager extends WorkerParent
 
     private ArchiveJobContext handleHotfolder( AgentApiEntry api, HotFolder hotFolder, RemoteFSElem elem ) throws Exception, Throwable
     {
-        if (hotFolder.isMmArchive())
-        {
-            setStatusTxt(Main.Txt("Archiviere mit MM") + ": " + elem.getName());
-            if (!handleMMArchiv( hotFolder, elem))
-            {
-                addHFError( hotFolder, elem, getStatusTxt());
-                return null;
-            }
-        }
 
         setStatusTxt(Main.Txt("Archiviere mit VSM") + ": " + elem.getName());
 
@@ -290,82 +318,105 @@ public class HotFolderManager extends WorkerParent
         StoragePoolHandler sp_handler = StoragePoolHandlerFactory.createStoragePoolHandler( nubHandler, pool, user, /*rdonly*/false);
         if (pool.getStorageNodes(sp_handler.getEm()).isEmpty())
             throw new Exception("No Storage for pool defined");
-       
-
-        sp_handler.realizeInFs();
-
-        sp_handler.check_open_transaction();
-
-        // HOTFOLDER CONTEXT RESOLVES THE FILESYSTEM WE ARE USING
-        actualContext = new ArchiveJobContext( hotFolder, elem, api, sp_handler);
-        actualContext.setAbortOnError(true);
-
-        //CREATE ARCHIVEJOB ENTRY
-        actualContext.createJob();
-        if (actualContext.getIndexer() != null && !actualContext.getIndexer().isOpen())
-            actualContext.getIndexer().open();
-
-        
-        
-        actualContext.setStatus(Main.Txt("HotFolder ist aktiv mit") + " " + elem.getName());
-
-        long startSize = actualContext.getStat().getTotalSize();
 
         try
         {
-            Backup.backupRemoteFSElem(actualContext, elem, actualContext.getArchiveJob().getDirectory(), /*recursive*/ true, /*onlyNewer*/ false);
-        }
-        catch (Throwable throwable)
-        {
-             Log.err("Fehler beim Sichern des Hotfolderelements " + elem.getName(), throwable );
-             actualContext.setStatus("Fehler beim Sichern des Hotfolderelements " + elem.getName() + ": " + throwable.getMessage() );
-             actualContext.setResult(false);
-        }
+            sp_handler.realizeInFs();
 
-        actualContext.getArchiveJob().setEndTime( new Date() );
-        actualContext.getArchiveJob().setTotalSize( actualContext.getStat().getTotalSize() - startSize);
+            sp_handler.check_open_transaction();
 
-        // SUCCEEDED?
-        if (actualContext.getResult() && actualContext.isErrorFree())
-        {
-            actualContext.getArchiveJob().setOk(true);
+            // HOTFOLDER CONTEXT RESOLVES THE FILESYSTEM WE ARE USING
+            actualContext = new ArchiveJobContext( hotFolder, elem, api, sp_handler);
+            actualContext.setAbortOnError(true);
+
+            // PRIOR TO VSM ARCHIVE TO MM?
+            if (hotFolder.isMmArchive())
+            {
+                setStatusTxt(Main.Txt("Archiviere mit MM") + ": " + elem.getName());
+                if (!handleMMArchiv( hotFolder, elem))
+                {
+                    Main.get_control().getNotificationServer().fire(HF_MM_ARCHIVE_ERROR, getStatusTxt(), this );
+                    addHFError( hotFolder, elem, getStatusTxt());
+                    return actualContext;
+                }
+            }
+
+            //CREATE ARCHIVEJOB ENTRY
+            actualContext.createJob();
+            if (actualContext.getIndexer() != null && !actualContext.getIndexer().isOpen())
+                actualContext.getIndexer().open();
+
+
+            actualContext.setStatus(Main.Txt("HotFolder ist aktiv mit") + " " + elem.getName());
+
+            long startSize = actualContext.getStat().getTotalSize();
+
             try
             {
-                setStatusTxt(Main.Txt("HotFolder wird bereinigt"));
-                actualContext.setStatus(Main.Txt("HotFolder wird bereinigt") + " " + elem.getName());
-                api.getApi().deleteDir(elem, /*recursive*/ true);
-                actualContext.setStatus("");
-                setStatusTxt("");
-
+                Backup.backupRemoteFSElem(actualContext, elem, actualContext.getArchiveJob().getDirectory(), /*recursive*/ true, /*onlyNewer*/ false);
             }
-            catch (Exception exception)
+            catch (Throwable throwable)
             {
-                 Log.err("Hotfolder kann nicht gelöscht werden", exception );
-                 addHFError( hotFolder, elem, actualContext.getStatus());
+                 Log.err("Fehler beim Sichern des Hotfolderelements " + elem.getName(), throwable );
+                 actualContext.setStatus("Fehler beim Sichern des Hotfolderelements " + elem.getName() + ": " + throwable.getMessage() );
+                 Main.get_control().getNotificationServer().fire(HF_BACKUP_ERR, actualContext.getStatus(), this );
+
+                 actualContext.setResult(false);
             }
+
+            actualContext.getArchiveJob().setEndTime( new Date() );
+            actualContext.getArchiveJob().setTotalSize( actualContext.getStat().getTotalSize() - startSize);
+
+            // SUCCEEDED?
+            if (actualContext.getResult() && actualContext.isErrorFree())
+            {
+                actualContext.getArchiveJob().setOk(true);
+                try
+                {
+                    setStatusTxt(Main.Txt("HotFolder wird bereinigt"));
+                    actualContext.setStatus(Main.Txt("HotFolder wird bereinigt") + " " + elem.getName());
+                    api.getApi().deleteDir(elem, /*recursive*/ true);
+                    actualContext.setStatus("");
+                    setStatusTxt("");
+
+                }
+                catch (Exception exception)
+                {
+                     Log.err("Hotfolder kann nicht gelöscht werden", exception );
+                     addHFError( hotFolder, elem, actualContext.getStatus());
+
+                     Main.get_control().getNotificationServer().fire(HF_DELETE_ERR, exception.getMessage(), this );
+                }
+            }
+            else
+            {
+                addHFError( hotFolder, elem, actualContext.getStatus());
+            }
+
+
+            // SET JOB RESULT
+            actualContext.updateArchiveJob();
+
+            // PUSH JOB TO INDEX
+            if (actualContext.getIndexer() != null)
+            {
+                actualContext.getIndexer().addToIndexAsync( actualContext.getArchiveJob() );
+                actualContext.getIndexer().flushAsync();
+            }
+
+            String summary = actualContext.getStat().buildSummary(  );
+            Main.get_control().getNotificationServer().fire(HF_OKAY, "Zusammenfassung:\n\n" + summary, this );
         }
-        else
+        finally
         {
-            addHFError( hotFolder, elem, actualContext.getStatus());
+            sp_handler.commit_transaction();
+            sp_handler.close_transaction();
+            sp_handler.close_entitymanager();
         }
-
-
-        // SET JOB RESULT
-        actualContext.updateArchiveJob();
-
-        // PUSH JOB TO INDEX
-        if (actualContext.getIndexer() != null)
-        {
-            actualContext.getIndexer().addToIndexAsync( actualContext.getArchiveJob() );
-            actualContext.getIndexer().flushAsync();
-        }
-
-        sp_handler.commit_transaction();
-        sp_handler.close_transaction();
-        sp_handler.close_entitymanager();
-        
         return actualContext;
     }
+
+
 
     public static void addHFError( HotFolder hotFolder, RemoteFSElem elem, String text )
     {
@@ -409,4 +460,45 @@ public class HotFolderManager extends WorkerParent
 
         return false;
     }
+
+    @Override
+    public String resolveVariableText( String s )
+    {
+        if (s.indexOf("$NAME") >= 0)
+        {
+            String f = "";
+            if (actualContext != null)
+                f = actualContext.getHotfolder().getName();
+
+            s = s.replace("$NAME", f );
+        }
+        if (s.indexOf("$PATH") >= 0)
+        {
+            String f = "";
+            if (actualContext != null)
+                f = actualContext.relPath;
+
+            s = s.replace("$PATH", f );
+        }
+        if (s.indexOf("$POOL") >= 0)
+        {
+            String f = "";
+            if (actualContext != null)
+                f = actualContext.getPoolhandler().getPool().getName();
+
+            s = s.replace("$POOL", f );
+        }
+        if (s.indexOf("$AGENT") >= 0)
+        {
+            String f = "";
+            if (actualContext != null)
+                f = actualContext.getHotfolder().getIp();
+            else if(actHotfolder != null)
+                f = actHotfolder.getIp();
+
+            s = s.replace("$AGENT", f );
+        }
+        return s;
+    }
+
 }

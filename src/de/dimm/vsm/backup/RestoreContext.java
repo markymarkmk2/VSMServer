@@ -10,6 +10,7 @@ import de.dimm.vsm.fsengine.StoragePoolHandler;
 import de.dimm.vsm.fsengine.StoragePoolHandlerFactory;
 import de.dimm.vsm.net.RemoteFSElem;
 import de.dimm.vsm.net.StoragePoolQry;
+import de.dimm.vsm.net.interfaces.GuiServerApi;
 import java.io.IOException;
 import java.util.Properties;
 
@@ -20,10 +21,6 @@ import java.util.Properties;
 public class RestoreContext extends GenericContext
 {
 
-    public static final int RF_RECURSIVE = 0x0001;
-    public static final int RF_FULLPATH = 0x0002;
-    public static final int RF_SKIPHOTFOLDER_TIMSTAMPDIR = 0x0004;
-    public static final int RF_INCREMENTAL = 0x0008;
 
     StoragePoolQry qry;
     RemoteFSElem target;
@@ -58,16 +55,16 @@ public class RestoreContext extends GenericContext
 
     boolean isRecursive()
     {
-        return (flags & RF_RECURSIVE) != 0;
+        return (flags & GuiServerApi.RF_RECURSIVE) != 0;
     }
 
     boolean useFullPath()
     {
-        return (flags & RF_FULLPATH) != 0;
+        return (flags & GuiServerApi.RF_FULLPATH) != 0;
     }
     boolean skipHotfolderTimestampDir()
     {
-        return (flags & RF_SKIPHOTFOLDER_TIMSTAMPDIR) != 0;
+        return (flags & GuiServerApi.RF_SKIPHOTFOLDER_TIMSTAMPDIR) != 0;
     }
 
     public Properties getAgentProperties()
@@ -90,7 +87,7 @@ public class RestoreContext extends GenericContext
 
     boolean isInkrementalRestore()
     {
-        return (flags & RF_INCREMENTAL) != 0;
+        return (flags & GuiServerApi.RF_INCREMENTAL) != 0;
     }
 
     boolean isWinAgent()
@@ -108,6 +105,18 @@ public class RestoreContext extends GenericContext
             poolhandler.close_entitymanager();
             poolhandler = null;
         }
+    }
+
+    @Override
+    public boolean isEncrypted()
+    {
+        return (flags & GuiServerApi.RF_ENCRYPTION) != 0;
+    }
+
+    @Override
+    public boolean isCompressed()
+    {
+        return (flags & GuiServerApi.RF_COMPRESSION) != 0;
     }
 
     

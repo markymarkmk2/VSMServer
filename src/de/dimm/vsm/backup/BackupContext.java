@@ -5,6 +5,7 @@
 
 package de.dimm.vsm.backup;
 
+import de.dimm.vsm.Utilities.VariableResolver;
 import de.dimm.vsm.fsengine.StoragePoolHandler;
 import de.dimm.vsm.net.RemoteFSElem;
 import de.dimm.vsm.records.ClientInfo;
@@ -16,7 +17,7 @@ import java.util.List;
  *
  * @author Administrator
  */
-public class BackupContext extends GenericContext
+public class BackupContext extends GenericContext implements VariableResolver
 {
     fr.cryptohash.Digest digest;
 
@@ -63,6 +64,62 @@ public class BackupContext extends GenericContext
     {
         return clientVolume;
     }
-   
+
+ @Override
+    public String resolveVariableText( String s )
+    {
+        if (s.indexOf("$NAME") >= 0)
+        {
+            String f = "";
+            if (actClientInfo != null)
+                f = actClientInfo.getSched().getName();
+
+            s = s.replace("$NAME", f );
+        }
+
+        if (s.indexOf("$POOL") >= 0)
+        {
+            String f = "";
+            if (actClientInfo != null)
+                f = actClientInfo.getSched().getPool().getName();
+
+            s = s.replace("$POOL", f );
+        }
+        if (s.indexOf("$VOLUME") >= 0)
+        {
+            String f = "";
+            if (clientVolume != null)
+                f = clientVolume.getVolumePath().getPath();
+
+            s = s.replace("$VOLUME", f );
+        }
+        if (s.indexOf("$AGENT") >= 0)
+        {
+            String f = "";
+            if (actClientInfo != null)
+                f = actClientInfo.getIp();
+
+            s = s.replace("$AGENT", f );
+        }
+        return s;
+    }
+
+    @Override
+    public boolean isCompressed()
+    {
+        if (actClientInfo != null)
+            return actClientInfo.getCompression();
+
+        return false;
+    }
+
+    @Override
+    public boolean isEncrypted()
+    {
+        if (actClientInfo != null)
+            return actClientInfo.isEncryption();
+
+        return false;
+    }
 
 }
