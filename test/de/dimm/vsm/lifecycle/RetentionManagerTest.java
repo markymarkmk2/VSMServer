@@ -7,6 +7,7 @@ package de.dimm.vsm.lifecycle;
 
 
 
+import de.dimm.vsm.net.interfaces.GuiServerApi;
 import de.dimm.vsm.LogicControl;
 import de.dimm.vsm.auth.User;
 import de.dimm.vsm.net.interfaces.FileHandle;
@@ -24,7 +25,6 @@ import de.dimm.vsm.backup.AgentApiEntry;
 import de.dimm.vsm.backup.Backup;
 import de.dimm.vsm.backup.GenericContext;
 import de.dimm.vsm.backup.Restore;
-import de.dimm.vsm.backup.RestoreContext;
 import de.dimm.vsm.backup.RestoreTest;
 import de.dimm.vsm.fsengine.FS_FileHandle;
 import de.dimm.vsm.fsengine.StoragePoolHandler;
@@ -292,7 +292,7 @@ public class RetentionManagerTest {
         Snapshot s1 = null;
         Snapshot s2 = null;
 
-        int restoreFlags = RestoreContext.RF_RECURSIVE;
+        int restoreFlags = GuiServerApi.RF_RECURSIVE;
         
         File restoreTestfile = new File(restore_path_data, "testfile.dat");
 
