@@ -38,6 +38,7 @@ public abstract class WorkerParent implements TaskInterface
     public static final String ST_SHUTDOWN = "Shutdown";
 
     private TASKSTATE taskState;
+    Thread workerThr;
     
     /** Creates a new instance of WorkerParent */
     public WorkerParent(String _name)
@@ -80,7 +81,7 @@ public abstract class WorkerParent implements TaskInterface
     public boolean start_run_loop()
     {
         final WorkerParent me = this;
-        Thread thr = new Thread( new Runnable() {
+        workerThr = new Thread( new Runnable() {
 
             @Override
             public void run()
@@ -89,7 +90,7 @@ public abstract class WorkerParent implements TaskInterface
             }
         }, getName());
 
-        thr.start();
+        workerThr.start();
         return true;
     }
 
@@ -114,7 +115,18 @@ public abstract class WorkerParent implements TaskInterface
     }
     public boolean isFinished()
     {
+
         return finished;
+    }
+    public void close()
+    {
+        try
+        {
+            workerThr.join(5000);
+        }
+        catch (InterruptedException interruptedException)
+        {
+        }
     }
     public boolean isStarted()
     {
