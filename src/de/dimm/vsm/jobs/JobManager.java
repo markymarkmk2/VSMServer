@@ -11,6 +11,8 @@ import de.dimm.vsm.auth.User;
 import de.dimm.vsm.backup.Backup.BackupJobInterface;
 import de.dimm.vsm.backup.hotfolder.MMImportManager.MMImportJobInterface;
 import de.dimm.vsm.jobs.JobInterface.JOBSTATE;
+import de.dimm.vsm.lifecycle.NodeMigrationManager.MigrationJob;
+import de.dimm.vsm.records.AbstractStorageNode;
 import de.dimm.vsm.records.HotFolder;
 import de.dimm.vsm.records.Schedule;
 import java.awt.event.ActionEvent;
@@ -135,6 +137,12 @@ class TestJob implements JobInterface, ActionListener
         return "";
     }
 
+    @Override
+    public void close()
+    {
+        
+    }
+
    
 
 
@@ -149,6 +157,7 @@ public class JobManager extends WorkerParent
     final List<JobEntry> list;
     long actIdx = 0;
     private static final boolean test = false;
+    
 
     public JobManager()
     {
@@ -185,7 +194,8 @@ public class JobManager extends WorkerParent
             list.add(entry);
             if (job.getJobState() != JOBSTATE.MANUAL_START)
             {
-                Thread thr = new Thread(new Runnable() {
+                Thread workerThr = new Thread(new Runnable()
+                {
 
                     @Override
                     public void run()
@@ -193,15 +203,17 @@ public class JobManager extends WorkerParent
                         job.run();
                         if (job.getJobState() == JOBSTATE.FINISHED_OK_REMOVE)
                         {
+                            entry.close();
                             list.remove(entry);
                         }
                     }
                 }, "JobEntry");
-                entry.setThread(thr);
-                thr.start();
+                entry.setThread(workerThr);
+                workerThr.start();
             }
         }
     }
+    
     public boolean removeJobEntry( JobInterface job )
     {
         synchronized( list)
@@ -211,6 +223,7 @@ public class JobManager extends WorkerParent
                 JobEntry jobEntry = list.get(i);
                 if (jobEntry.job == job)
                 {
+                    jobEntry.close();
                     return list.remove(jobEntry);
                 }
             }
@@ -226,6 +239,7 @@ public class JobManager extends WorkerParent
             JobEntry entry = list.get(idx);
             if (entry.getJob().getJobState() == JobInterface.JOBSTATE.FINISHED_ERROR || entry.getJob().getJobState() == JobInterface.JOBSTATE.FINISHED_OK)
             {
+                entry.close();
                 list.remove(idx);
             }
         }
@@ -340,6 +354,43 @@ public class JobManager extends WorkerParent
                         jobEntry.getJobStatus() != JOBSTATE.FINISHED_ERROR)
                     {
                         return true;
+                    }
+                }
+            }
+        }
+        return false;
+    }
+
+    public boolean isMigrationJobBusy( AbstractStorageNode node )
+    {
+        JobEntry[] jobs = getJobArray(null);
+        for (int i = 0; i < jobs.length; i++)
+        {
+            JobEntry jobEntry = jobs[i];
+            if (jobEntry.getJob() instanceof MigrationJob)
+            {
+                MigrationJob mi = (MigrationJob) jobEntry.getJob();
+
+                if (mi.getSrc() != null && mi.getSrc().getIdx() == node.getIdx())
+                {
+                    if (jobEntry.getJobStatus() != JOBSTATE.FINISHED_OK &&
+                        jobEntry.getJobStatus() != JOBSTATE.FINISHED_ERROR)
+                    {
+                        return true;
+                    }
+                }
+                if (mi.getTargets() != null)
+                {
+                    for (int j = 0; j < mi.getTargets().size(); j++)
+                    {
+                        if (mi.getTargets().get(j).getIdx() == node.getIdx())
+                        {
+                            if (jobEntry.getJobStatus() != JOBSTATE.FINISHED_OK &&
+                                jobEntry.getJobStatus() != JOBSTATE.FINISHED_ERROR)
+                            {
+                                return true;
+                            }
+                        }
                     }
                 }
             }
