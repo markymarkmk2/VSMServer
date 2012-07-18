@@ -37,6 +37,7 @@ import java.util.List;
 public class NodeMigrationManager
 {
 
+
     JOBSTATE state;
     String status;
     int processPercent;
@@ -62,6 +63,8 @@ public class NodeMigrationManager
     long fileSpeed;
 
     String actStatus;
+    boolean doClone = false;
+
 
 
     public NodeMigrationManager( AbstractStorageNode src, AbstractStorageNode trg )
@@ -119,6 +122,14 @@ public class NodeMigrationManager
         JobInterface job = mgr.createJob(user);
         return job;
     }
+    public static JobInterface createSyncNodeJob( AbstractStorageNode t, AbstractStorageNode cloneNode, User user  )
+    {
+        NodeMigrationManager mgr = new NodeMigrationManager(t, cloneNode);
+        mgr.doClone = true;
+        JobInterface job = mgr.createJob(user);
+        return job;
+    }
+
 
 
     JobInterface createJob(User user)
@@ -127,7 +138,7 @@ public class NodeMigrationManager
         return new MigrationJob(user);
     }
 
-    class MigrationJob implements JobInterface
+    public class MigrationJob implements JobInterface
     {
         boolean finished = false;
         long lastCopiedSize = 0;
@@ -253,6 +264,21 @@ public class NodeMigrationManager
             return "";
         }
 
+        public AbstractStorageNode getSrc()
+        {
+            return src;
+        }
+        public List<AbstractStorageNode> getTargets()
+        {
+            return targets;
+        }
+        @Override
+        public void close()
+        {
+
+        }
+
+
 
     }
 
@@ -340,7 +366,7 @@ public class NodeMigrationManager
             throw new IllegalArgumentException(Main.Txt("Der_Quellnode_ist_leer" ) );
         }
 
-        String sizeStr = SizeStr.format(totalSize);
+        String sizeStr = SizeStr.format(usedSpace);
         status = Main.Txt("Kopiere") + " " + sizeStr + " " + Main.Txt("Daten_von") + " " + sourceNode.getName() + " -> " + targetNode.getName() + "...";
         state = JOBSTATE.RUNNING;
 
@@ -349,8 +375,11 @@ public class NodeMigrationManager
             // SET MODE TO EMPTYING TO PREVENT ARRIVAL OF NEW DATA
             GenericEntityManager em = Main.get_control().get_util_em(sourceNode.getPool());
             sourceNode = em.em_find(AbstractStorageNode.class, sourceNode.getIdx());
-            sourceNode.setNodeMode(AbstractStorageNode.NM_EMPTYING);
-            sourceNode = em.em_merge(sourceNode);
+            if (!doClone)
+            {
+                sourceNode.setNodeMode(AbstractStorageNode.NM_EMPTYING);
+                sourceNode = em.em_merge(sourceNode);
+            }
 
             // ALLOW PARENT TO REREAD, THIS SHOULDN BE NECESSARY, BUT CACHING DOESNT WORK REDUNDANT FREE ...
             if (sourceNode.getPool().getStorageNodes() instanceof LazyList)
@@ -359,10 +388,7 @@ public class NodeMigrationManager
                 ll.unRealize();
             }
 
-
             
-            //JDBCEntityManager em = new JDBCEntityManager(conn);
-
             boolean copyRet = copyCompleteStorageNodeData(sourceNode, targetNode);
             if (abort)
             {
@@ -373,22 +399,36 @@ public class NodeMigrationManager
             {
                 throw new Exception("Fehler_beim_Kopieren_der_Daten");
             }
-           
-            status = Main.Txt("Abgleich_der_Datenbank_von") + " " + sourceNode.getName() + " -> " + targetNode.getName() + "...";
-            state = JOBSTATE.RUNNING;
 
-            if (updateDatabase( sourceNode, targetNode ))
+            if (!doClone)
             {
-                sourceNode = em.em_find(AbstractStorageNode.class, sourceNode.getIdx());
-                sourceNode.setNodeMode(AbstractStorageNode.NM_EMPTIED);
-                sourceNode = em.em_merge(sourceNode);
-                
-                
-                status = Main.Txt("Migration_der_Daten_von") + " " + sourceNode.getName() + " -> " + targetNode.getName() + " " + Main.Txt("ist_beendet");
+                status = Main.Txt("Abgleich_der_Datenbank_von") + " " + sourceNode.getName() + " -> " + targetNode.getName() + "...";
+                state = JOBSTATE.RUNNING;
+
+                if (updateDatabase( sourceNode, targetNode ))
+                {
+                    sourceNode = em.em_find(AbstractStorageNode.class, sourceNode.getIdx());
+                    sourceNode.setNodeMode(AbstractStorageNode.NM_EMPTIED);
+                    sourceNode = em.em_merge(sourceNode);
+
+                    status = Main.Txt("Migration_der_Daten_von") + " " + sourceNode.getName() + " -> " + targetNode.getName() + " " + Main.Txt("ist_beendet");
+                    state = JOBSTATE.FINISHED_OK;
+                    processPercent = 100;
+                    
+                }
+                else
+                {
+                    status = Main.Txt("Abgleich der Datenbank schlug fehl") + " " + sourceNode.getName() + " -> " + targetNode.getName();
+                    state = JOBSTATE.FINISHED_ERROR;
+                }
+            }
+            else
+            {
+                status = Main.Txt("Kopieren_der_Daten_von") + " " + sourceNode.getName() + " -> " + targetNode.getName() + " " + Main.Txt("ist_beendet");
                 state = JOBSTATE.FINISHED_OK;
                 processPercent = 100;
-                return;
             }
+            return;
         }
         catch (SQLException e)
         {
@@ -579,6 +619,11 @@ public class NodeMigrationManager
         else
         {
             File targetFile = new File(targetDir, file.getName());
+            if (doClone && targetFile.exists() && file.length() == targetFile.length())
+            {
+                actStatus = Main.Txt("Überspringe Eintrag ") + copiedEntries  +  " / " + totalEntries + "...";
+                return true;
+            }
             actStatus = Main.Txt("Kopiere Eintrag ") + copiedEntries  +  " / " + totalEntries + "...";
             // DIFFERENT EXISTS ALREADY
             if (targetFile.exists() && file.length() != targetFile.length())
