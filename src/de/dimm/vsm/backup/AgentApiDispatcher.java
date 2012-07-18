@@ -51,7 +51,7 @@ public class AgentApiDispatcher
     private static AgentApiEntry generate_api( InetAddress addr, int port, boolean ssl, String path, String keystore, String keypwd, boolean tcp )
     {
         AgentApiEntry agentApiEntry = null;
-        System.setProperty("javax.net.ssl.trustStore", keystore);
+        //System.setProperty("javax.net.ssl.trustStore", keystore);
 
         try
         {
@@ -81,7 +81,7 @@ public class AgentApiDispatcher
         return agentApiEntry;
     }
 
-    public AgentApiEntry get_api( InetAddress addr, int port )
+    public AgentApiEntry get_api( InetAddress addr, int port, boolean withMsg )
     {
         if (API_CONNECT_CACHE)
         {
@@ -90,14 +90,14 @@ public class AgentApiDispatcher
                 AgentApiEntry agentApiEntry = apiList.get(i);
                 if (agentApiEntry.getAddr().equals(addr) && agentApiEntry.getPort() == port)
                 {
-                    agentApiEntry.check_online();
+                    agentApiEntry.check_online(withMsg);
                     return agentApiEntry;
                 }
             }
         }
         AgentApiEntry agentApiEntry = generate_api(addr, port, ssl, keystore, keypwd, tcp);
 
-        agentApiEntry.check_online();
+        agentApiEntry.check_online(withMsg);
         
         if (API_CONNECT_CACHE)
         {

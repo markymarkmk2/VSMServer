@@ -11,6 +11,7 @@ import de.dimm.vsm.net.interfaces.AgentApi;
 import java.io.IOException;
 import java.net.ConnectException;
 import java.net.InetAddress;
+import java.net.SocketTimeoutException;
 
 /**
  *
@@ -62,7 +63,7 @@ public class AgentApiEntry
         factory.close();
     }
 
-    public boolean check_online()
+    public boolean check_online(boolean mithMsg)
     {
         try
         {
@@ -83,10 +84,15 @@ public class AgentApiEntry
                 }
                 catch (Exception e2)
                 {
-                    if (e2 instanceof ConnectException)
-                        Log.err("Adresse kann nicht kontaktiert werden", ":%s:%d", getAddr().toString(), getPort());
-                    else
-                        Log.err("Adresse kann nicht kontaktiert werden", getAddr().toString() + ":" + getPort(), e2);
+                    if (mithMsg)
+                    {
+                        if (e2 instanceof ConnectException)
+                            Log.warn("Adresse kann nicht kontaktiert werden", "%s:%d", getAddr().toString(), getPort());
+                        else if (e2 instanceof SocketTimeoutException)
+                            Log.warn("Adresse kann nicht kontaktiert werden", "%s:%d", getAddr().toString(), getPort());
+                        else
+                            Log.warn("Adresse kann nicht kontaktiert werden", getAddr().toString() + ":" + getPort(), e2);
+                    }
                 }
             }
         }
