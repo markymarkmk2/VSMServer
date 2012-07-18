@@ -25,7 +25,7 @@ public class SearchContext
 
     StoragePoolHandler sp_handler;
     ArrayList<SearchEntry> slist;
-    Thread searchThread;
+//    Thread searchThread;
     List<FileSystemElemNode> resultList;
     List<ArchiveJob> jobResultList;
     Date lastUsage;
@@ -48,15 +48,15 @@ public class SearchContext
         SearchPathResolver resolver = new SearchPathResolver(this, handler);
         handler.setPathResolver(resolver);
         
-        searchThread = new Thread(new Runnable()
-        {
-
-            @Override
-            public void run()
-            {
-                runSearch();
-            }
-        }, "SearchThread");
+//        searchThread = new Thread(new Runnable()
+//        {
+//
+//            @Override
+//            public void run()
+//            {
+//                runSearch();
+//            }
+//        }, "SearchThread");
 
         lastUsage = new Date();
     }
@@ -118,7 +118,8 @@ public class SearchContext
 
     boolean isBusy()
     {
-        return searchThread.isAlive();
+        return false;
+        //return searchThread.isAlive();
     }
     public List<ArchiveJob> getJobResultList()
     {
@@ -157,16 +158,16 @@ public class SearchContext
 
     void close()
     {
-        if (isBusy())
-        {
-            try
-            {
-                searchThread.interrupt();
-            }
-            catch (Exception e)
-            {
-            }
-        }
+//        if (isBusy())
+//        {
+//            try
+//            {
+//                searchThread.interrupt();
+//            }
+//            catch (Exception e)
+//            {
+//            }
+//        }
         if (resultList != null)
         {
             resultList.clear();
