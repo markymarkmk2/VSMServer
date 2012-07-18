@@ -20,6 +20,7 @@ import java.io.IOException;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
+import java.sql.SQLNonTransientConnectionException;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
@@ -81,6 +82,11 @@ public class StoragePoolNubHandler
             poolMapper.em.close_entitymanager();
             poolMapper.poolEmf.close();
             poolMapper.connectionPoolManager.dispose();
+
+            // REMOVE NUB
+            LogicControl.get_base_util_em().check_open_transaction();
+            LogicControl.get_base_util_em().em_remove(poolMapper.nub);
+            LogicControl.get_base_util_em().commit_transaction();
         }
         catch (Exception e)
         {
@@ -107,6 +113,15 @@ public class StoragePoolNubHandler
                 {
                     DirectoryEntry de = new DirectoryEntry(dbDir);
                     de.delete_recursive();
+                }
+            }
+            path = getDbRootPath( poolMapper.nub);
+            if (path != null)
+            {
+                File dbDir = new File(path);
+                if (dbDir.exists())
+                {
+                    dbDir.delete();
                 }
             }
         }
@@ -148,6 +163,16 @@ public class StoragePoolNubHandler
             s += "/";
 
         String dbPath = s + "db_" + nub.getIdx() + RELPARAMPATH;
+        return dbPath;
+    }
+    protected String getDbRootPath( StoragePoolNub nub )
+    {
+        String s = Main.get_prop(GeneralPreferences.DB_PATH, Main.DATABASEPATH );
+        s = s.replace('\\', '/');
+        if (!s.endsWith("/"))
+            s += "/";
+
+        String dbPath = s + "db_" + nub.getIdx();
         return dbPath;
     }
     protected String getIndexPath( StoragePoolNub nub )
@@ -429,6 +454,9 @@ public class StoragePoolNubHandler
             // SET IDX FOR OBJECT CACHE
             em.setPoolIdx(pool.getIdx());
 
+            // NOW RELOAD FROM CORRECT OBJECT CACHE
+            pool = em.em_find(StoragePool.class, pool.getIdx());
+
             // CREATE LUCENE INDEX
 
             String idxPath = getIndexPath(storagePoolNub);
@@ -510,6 +538,11 @@ public class StoragePoolNubHandler
             // CREATE ROOT DIR
             FileSystemElemNode root_node = FileSystemElemNode.createDirNode();
             root_node.getAttributes().setName("/");
+            
+            long now = System.currentTimeMillis();
+            root_node.getAttributes().setCreationDateMs( now );
+            root_node.getAttributes().setModificationDateMs( now );
+            root_node.getAttributes().setAccessDateMs( now );
 
             gem.check_open_transaction();
 
@@ -579,8 +612,15 @@ public class StoragePoolNubHandler
             cs = cs.substring(0, idx);
         }
         cs += ";shutdown=true";
-        
-        DriverManager.getConnection(cs);
+
+        try
+        {
+            DriverManager.getConnection(cs);
+        }
+        catch (SQLNonTransientConnectionException exc )
+        {
+            // THIS IS A REGULAR EXCEPTION WHILE CLOSING DERBY
+        }
     }
 
     public void shutdown()
