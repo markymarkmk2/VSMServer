@@ -63,6 +63,7 @@ public class GeneralPreferences extends Preferences
     public static final String HTTPD_PORT = "HttpdPort";
     public static final String LANGUAGE = "Language";
     public static final String PERFORMANCE_DIAGNOSTIC = "PerformaceDiagnostic";
+    public static final String HASH_URL_FORMAT_FIX = "HashUrlFormatFix";
 
 
 
@@ -75,6 +76,12 @@ public class GeneralPreferences extends Preferences
     public static final String SYSADMIN_PWD = "SysAdminPwd";
 
     public static final String IGNORE_ACL = "IgnoreACL";
+    public static final String SMTP_SERVER = "SMTPServer";
+    public static final String SMTP_PORT = "SMTPPort";
+    public static final String SMTP_USER = "SMTPUser";
+    public static final String SMTP_USER_PWD = "SMTPUserPwd";
+    public static final String SMTP_FROM = "SMTPFrom";
+    public static final String SMTP_TLS = "SMTPTLS";
 
 
 
@@ -133,6 +140,7 @@ public class GeneralPreferences extends Preferences
         prop_names.add( DB_PATH );
         prop_names.add( IDX_PATH );
         prop_names.add( IGNORE_ACL );
+        prop_names.add( HASH_URL_FORMAT_FIX );
 
 
 
@@ -164,6 +172,8 @@ public class GeneralPreferences extends Preferences
     protected boolean check_prop( String s )
     {
         if (s.startsWith("derby."))
+            return true;
+        if (s.startsWith("SMTP"))
             return true;
         return super.check_prop(s);
     }
