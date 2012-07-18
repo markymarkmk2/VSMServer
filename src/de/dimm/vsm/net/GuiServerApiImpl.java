@@ -13,7 +13,9 @@ import de.dimm.vsm.auth.User;
 import de.dimm.vsm.backup.AgentApiEntry;
 import de.dimm.vsm.backup.Backup;
 import de.dimm.vsm.backup.hotfolder.MMImportManager;
+import de.dimm.vsm.fsengine.CloneStorageNodeHandler;
 import de.dimm.vsm.fsengine.FSEIndexer;
+import de.dimm.vsm.fsengine.StorageNodeHandler;
 import de.dimm.vsm.fsengine.StoragePoolHandler;
 import de.dimm.vsm.fsengine.VSMFSInputStream;
 import de.dimm.vsm.jobs.JobEntry;
@@ -329,7 +331,7 @@ public class GuiServerApiImpl implements GuiServerApi
                 contextMgr.removePoolWrapper(storagePoolWrapper);
             }
         }
-        catch (UnknownHostException exc)
+        catch (Exception exc)
         {
             Log.err("UnMount wurde abgebrochen", exc);
         }
@@ -455,7 +457,7 @@ public class GuiServerApiImpl implements GuiServerApi
     }
 
     @Override
-    public Properties getAgentProperties( String ip, int port )
+    public Properties getAgentProperties( String ip, int port, boolean withMsg )
     {
         AgentApiEntry apiEntry = null;
         try
@@ -466,7 +468,8 @@ public class GuiServerApiImpl implements GuiServerApi
         }
         catch (Exception exc)
         {
-            Log.warn("AgentProperties lesen schog fehl", exc);
+            if (withMsg)
+                Log.warn("AgentProperties lesen schlug fehl", exc);
         }
         finally
         {
@@ -585,7 +588,7 @@ public class GuiServerApiImpl implements GuiServerApi
 
             return poolWrapper;
         }
-        catch (UnknownHostException exc)
+        catch (Exception exc)
         {
             Log.err("Mount wurde abgebrochen", exc);
         }
@@ -758,6 +761,29 @@ public class GuiServerApiImpl implements GuiServerApi
         FSEIndexer fse = LogicControl.getStorageNubHandler().getIndexer(pool);
         fse.updateReadIndex();
     }
+
+    @Override
+    public void syncNode( AbstractStorageNode t, AbstractStorageNode cloneNode, User user  ) throws SQLException, IOException
+    {
+        JobManager jm = control.getJobManager();
+        jm.addJobEntry( NodeMigrationManager.createSyncNodeJob(t, cloneNode, user));
+    }
+
+    @Override
+    public boolean isBusyNode( AbstractStorageNode node )
+    {
+        JobManager jm = control.getJobManager();
+        return jm.isMigrationJobBusy( node );
+    }
+
+    @Override
+    public boolean initNode( AbstractStorageNode node, User user )
+    {
+        return StorageNodeHandler.initNode(node);
+    }
+
+
+
 
 
 
