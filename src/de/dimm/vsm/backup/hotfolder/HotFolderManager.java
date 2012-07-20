@@ -53,22 +53,22 @@ public class HotFolderManager extends WorkerParent implements VariableResolver
         actualContext = null;
         actHotfolder = null;
 
-        Main.get_control().addNotification( new NotificationEntry(HF_AGENT_OFFLINE, 
+        Main.addNotification( new NotificationEntry(HF_AGENT_OFFLINE, 
                 "Agent $AGENT ist offline", "Der Agent $AGENT für Hotfolder $NAME kann nicht kontaktiert werden", NotificationEntry.Level.WARNING, true));
 
-        Main.get_control().addNotification( new NotificationEntry(HF_MM_ARCHIVE_ERROR,
+        Main.addNotification( new NotificationEntry(HF_MM_ARCHIVE_ERROR,
                 "Sicherung über MediaManager schlug fehl", "Hotfolder $NAME kann Element $PATH nicht bei MM sichern", NotificationEntry.Level.ERROR, false));
     
-        Main.get_control().addNotification( new NotificationEntry(HF_BACKUP_ERR,
+        Main.addNotification( new NotificationEntry(HF_BACKUP_ERR,
                 "Fehler beim Sichern von Hotfolder", "Element $PATH bei Agent $AGENT im Hotfolder $NAME kann nicht gesichert werden", NotificationEntry.Level.ERROR, false));
 
-        Main.get_control().addNotification( new NotificationEntry(HF_DELETE_ERR,
+        Main.addNotification( new NotificationEntry(HF_DELETE_ERR,
                 "Fehler beim Löschen von Hotfolder", "Element $PATH bei Agent $AGENT im Hotfolder $NAME kann nicht gelöscht werden", NotificationEntry.Level.ERROR, false));
 
-        Main.get_control().addNotification( new NotificationEntry(HF_OKAY,
+        Main.addNotification( new NotificationEntry(HF_OKAY,
                 "Hotfolderauftrag $PATH beendet", "Element $PATH bei Agent $AGENT im Hotfolder $NAME wurde erfolgreich gesichert", NotificationEntry.Level.INFO, false));
 
-        Main.get_control().addNotification( new NotificationEntry(HF_GROUP_ERROR,
+        Main.addNotification( new NotificationEntry(HF_GROUP_ERROR,
                 "Alle Fehler bei Hotfoldersicherung", "HF_AGENT_OFFLINE,HF_MM_ARCHIVE_ERROR,HF_BACKUP_ERR,HF_DELETE_ERR,BA_GROUP_ERROR", NotificationEntry.Level.GROUP, false));
 
     }
@@ -187,96 +187,102 @@ public class HotFolderManager extends WorkerParent implements VariableResolver
         AgentApiEntry api = null;
         try
         {
-            api = LogicControl.getApiEntry(hotFolder.getIp(), hotFolder.getPort(), /*withMsg*/ false);
-            if (!api.isOnline())
-            {
-                Main.get_control().getNotificationServer().fire(HF_AGENT_OFFLINE, hotFolder.getIp(), this);
-                return pathList;
-            }
-            Main.get_control().getNotificationServer().release(HF_AGENT_OFFLINE);
-        }
-        catch (Exception unknownHostException)
-        {
-            return pathList;
-        }
-
-        // OKAY; WE ARE CONNECTED, NOW CHECK
-        
-        int folderIdx = 0;
-        RemoteFSElem elem = null;
-        RemoteFSElem mountPath = hotFolder.getMountPath();
-        if (mountPath == null || mountPath.getPath() == null || mountPath.getPath().isEmpty())
-        {
-            Log.err("Ungültiger Pfad bei Hotfolder" , hotFolder.getName());
-            return pathList;
-        }
-        long getSetttleTime_s = hotFolder.getSettleTime();
-        String filter = hotFolder.getFilter();
-        boolean onlyFiles = hotFolder.onlyFiles();
-        boolean onlyDirs = hotFolder.onlyDirs();
-
-        try
-        {
-            elem = api.getApi().check_hotfolder(mountPath, getSetttleTime_s, filter, onlyFiles, onlyDirs, folderIdx);
-        }
-        catch (Exception e)
-        {
-            Log.err("Hotfolder kann nicht überwacht werden", e );
-        }
-        if (elem != null)
-        {
             try
             {
-                // IF NOT IN ERROR LIST
-                if (!checkHFError( hotFolder, elem ))
+                api = LogicControl.getApiEntry(hotFolder.getIp(), hotFolder.getPort(), /*withMsg*/ false);
+                if (!api.isOnline())
                 {
-                    ArchiveJobContext context = handleHotfolder( api, hotFolder, elem);
-                    if (context != null)
-                    {
-                        pathList.add(context.getBasePath());
-                    }
-                    actualContext = null;
+                    Main.fire(HF_AGENT_OFFLINE, hotFolder.getIp(), this);
+                    return pathList;
                 }
-                
+                Main.release(HF_AGENT_OFFLINE);
+            }
+            catch (Exception unknownHostException)
+            {
+                return pathList;
+            }
 
-                // WALK THROUGH ALL ENTRIES SEQUENTIALLY
-                if (!hotFolder.isAtomicEval())
+            // OKAY; WE ARE CONNECTED, NOW CHECK
+
+            int folderIdx = 0;
+            RemoteFSElem elem = null;
+            RemoteFSElem mountPath = hotFolder.getMountPath();
+            if (mountPath == null || mountPath.getPath() == null || mountPath.getPath().isEmpty())
+            {
+                Log.err("Ungültiger Pfad bei Hotfolder" , hotFolder.getName());
+                return pathList;
+            }
+            long getSetttleTime_s = hotFolder.getSettleTime();
+            String filter = hotFolder.getFilter();
+            boolean onlyFiles = hotFolder.onlyFiles();
+            boolean onlyDirs = hotFolder.onlyDirs();
+
+            try
+            {
+                elem = api.getApi().check_hotfolder(mountPath, getSetttleTime_s, filter, onlyFiles, onlyDirs, folderIdx);
+            }
+            catch (Exception e)
+            {
+                Log.err("Hotfolder kann nicht überwacht werden", e );
+            }
+            if (elem != null)
+            {
+                try
                 {
-                    while (elem != null)
+                    // IF NOT IN ERROR LIST
+                    if (!checkHFError( hotFolder, elem ))
                     {
-                        folderIdx++;
-                        elem = api.getApi().check_hotfolder(mountPath, getSetttleTime_s, filter, onlyFiles, onlyDirs, folderIdx);
-                        if (elem != null)
+                        ArchiveJobContext context = handleHotfolder( api, hotFolder, elem);
+                        if (context != null)
                         {
-                            // IF NOT IN ERROR LIST
-                            if (!checkHFError( hotFolder, elem ))
+                            pathList.add(context.getBasePath());
+                        }
+                        actualContext = null;
+                    }
+
+
+                    // WALK THROUGH ALL ENTRIES SEQUENTIALLY
+                    if (!hotFolder.isAtomicEval())
+                    {
+                        while (elem != null)
+                        {
+                            folderIdx++;
+                            elem = api.getApi().check_hotfolder(mountPath, getSetttleTime_s, filter, onlyFiles, onlyDirs, folderIdx);
+                            if (elem != null)
                             {
-                                ArchiveJobContext context = handleHotfolder( api, hotFolder, elem);
-                                if (context != null)
+                                // IF NOT IN ERROR LIST
+                                if (!checkHFError( hotFolder, elem ))
                                 {
-                                    pathList.add(context.getBasePath());
+                                    ArchiveJobContext context = handleHotfolder( api, hotFolder, elem);
+                                    if (context != null)
+                                    {
+                                        pathList.add(context.getBasePath());
+                                    }
+                                    actualContext = null;
                                 }
-                                actualContext = null;
                             }
                         }
                     }
                 }
-            }
-            catch (Throwable e)
-            {
-                Log.err("Hotfolder kann nicht abgearbeitet werden", e );
-                Main.get_control().getNotificationServer().fire(HF_BACKUP_ERR, "Hotfolder kann nicht abgearbeitet werden: " +  e.getMessage(), this);
-                addHFError( hotFolder, elem, e.getMessage());
+                catch (Throwable e)
+                {
+                    Log.err("Hotfolder kann nicht abgearbeitet werden", e );
+                    Main.fire(HF_BACKUP_ERR, "Hotfolder kann nicht abgearbeitet werden: " +  e.getMessage(), this);
+                    addHFError( hotFolder, elem, e.getMessage());
+                }
             }
         }
-        if (api != null)
+        finally
         {
-            try
+            if (api != null)
             {
-                api.getFactory().close();
-            }
-            catch (IOException iOException)
-            {
+                try
+                {
+                    api.getFactory().close();
+                }
+                catch (IOException iOException)
+                {
+                }
             }
         }
         return pathList;
@@ -335,7 +341,7 @@ public class HotFolderManager extends WorkerParent implements VariableResolver
                 setStatusTxt(Main.Txt("Archiviere mit MM") + ": " + elem.getName());
                 if (!handleMMArchiv( hotFolder, elem))
                 {
-                    Main.get_control().getNotificationServer().fire(HF_MM_ARCHIVE_ERROR, getStatusTxt(), this );
+                    Main.fire(HF_MM_ARCHIVE_ERROR, getStatusTxt(), this );
                     addHFError( hotFolder, elem, getStatusTxt());
                     return actualContext;
                 }
@@ -359,7 +365,7 @@ public class HotFolderManager extends WorkerParent implements VariableResolver
             {
                  Log.err("Fehler beim Sichern des Hotfolderelements " + elem.getName(), throwable );
                  actualContext.setStatus("Fehler beim Sichern des Hotfolderelements " + elem.getName() + ": " + throwable.getMessage() );
-                 Main.get_control().getNotificationServer().fire(HF_BACKUP_ERR, actualContext.getStatus(), this );
+                 Main.fire(HF_BACKUP_ERR, actualContext.getStatus(), this );
 
                  actualContext.setResult(false);
             }
@@ -385,7 +391,7 @@ public class HotFolderManager extends WorkerParent implements VariableResolver
                      Log.err("Hotfolder kann nicht gelöscht werden", exception );
                      addHFError( hotFolder, elem, actualContext.getStatus());
 
-                     Main.get_control().getNotificationServer().fire(HF_DELETE_ERR, exception.getMessage(), this );
+                     Main.fire(HF_DELETE_ERR, exception.getMessage(), this );
                 }
             }
             else
@@ -405,7 +411,7 @@ public class HotFolderManager extends WorkerParent implements VariableResolver
             }
 
             String summary = actualContext.getStat().buildSummary(  );
-            Main.get_control().getNotificationServer().fire(HF_OKAY, "Zusammenfassung:\n\n" + summary, this );
+            Main.fire(HF_OKAY, "Zusammenfassung:\n\n" + summary, this );
         }
         finally
         {
