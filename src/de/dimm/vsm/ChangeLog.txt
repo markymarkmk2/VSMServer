@@ -1,3 +1,15 @@
+Veränderungen in V1.1.0
+UPD: BootstrapHandles werden auch für Hashblöcke geschrieben
+
+Veränderungen in V1.0.9
+FIX: Bei Start mit Prefseintrag HashUrlFormatFix=0 werden doppelte Hashes korrigiert (urlSafe)
+
+Veränderungen in V1.0.8
+UPD: Compression und Encryption bei Kommunikation mit Agent
+
+Veränderungen in V1.0.7
+UPD: Notifications neu
+
 Veränderungen in V1.0.6
 FIX: Preflight Hotfolder vor Check (Valid Path)
 UPD: bei Start mit "-stats" wird aktuelle Deduprate beim Start berechnet und gelogged

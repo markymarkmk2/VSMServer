@@ -7,10 +7,11 @@ package de.dimm.vsm;
 
 import de.dimm.vsm.Utilities.DefaultTextProvider;
 import de.dimm.vsm.Utilities.SizeStr;
-import de.dimm.vsm.Utilities.TextProvider;
+import de.dimm.vsm.Utilities.VariableResolver;
 import de.dimm.vsm.log.Log;
 import de.dimm.vsm.log.LogManager;
 import de.dimm.vsm.backup.Backup;
+import de.dimm.vsm.mail.NotificationEntry;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 
@@ -38,7 +39,7 @@ public class Main
 {
 
     static String source_str = "trunk";
-    static String version_str = "1.0.9";
+    static String version_str = "1.1.0";
         
     public static int writeThreads = 1;
     public static int maxOpenFiles = 1024;
@@ -96,6 +97,22 @@ public class Main
     {
         return control;
     }
+    public static void addNotification(NotificationEntry e)
+    {
+        if (control != null)
+            control.addNotification(e);
+    }
+    public static void fire( String key, String extraText, VariableResolver vr )
+    {
+        if (control != null)
+            control.getNotificationServer().fire(key, extraText, vr);
+    }
+    public static void release( String key )
+    {
+        if (control != null)
+            control.getNotificationServer().release(key);
+    }
+
     static void print_system_property( String key )
     {
         Log.info( "Property",  key + ": " + System.getProperty(key) );
