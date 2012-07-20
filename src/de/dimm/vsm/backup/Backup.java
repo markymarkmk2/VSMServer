@@ -10,6 +10,7 @@ import de.dimm.vsm.CS_Constants;
 import de.dimm.vsm.Exceptions.ClientAccessFileException;
 import de.dimm.vsm.Exceptions.PathResolveException;
 import de.dimm.vsm.Exceptions.PoolReadOnlyException;
+import de.dimm.vsm.GeneralPreferences;
 import de.dimm.vsm.log.Log;
 import de.dimm.vsm.LogicControl;
 import de.dimm.vsm.Main;
@@ -97,12 +98,13 @@ public class Backup
     
     public static boolean speed_test_no_db= false;
     public static boolean speed_test_no_write= false;
+    
     private boolean abort;
     private boolean finished = false;
     private BackupContext actualContext;
 
 
-    public static boolean _withBootstrap = true;
+    private static boolean withBootstrap = true;
 
     
     public Backup(Schedule sched)
@@ -113,16 +115,18 @@ public class Backup
 
             this.sched = em.em_find(Schedule.class, sched.getIdx());
         }
-        abort = false;         
+        abort = false;
+
+        withBootstrap = Main.get_bool_prop(GeneralPreferences.WITH_BOOTSTRAP, true);
     }
 
     private void baNotify( String key, String extraText, VariableResolver vr )
     {
-        Main.get_control().getNotificationServer().fire(key, extraText, vr );
+        Main.fire(key, extraText, vr );
     }
     private void baRelease( String key)
     {
-        Main.get_control().getNotificationServer().release(key);
+        Main.release(key);
     }
 
     JobInterface createJob(User user)
@@ -1156,6 +1160,14 @@ public class Backup
                 // IF WE REACH THIS, THE FILE WAS UPDATED, ADD NEW ATTRIBUTES TO DB
                 context.poolhandler.add_new_fse_attributes(dbNode, remoteFSElem, ts);
 
+                try
+                {
+                    write_bootstrap_data(context, dbNode.getAttributes());
+                }
+                catch (Exception exc)
+                {
+                    Log.err(Main.Txt("Fehler beim Schreiben der Bootstrapdaten für neues Attribut") , dbNode.toString(), exc);
+                }
                 if (context.getIndexer() != null)
                 {
                     context.getIndexer().addToIndexAsync(dbNode.getAttributes(), context.getArchiveJob());
@@ -1906,8 +1918,14 @@ public class Backup
 
     static void write_bootstrap_data( GenericContext context,  FileSystemElemNode node ) throws IOException
     {
-        if (_withBootstrap)
+        if (withBootstrap)
             context.getWriteRunner().addBootstrap( context.poolhandler, node );
+        //context.poolhandler.write_bootstrap_data( node );
+    }
+    static void write_bootstrap_data( GenericContext context,  FileSystemElemAttributes attr ) throws IOException
+    {
+        if (withBootstrap)
+            context.getWriteRunner().addBootstrap( context.poolhandler, attr );
         //context.poolhandler.write_bootstrap_data( node );
     }
 
@@ -2304,13 +2322,13 @@ public class Backup
     static void write_bootstrap_data( GenericContext context, DedupHashBlock block, HashBlock node ) throws IOException
     {
        //context.poolhandler.write_bootstrap_data(  block,  node );
-        if (_withBootstrap)
+        if (withBootstrap)
             context.getWriteRunner().addBootstrap( context.poolhandler, block, node);
     }
     static void write_bootstrap_data( GenericContext context, DedupHashBlock block, XANode node ) throws IOException
     {
         //context.poolhandler.write_bootstrap_data(  block,  node );
-        if (_withBootstrap)
+        if (withBootstrap)
             context.getWriteRunner().addBootstrap( context.poolhandler, block, node);
     }
 

@@ -93,32 +93,32 @@ public class BackupManager extends WorkerParent
         startList = new ArrayList<ScheduleStart>();
 
 
-        Main.get_control().addNotification( new NotificationEntry(BA_AGENT_OFFLINE,
+        Main.addNotification( new NotificationEntry(BA_AGENT_OFFLINE,
                 "Agent ist offline", "Der Agent $AGENT für Backup $NAME kann nicht kontaktiert werden", NotificationEntry.Level.WARNING, true));
 
 
-        Main.get_control().addNotification( new NotificationEntry(BA_ERROR,
+        Main.addNotification( new NotificationEntry(BA_ERROR,
                 "Fehler beim Sichern in Backup $NAME", "In Volume $VOLUME bei Agent $AGENT im Backup $NAME traten Fehler auf", NotificationEntry.Level.ERROR, false));
-        Main.get_control().addNotification( new NotificationEntry(BA_FILE_ERROR,
+        Main.addNotification( new NotificationEntry(BA_FILE_ERROR,
                 "Fehler beim Sichern in Backup $NAME", "In Volume $VOLUME bei Agent $AGENT im Backup $NAME können folgende Einträge nicht gesichert werden", NotificationEntry.Level.WARNING, false));
 
-        Main.get_control().addNotification( new NotificationEntry(BA_ABORT,
+        Main.addNotification( new NotificationEntry(BA_ABORT,
                 "Abbruch beim Sichern in Backup $NAME", "In Volume $VOLUME bei Agent $AGENT im Backup $NAME wurde folgende Datei nicht gesichert", NotificationEntry.Level.ERROR, false));
 
 
-        Main.get_control().addNotification( new NotificationEntry(BA_VOLUME_OKAY,
+        Main.addNotification( new NotificationEntry(BA_VOLUME_OKAY,
                 "Volume $VOLUME beendet", "Volume $VOLUME auf $AGENT bei Backup $NAME wurde erfolgreich gesichert", NotificationEntry.Level.INFO, false));
 
-        Main.get_control().addNotification( new NotificationEntry(BA_CLIENT_OKAY,
+        Main.addNotification( new NotificationEntry(BA_CLIENT_OKAY,
                 "Client $AGENT beendet", "Client $AGENT bei Backup $NAME wurde erfolgreich gesichert", NotificationEntry.Level.INFO, false));
 
-        Main.get_control().addNotification( new NotificationEntry(BA_OKAY,
+        Main.addNotification( new NotificationEntry(BA_OKAY,
                 "Backup $NAME beendet", "Element $PATH bei Agent $AGENT im Hotfolder $NAME wurde erfolgreich gesichert", NotificationEntry.Level.INFO, false));
 
-        Main.get_control().addNotification( new NotificationEntry(BA_SNAPSHOT_FAILED,
+        Main.addNotification( new NotificationEntry(BA_SNAPSHOT_FAILED,
                 "Fehler beim Erzeugen des Snapshots in Backup $NAME", "In Volume $VOLUME bei Agent $AGENT im Backup $NAME konnte kein Snapshot erzeugt werden", NotificationEntry.Level.WARNING, false));
 
-        Main.get_control().addNotification( new NotificationEntry(BA_GROUP_ERROR,
+        Main.addNotification( new NotificationEntry(BA_GROUP_ERROR,
                 "Alle Fehler in Backup", "BA_AGENT_OFFLINE,BA_ERROR,BA_FILE_ERROR,BA_ABORT", NotificationEntry.Level.GROUP, false));
     }
 
