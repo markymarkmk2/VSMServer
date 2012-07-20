@@ -11,6 +11,7 @@ import de.dimm.vsm.Main;
 import de.dimm.vsm.fsengine.StoragePoolHandler;
 import de.dimm.vsm.net.interfaces.FileHandle;
 import de.dimm.vsm.records.DedupHashBlock;
+import de.dimm.vsm.records.FileSystemElemAttributes;
 import de.dimm.vsm.records.FileSystemElemNode;
 import de.dimm.vsm.records.HashBlock;
 import de.dimm.vsm.records.XANode;
@@ -136,6 +137,25 @@ class NodeBootstrap extends HandleWriteElem
         //System.out.println("Wrote Node BT");
     }
 }
+class AttributesBootstrap extends HandleWriteElem
+{
+    StoragePoolHandler poolhandler;
+    FileSystemElemAttributes attr;
+
+    public AttributesBootstrap( StoragePoolHandler poolhandler, FileSystemElemAttributes attr )
+    {
+        this.poolhandler = poolhandler;
+        this.attr = attr;
+    }
+
+    @Override
+    protected void write() throws IOException, PathResolveException
+    {
+        poolhandler.write_bootstrap_data(attr);
+        //System.out.println("Wrote Node BT");
+    }
+}
+
 
 
 class WriteRunner implements Runnable
@@ -365,6 +385,11 @@ public class HandleWriteRunner
     void addBootstrap( StoragePoolHandler poolhandler, FileSystemElemNode node )
     {
         NodeBootstrap bt = new NodeBootstrap(poolhandler, node);
+        addElem( bt );
+    }
+    void addBootstrap( StoragePoolHandler poolhandler, FileSystemElemAttributes attr )
+    {
+        AttributesBootstrap bt = new AttributesBootstrap(poolhandler, attr);
         addElem( bt );
     }
 

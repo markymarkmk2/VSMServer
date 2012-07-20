@@ -9,7 +9,9 @@ import de.dimm.vsm.net.interfaces.FileHandle;
 import de.dimm.vsm.Exceptions.PathResolveException;
 import de.dimm.vsm.records.AbstractStorageNode;
 import de.dimm.vsm.records.DedupHashBlock;
+import de.dimm.vsm.records.FileSystemElemAttributes;
 import de.dimm.vsm.records.FileSystemElemNode;
+import de.dimm.vsm.records.XANode;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.sql.SQLException;
@@ -128,6 +130,23 @@ public class CloneStorageNodeHandler extends StorageNodeHandler
         throw new UnsupportedOperationException("Not yet implemented");
     }
     @Override
+    public BootstrapHandle create_bootstrap_handle(FileSystemElemAttributes attr) throws PathResolveException
+    {
+        if (storageNode.isFS())
+        {
+            BootstrapHandle ret1 = new FS_BootstrapHandle(storageNode, attr );
+            MultiBootstrapHandle mfh = new MultiBootstrapHandle();
+            mfh.add(ret1);
+            for (int i = 0; i < cloneStorageNodes.size(); i++)
+            {
+                BootstrapHandle ret2 = new FS_BootstrapHandle(cloneStorageNodes.get(i), attr );
+                mfh.add(ret2);
+            }
+            return mfh;
+        }
+        throw new UnsupportedOperationException("Not yet implemented");
+    }
+    @Override
     public BootstrapHandle create_bootstrap_handle(DedupHashBlock block) throws PathResolveException, UnsupportedEncodingException
     {
         if (storageNode.isFS())
@@ -161,6 +180,18 @@ public class CloneStorageNodeHandler extends StorageNodeHandler
         }
         throw new UnsupportedOperationException("Not yet implemented");
     }
+    @Override
+    public BootstrapHandle create_bootstrap_handle(XANode node) throws PathResolveException, UnsupportedEncodingException
+    {
+        if (storageNode.isFS())
+        {
+            BootstrapHandle ret = new FS_BootstrapHandle(this.storageNode, node );
+            return ret;
+        }
+        throw new UnsupportedOperationException("Not yet implemented");
+    }
+
+
     @Override
     public FileHandle create_DDFS_handle( StoragePoolHandler aThis, FileSystemElemNode node, boolean create, boolean b ) throws PathResolveException, IOException, SQLException
     {

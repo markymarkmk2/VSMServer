@@ -27,16 +27,15 @@ public class FS_FileHandle implements FileHandle
 {
     File fh;
     RandomAccessFile raf;
-    StorageNodeHandler sn_handler;
+    AbstractStorageNode fs_node;
     boolean isDirectory;
     boolean create;
 
-    private FS_FileHandle(StorageNodeHandler sn_handler, boolean isDirectory, boolean create)
+    private FS_FileHandle(AbstractStorageNode fs_node, boolean isDirectory, boolean create)
     {
-        this.sn_handler = sn_handler;
+        this.fs_node = fs_node;
         this.isDirectory = isDirectory;
         this.create = create;
-
     }
     
    
@@ -44,9 +43,6 @@ public class FS_FileHandle implements FileHandle
     {
         StringBuilder sb = new StringBuilder();
         StorageNodeHandler.build_node_path(node, sb);
-
-
-        AbstractStorageNode fs_node = this.sn_handler.storageNode;
 
         fh = new File( fs_node.getMountPoint() + sb.toString() );
     }
@@ -56,8 +52,6 @@ public class FS_FileHandle implements FileHandle
         StringBuilder sb = new StringBuilder();
         StorageNodeHandler.build_xa_node_path(node, sb);
 
-        AbstractStorageNode fs_node = this.sn_handler.storageNode;
-
         fh = new File( fs_node.getMountPoint() + sb.toString() );
     }
 
@@ -66,32 +60,29 @@ public class FS_FileHandle implements FileHandle
         StringBuilder sb = new StringBuilder();
         StorageNodeHandler.build_node_path(dedup_block, sb);
 
-
-        AbstractStorageNode fs_node = this.sn_handler.storageNode;
-
         fh = new File( fs_node.getMountPoint() + sb.toString() );
 
 
     }
     
-    public static FileHandle create_fs_handle(StorageNodeHandler sn_handler, FileSystemElemNode node, boolean create) throws PathResolveException
+    public static FileHandle create_fs_handle(AbstractStorageNode fs_node, FileSystemElemNode node, boolean create) throws PathResolveException
     {
-        FS_FileHandle fs =  new FS_FileHandle( sn_handler,  node.isDirectory(),  create);
+        FS_FileHandle fs =  new FS_FileHandle( fs_node,  node.isDirectory(),  create);
         fs.create_fs_file(node);
         return fs;
     }
 
-    public static FileHandle create_dedup_handle(StorageNodeHandler sn_handler, DedupHashBlock dedup_block, boolean create) throws PathResolveException, UnsupportedEncodingException
+    public static FileHandle create_dedup_handle(AbstractStorageNode fs_node, DedupHashBlock dedup_block, boolean create) throws PathResolveException, UnsupportedEncodingException
     {
-        FS_FileHandle fs =  new FS_FileHandle( sn_handler,  false,  create);
+        FS_FileHandle fs =  new FS_FileHandle( fs_node,  false,  create);
         fs.create_dedup_file(dedup_block);
         return fs;
     }
-    public static FileHandle create_xa_handle(StorageNodeHandler sn_handler, FileSystemElemNode node, boolean create) throws PathResolveException, UnsupportedEncodingException
+    public static FileHandle create_xa_handle(AbstractStorageNode fs_node, FileSystemElemNode node, boolean create) throws PathResolveException, UnsupportedEncodingException
     {
-        FS_FileHandle fs =  new FS_FileHandle( sn_handler,  false,  create);
+        FS_FileHandle fs =  new FS_FileHandle( fs_node,  false,  create);
         fs.create_xa_file(node);
-        
+
         // AS THIS IS A SUBDIR TO FSNODE WE CHECK IF WE HAVE TO CREATE DIR ON THE FLY
         if (create)
         {
@@ -119,10 +110,6 @@ public class FS_FileHandle implements FileHandle
     @Override
     public void create() throws IOException, PoolReadOnlyException
     {
-        if (sn_handler.isReadOnly())
-            throw new PoolReadOnlyException("");
-
-
         if (isDirectory)
         {
             // DIRECTORY IS ALLOWED TO EXIST PREVIOUSLY, MEBY WE ABORTED EARLIER
@@ -252,7 +239,7 @@ public class FS_FileHandle implements FileHandle
             // REMOVE AUTOMATIC SUBDIRS
             if (fh.isDirectory())
             {
-                File b = new File( fh, StorageNodeHandler.BOOTSRAP_PATH);
+                File b = new File( fh, StorageNodeHandler.BOOTSTRAP_PATH);
                 if (b.exists())
                     b.delete();
                 File x = new File( fh, StorageNodeHandler.XA_PATH);

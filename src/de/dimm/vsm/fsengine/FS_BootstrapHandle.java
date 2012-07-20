@@ -14,6 +14,7 @@ import com.thoughtworks.xstream.io.HierarchicalStreamWriter;
 import de.dimm.vsm.Exceptions.PathResolveException;
 import de.dimm.vsm.records.AbstractStorageNode;
 import de.dimm.vsm.records.DedupHashBlock;
+import de.dimm.vsm.records.FileSystemElemAttributes;
 import de.dimm.vsm.records.FileSystemElemNode;
 import de.dimm.vsm.records.HashBlock;
 import de.dimm.vsm.records.XANode;
@@ -58,53 +59,45 @@ public class FS_BootstrapHandle<T> implements BootstrapHandle
 {
 
     File fh;
-    StorageNodeHandler sn_handler;
 
-    public FS_BootstrapHandle( StorageNodeHandler sn_handler, FileSystemElemNode node ) throws PathResolveException
+    public FS_BootstrapHandle( AbstractStorageNode fs_node, FileSystemElemNode node ) throws PathResolveException
     {
-        this.sn_handler = sn_handler;
-
         StringBuilder sb = new StringBuilder();
         StorageNodeHandler.build_bootstrap_path(node, sb);
-
-        AbstractStorageNode fs_node = this.sn_handler.storageNode;
-
         fh = new File(fs_node.getMountPoint() + sb.toString());
     }
 
-    public FS_BootstrapHandle( StorageNodeHandler sn_handler, DedupHashBlock dedup_block ) throws PathResolveException, UnsupportedEncodingException
+    public FS_BootstrapHandle( AbstractStorageNode fs_node, FileSystemElemAttributes attr ) throws PathResolveException
     {
-        this.sn_handler = sn_handler;
+        StringBuilder sb = new StringBuilder();
+        StorageNodeHandler.build_bootstrap_path(attr, sb);
+        fh = new File(fs_node.getMountPoint() + sb.toString());
+    }
 
+    public FS_BootstrapHandle( AbstractStorageNode fs_node, DedupHashBlock dedup_block ) throws PathResolveException, UnsupportedEncodingException
+    {
         StringBuilder sb = new StringBuilder();
         StorageNodeHandler.build_bootstrap_path(dedup_block, sb);
-
-        AbstractStorageNode fs_node = this.sn_handler.storageNode;
-
         fh = new File(fs_node.getMountPoint() + sb.toString());
     }
 
-    public FS_BootstrapHandle( StorageNodeHandler sn_handler, XANode node ) throws PathResolveException, UnsupportedEncodingException
+    public FS_BootstrapHandle( AbstractStorageNode fs_node, XANode node ) throws PathResolveException, UnsupportedEncodingException
     {
-        this.sn_handler = sn_handler;
-
         StringBuilder sb = new StringBuilder();
         StorageNodeHandler.build_bootstrap_path(node, sb);
-
-        AbstractStorageNode fs_node = this.sn_handler.storageNode;
-
+        fh = new File(fs_node.getMountPoint() + sb.toString());
+    }
+    public FS_BootstrapHandle( AbstractStorageNode fs_node, HashBlock node ) throws PathResolveException, UnsupportedEncodingException
+    {
+        StringBuilder sb = new StringBuilder();
+        StorageNodeHandler.build_bootstrap_path(node, sb);
         fh = new File(fs_node.getMountPoint() + sb.toString());
     }
 
-    public FS_BootstrapHandle( StorageNodeHandler sn_handler, T node ) throws PathResolveException, UnsupportedEncodingException
+    public FS_BootstrapHandle( AbstractStorageNode fs_node, T node ) throws PathResolveException, UnsupportedEncodingException
     {
-        this.sn_handler = sn_handler;
-
         StringBuilder sb = new StringBuilder();
         StorageNodeHandler.build_bootstrap_path(sb, node);
-
-        AbstractStorageNode fs_node = this.sn_handler.storageNode;
-
         fh = new File(fs_node.getMountPoint() + sb.toString());
     }
 
@@ -114,10 +107,6 @@ public class FS_BootstrapHandle<T> implements BootstrapHandle
         return fh.getAbsolutePath();
     }
 
-    public File get_fh()
-    {
-        return fh;
-    }
 
     @Override
     public boolean delete()
@@ -212,6 +201,91 @@ public class FS_BootstrapHandle<T> implements BootstrapHandle
             }
         }
     }
+
+    @Override
+    public void write_bootstrap( FileSystemElemAttributes attr ) throws IOException
+    {
+        FileWriter fw = null;
+        FSEA_Bootstrap t = new FSEA_Bootstrap(attr);
+
+        try
+        {
+            try
+            {
+                fw = new FileWriter(fh);
+            }
+            catch (IOException iOException)
+            {
+                File parent = fh.getParentFile();
+                if (!parent.exists())
+                {
+                    parent.mkdir();
+                }
+                fw = new FileWriter(fh);
+            }
+
+            XStream xstream = new XStream();
+            xstream.toXML(t, fw);
+            fw.close();
+
+        }
+        catch (IOException iOException)
+        {
+            throw iOException;
+        }
+        finally
+        {
+            if (fw != null)
+            {
+                try
+                {
+                    fw.close();
+                }
+                catch (IOException iOException)
+                {
+                }
+            }
+        }
+    }
+
+    @Override
+    public void read_bootstrap( FileSystemElemAttributes attr ) throws IOException
+    {
+       FileReader fr = null;
+        try
+        {
+            fr = new FileReader(fh);
+            XStream xstream = new XStream();
+            Object o = xstream.fromXML(fr);
+            fr.close();
+
+            if (o instanceof FSEA_Bootstrap)
+            {
+                FSEA_Bootstrap t = (FSEA_Bootstrap) o;
+                t.setNode(attr);
+            }
+            throw new IOException("Wrong type of Bootstrap object: " + o.getClass().toString());
+        }
+        catch (IOException iOException)
+        {
+            throw iOException;
+        }
+        finally
+        {
+            if (fr != null)
+            {
+                try
+                {
+                    fr.close();
+                }
+                catch (IOException iOException)
+                {
+                }
+            }
+        }
+    }
+
+
 
 
     public static FSE_Bootstrap read_FSE_bootstrap( File path ) throws IOException

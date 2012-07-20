@@ -1241,7 +1241,8 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
 
             if (s_node.isFS())
             {
-                FS_BootstrapHandle fs_ret = new FS_BootstrapHandle(s_node, node );
+                StorageNodeHandler sh = get_handler_for_node(s_node);
+                BootstrapHandle fs_ret = sh.create_bootstrap_handle(node);
 
                 // IF WE HAVE MORE THAN ONE HANDLE
                 if (ret != null)
@@ -1270,13 +1271,54 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
         return ret;
     }
 
+    public BootstrapHandle open_bootstrap_handle(FileSystemElemAttributes attr ) throws IOException, PathResolveException
+    {
+        BootstrapHandle ret = null;
+
+        List<AbstractStorageNode> s_nodes = resolve_storage_nodes( attr.getFile() );
+        for (int i = 0; i < s_nodes.size(); i++)
+        {
+            AbstractStorageNode s_node = s_nodes.get(i);
+
+            if (s_node.isFS())
+            {
+                StorageNodeHandler sh = get_handler_for_node(s_node);
+                BootstrapHandle fs_ret = sh.create_bootstrap_handle(attr);
+
+                // IF WE HAVE MORE THAN ONE HANDLE
+                if (ret != null)
+                {
+                    // IS RETURN ALREADY A MULTIHANDLE, THEN ADD THIS ONE
+                    if (ret instanceof MultiBootstrapHandle)
+                    {
+                        MultiBootstrapHandle mfh = (MultiBootstrapHandle)ret;
+                        mfh.add(fs_ret);
+                    }
+                    else
+                    {
+                        // CREATE A MULTIHANDLE AND ADD THE CREATED HANDLES
+                        MultiBootstrapHandle mfh = new MultiBootstrapHandle();
+                        mfh.add(ret);
+                        mfh.add(fs_ret);
+                        ret = mfh;
+                    }
+                }
+                else
+                {
+                    ret = fs_ret;
+                }
+            }
+        }
+        return ret;
+    }
     public BootstrapHandle open_bootstrap_handle(DedupHashBlock block ) throws IOException, PathResolveException
     {
         AbstractStorageNode s_node = get_primary_dedup_node();
 
         if (s_node.isFS())
         {
-            FS_BootstrapHandle ret = new FS_BootstrapHandle(s_node, block );
+            StorageNodeHandler sh = get_handler_for_node(s_node);
+            BootstrapHandle ret = sh.create_bootstrap_handle(block);
 
             return ret;
         }
@@ -1290,7 +1332,8 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
 
         if (s_node.isFS())
         {
-            FS_BootstrapHandle ret = new FS_BootstrapHandle(s_node, block );
+            StorageNodeHandler sh = get_handler_for_node(s_node);
+            BootstrapHandle ret = sh.create_bootstrap_handle(block);
 
             return ret;
         }
@@ -1479,7 +1522,7 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
 
     public String get_single_hash_block( FileSystemElemNode node, long offset, int read_len )
     {
-        // TODO SPEED UP WITH HASHMAP
+        // TODO SPEED UP WITH HASHMAP OR DIRECT ACCESS
         List<HashBlock> list = node.getHashBlocks().getList(getEm());
         for (int i =list.size() - 1; i >= 0 ; i--)
         {
@@ -1516,14 +1559,41 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
 
     public FileHandle open_dedupblock_handle( DedupHashBlock dhb, boolean create ) throws PathResolveException, UnsupportedEncodingException, IOException
     {
-        AbstractStorageNode s_node = get_primary_dedup_node();
-        if (s_node.isFS())
+        if (create)
         {
-            StorageNodeHandler snHandler = get_handler_for_node(s_node);
-            FileHandle ret = snHandler.create_file_handle(dhb, create);
-            return ret;
+            AbstractStorageNode s_node = get_primary_dedup_node();
+            if (s_node.isFS())
+            {
+                StorageNodeHandler snHandler = get_handler_for_node(s_node);
+                FileHandle ret = snHandler.create_file_handle(dhb, true);
+                return ret;
+            }
+            throw new IOException("Unsupported StorageNode type " + s_node.getName());
         }
-        throw new IOException("Unsupperted StorageNode " + s_node.getName());
+        else
+        {
+            List<AbstractStorageNode> s_nodes = get_primary_storage_nodes();
+            for (int i = 0; i < s_nodes.size(); i++)
+            {
+                AbstractStorageNode s_node = s_nodes.get(i);
+                if (s_node.isFS())
+                {
+                    StorageNodeHandler snHandler = get_handler_for_node(s_node);
+                    FileHandle ret = snHandler.create_file_handle(dhb, false);
+                    if (ret instanceof FS_FileHandle)
+                    {
+                        FS_FileHandle fsfh = (FS_FileHandle)ret;
+                        if (fsfh.get_fh().exists())
+                            return fsfh;
+                    }
+                    else
+                    {
+                        return ret;
+                    }
+                }
+            }
+        }
+        throw new IOException("Cannot find DedupBlock " + dhb.toString() + " in any active StorageNode" );
     }
 
     public void remove_dedup_hash_block( DedupHashBlock dhb ) throws PoolReadOnlyException, SQLException
@@ -1554,8 +1624,12 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
     public void write_bootstrap_data( FileSystemElemNode node ) throws IOException, PathResolveException
     {
         BootstrapHandle handle = open_bootstrap_handle(node);
-        handle.write_bootstrap( node );
-        handle.write_bootstrap( node.getAttributes() );
+        handle.write_bootstrap( node );  // THIS INCLUDES ATTRIBUTES
+    }
+    public void write_bootstrap_data( FileSystemElemAttributes attr ) throws IOException, PathResolveException
+    {
+        BootstrapHandle handle = open_bootstrap_handle(attr);
+        handle.write_bootstrap(attr );
     }
 
     public void write_bootstrap_data( DedupHashBlock block, HashBlock node ) throws IOException, PathResolveException

@@ -50,7 +50,7 @@ class DDHandle
         data = null;
     }
 
-    void open(StorageNodeHandler sn_handler) throws  FileNotFoundException, IOException
+    void open(AbstractStorageNode fs_node) throws  FileNotFoundException, IOException
     {
         StringBuilder sb = new StringBuilder();
         try
@@ -64,8 +64,7 @@ class DDHandle
         catch (UnsupportedEncodingException unsupportedEncodingException)
         {
             throw new IOException("Cannot open DDFS", unsupportedEncodingException);
-        }
-        AbstractStorageNode fs_node = sn_handler.storageNode;
+        }       
 
         File fh = new File( fs_node.getMountPoint() + sb.toString() );
         RandomAccessFile raf = new RandomAccessFile(fh, "r");
@@ -89,7 +88,8 @@ public class DDFS_FileHandle implements FileHandle
     File fh;
     FileSystemElemNode node;
     List<DDHandle> handleList;
-    StorageNodeHandler sn_handler;
+    StoragePoolHandler sp_handler;
+    AbstractStorageNode fs_node;
     boolean isDirectory;
     boolean create;
     boolean isStream;
@@ -100,9 +100,10 @@ public class DDFS_FileHandle implements FileHandle
 
     static private boolean  verbose = false;
 
-    private DDFS_FileHandle(StorageNodeHandler sn_handler, boolean isDirectory, boolean create, boolean isStream)
+    private DDFS_FileHandle(AbstractStorageNode fs_node, StoragePoolHandler sp_handler, boolean isDirectory, boolean create, boolean isStream)
     {
-        this.sn_handler = sn_handler;
+        this.fs_node = fs_node;
+        this.sp_handler = sp_handler;
         this.isDirectory = isDirectory;
         this.create = create;
         this.isStream = isStream;
@@ -112,7 +113,7 @@ public class DDFS_FileHandle implements FileHandle
     
     List<DDHandle> buildHashBlockList() throws IOException
     {
-        List<HashBlock> hbList = node.getHashBlocks().getList(sn_handler.storage_pool_handler.getEm());
+        List<HashBlock> hbList = node.getHashBlocks().getList(sp_handler.getEm());
 
         // IN CASE WE HAVE WRITTEN THIS PRESENTLY, WE HAVE TO REREAD LIST
         if (hbList instanceof LazyList)
@@ -127,7 +128,7 @@ public class DDFS_FileHandle implements FileHandle
         if (!hbList.isEmpty())
         {
             // BUILD SORTED LIST FOR THIS FILE BASED ON poolQry
-            hbList = Restore.filter_hashblocks(hbList, sn_handler.storage_pool_handler.poolQry);
+            hbList = Restore.filter_hashblocks(hbList, sp_handler.poolQry);
         }
 
         if (verbose)
@@ -178,7 +179,7 @@ public class DDFS_FileHandle implements FileHandle
 
     List<DDHandle> buildXABlockList() throws IOException, SQLException
     {
-        List<XANode> hbList = sn_handler.storage_pool_handler.createQuery("select T1 from XANode T1 where T1.fileNode_idx=" + node.getIdx(), XANode.class);
+        List<XANode> hbList = sp_handler.createQuery("select T1 from XANode T1 where T1.fileNode_idx=" + node.getIdx(), XANode.class);
 
         if (verbose)
             System.out.println("XALIST 1: " + hbList.size());
@@ -193,7 +194,7 @@ public class DDFS_FileHandle implements FileHandle
         if (!hbList.isEmpty())
         {
             // BUILD LIST FOR THIS FILE
-            hbList = Restore.filter_xanodes(hbList, sn_handler.storage_pool_handler.poolQry);
+            hbList = Restore.filter_xanodes(hbList, sp_handler.poolQry);
         }
         if (verbose)
             System.out.println("XALIST 2: " + hbList.size());
@@ -277,8 +278,7 @@ public class DDFS_FileHandle implements FileHandle
         StringBuilder sb = new StringBuilder();
         StorageNodeHandler.build_node_path(node, sb);
 
-
-        AbstractStorageNode fs_node = this.sn_handler.storageNode;
+       
 
         fh = new File( fs_node.getMountPoint() + sb.toString() );
     }
@@ -289,17 +289,13 @@ public class DDFS_FileHandle implements FileHandle
 
     }
   
-    public static FileHandle create_fs_handle(StorageNodeHandler sn_handler, FileSystemElemNode node, boolean create, boolean isStream) throws PathResolveException, IOException, SQLException
+    public static FileHandle create_fs_handle(AbstractStorageNode fs_node, StoragePoolHandler sp_handler, FileSystemElemNode node, boolean create, boolean isStream) throws PathResolveException, IOException, SQLException
     {
-        DDFS_FileHandle fs =  new DDFS_FileHandle( sn_handler,  node.isDirectory(),  create, isStream);
+        DDFS_FileHandle fs =  new DDFS_FileHandle( fs_node, sp_handler, node.isDirectory(),  create, isStream);
         fs.create_fs_file(node);
         return fs;
     }
 
-    public static FileHandle create_dedup_handle(StorageNodeHandler sn_handler, DedupHashBlock dedup_block, boolean create) throws PathResolveException, UnsupportedEncodingException
-    {
-        return FS_FileHandle.create_dedup_handle(sn_handler, dedup_block, create);
-    }
 
 
     @Override
@@ -396,7 +392,7 @@ public class DDFS_FileHandle implements FileHandle
 
                 if (pos + len > dDHandle.pos && dDHandle.pos + dDHandle.len > pos)
                 {
-                    dDHandle.open(sn_handler);
+                    dDHandle.open(fs_node);
                     lastHandles.add(dDHandle);
                 }
 

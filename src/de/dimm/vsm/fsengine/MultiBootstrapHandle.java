@@ -6,6 +6,7 @@
 package de.dimm.vsm.fsengine;
 
 import de.dimm.vsm.net.interfaces.BootstrapHandle;
+import de.dimm.vsm.records.FileSystemElemAttributes;
 import de.dimm.vsm.records.FileSystemElemNode;
 import de.dimm.vsm.records.HashBlock;
 import de.dimm.vsm.records.XANode;
@@ -55,9 +56,53 @@ public class MultiBootstrapHandle implements BootstrapHandle
     }
 
     @Override
+    public void write_bootstrap( FileSystemElemAttributes attr ) throws IOException
+    {
+        for (int i = 0; i < fh_list.size(); i++)
+        {
+            BootstrapHandle handle = fh_list.get(i);
+            handle.write_bootstrap(attr);
+        }
+    }
+
+    @Override
+    public void read_bootstrap( FileSystemElemAttributes attr ) throws IOException
+    {
+        IOException lastException = null;
+        for (int i = 0; i < fh_list.size(); i++)
+        {
+            BootstrapHandle handle = fh_list.get(i);
+            try
+            {
+                handle.read_bootstrap(attr);
+                return;
+            }
+            catch (IOException iOException)
+            {
+                lastException = iOException;
+            }
+        }
+        throw lastException;
+    }
+
+    @Override
     public void read_bootstrap( FileSystemElemNode node ) throws IOException
     {
-        throw new IOException("Cannot read on multiple bootstrap handle.");
+        IOException lastException = null;
+        for (int i = 0; i < fh_list.size(); i++)
+        {
+            BootstrapHandle handle = fh_list.get(i);
+            try
+            {
+                handle.read_bootstrap(node);
+                return;
+            }
+            catch (IOException iOException)
+            {
+                lastException = iOException;
+            }
+        }
+        throw lastException;
     }
 
     @Override
@@ -83,13 +128,41 @@ public class MultiBootstrapHandle implements BootstrapHandle
     @Override
     public void read_bootstrap( HashBlock hb ) throws IOException
     {
-        throw new IOException("Cannot read on multiple bootstrap handle.");
+        IOException lastException = null;
+        for (int i = 0; i < fh_list.size(); i++)
+        {
+            BootstrapHandle handle = fh_list.get(i);
+            try
+            {
+                handle.read_bootstrap(hb);
+                return;
+            }
+            catch (IOException iOException)
+            {
+                lastException = iOException;
+            }
+        }
+        throw lastException;
     }
     
     @Override
     public void read_bootstrap( XANode hb ) throws IOException
     {
-        throw new IOException("Cannot read on multiple bootstrap handle.");
+        IOException lastException = null;
+        for (int i = 0; i < fh_list.size(); i++)
+        {
+            BootstrapHandle handle = fh_list.get(i);
+            try
+            {
+                handle.read_bootstrap(hb);
+                return;
+            }
+            catch (IOException iOException)
+            {
+                lastException = iOException;
+            }
+        }
+        throw lastException;
     }
 
 
@@ -106,7 +179,21 @@ public class MultiBootstrapHandle implements BootstrapHandle
     @Override
     public <T> T read_object( T object ) throws IOException
     {
-        throw new IOException("Cannot read on multiple bootstrap handle.");
+        IOException lastException = null;
+        for (int i = 0; i < fh_list.size(); i++)
+        {
+            BootstrapHandle handle = fh_list.get(i);
+            try
+            {
+                handle.read_object(object);
+                return object;
+            }
+            catch (IOException iOException)
+            {
+                lastException = iOException;
+            }
+        }
+        throw lastException;
     }
 
 }

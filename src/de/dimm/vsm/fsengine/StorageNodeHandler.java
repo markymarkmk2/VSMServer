@@ -10,6 +10,7 @@ import de.dimm.vsm.Exceptions.PathResolveException;
 import de.dimm.vsm.Utilities.Hex;
 import de.dimm.vsm.records.AbstractStorageNode;
 import de.dimm.vsm.records.DedupHashBlock;
+import de.dimm.vsm.records.FileSystemElemAttributes;
 import de.dimm.vsm.records.FileSystemElemNode;
 import de.dimm.vsm.records.HashBlock;
 import de.dimm.vsm.records.XANode;
@@ -201,6 +202,18 @@ public class StorageNodeHandler
         sb.insert(0, PATH_FSNODES_PREFIX);
     }
 
+    static void build_bootstrap_path( FileSystemElemAttributes attr, StringBuilder sb ) throws PathResolveException
+    {
+        FileSystemElemNode file_node = attr.getFile();
+        sb.insert(0, ".xml" );
+        sb.insert(0, Hex.fromLong(attr.getIdx()));
+        sb.insert(0, "/" + BOOTSTRAP_PATH + "/at_");
+
+        sb.insert(0, getFullParentPath( file_node ) );
+
+        sb.insert(0, PATH_FSNODES_PREFIX);
+    }
+
     static void build_bootstrap_path( XANode node, StringBuilder sb ) throws PathResolveException
     {
         sb.insert(0, ".xml" );
@@ -379,6 +392,15 @@ public class StorageNodeHandler
         }
         throw new UnsupportedOperationException("Not yet implemented");
     }
+    public BootstrapHandle create_bootstrap_handle(FileSystemElemAttributes attr) throws PathResolveException
+    {
+        if (storageNode.isFS())
+        {
+            BootstrapHandle ret = new FS_BootstrapHandle(this.storageNode, attr );
+            return ret;
+        }
+        throw new UnsupportedOperationException("Not yet implemented");
+    }
     public BootstrapHandle create_bootstrap_handle(DedupHashBlock block) throws PathResolveException, UnsupportedEncodingException
     {
         if (storageNode.isFS())
@@ -389,6 +411,15 @@ public class StorageNodeHandler
         throw new UnsupportedOperationException("Not yet implemented");
     }
     public BootstrapHandle create_bootstrap_handle(AbstractStorageNode node) throws PathResolveException, UnsupportedEncodingException
+    {
+        if (storageNode.isFS())
+        {
+            BootstrapHandle ret = new FS_BootstrapHandle(this.storageNode, node );
+            return ret;
+        }
+        throw new UnsupportedOperationException("Not yet implemented");
+    }
+    public BootstrapHandle create_bootstrap_handle(XANode node) throws PathResolveException, UnsupportedEncodingException
     {
         if (storageNode.isFS())
         {

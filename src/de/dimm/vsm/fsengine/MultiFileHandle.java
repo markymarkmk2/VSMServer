@@ -43,12 +43,38 @@ public class MultiFileHandle implements FileHandle
     @Override
     public int read( byte[] b, int length, long offset ) throws IOException
     {
-        throw new IOException("read of multiple FileHandle not supported");
+        IOException lastExc = null;
+        for (int i = 0; i < fh_list.size(); i++)
+        {
+            FileHandle fileHandle = fh_list.get(i);
+            try
+            {
+                return fileHandle.read(b, length, offset);
+            }
+            catch (Exception exc)
+            {
+                lastExc = new IOException( exc.getMessage(), exc );
+            }
+        }
+        throw lastExc;
     }
     @Override
     public byte[] read( int length, long offset ) throws IOException
     {
-        throw new IOException("read of multiple FileHandle not supported");
+        IOException lastExc = null;
+        for (int i = 0; i < fh_list.size(); i++)
+        {
+            FileHandle fileHandle = fh_list.get(i);
+            try
+            {
+                return fileHandle.read( length, offset);
+            }
+            catch (Exception exc)
+            {
+                lastExc = new IOException( exc.getMessage(), exc );
+            }
+        }
+        throw lastExc;
     }
 
     @Override
@@ -110,9 +136,16 @@ public class MultiFileHandle implements FileHandle
         for (int i = 0; i < fh_list.size(); i++)
         {
             FileHandle fileHandle = fh_list.get(i);
-            return fileHandle.length();
-        }
+            try
+            {
+                return fileHandle.length();
+            }
+            catch (Exception iOException)
+            {
 
+            }
+        }
+       
         return 0;
     }
 
