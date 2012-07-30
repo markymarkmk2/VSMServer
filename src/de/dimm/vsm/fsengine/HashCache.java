@@ -9,12 +9,12 @@ import de.dimm.vsm.Utilities.SizeStr;
 import de.dimm.vsm.log.Log;
 import de.dimm.vsm.records.DedupHashBlock;
 import de.dimm.vsm.records.StoragePool;
+import gnu.trove.map.hash.THashMap;
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
@@ -28,12 +28,12 @@ public class HashCache
     StoragePool pool;
 
     boolean inited = false;
-    HashMap<String,Long> hashMap;
+    THashMap<String,Long> hashMap;
 
     public HashCache( StoragePool pool)
     {
         this.pool = pool;
-        hashMap = new HashMap<String, Long>();
+        hashMap = new THashMap<String, Long>();
     }
 
     public boolean isInited()
@@ -53,21 +53,19 @@ public class HashCache
             
             st = conn.createStatement();
 
-            int cnt = -1;
-            ResultSet rs = st.executeQuery("select count(idx) from DedupHashBlock");
-            if (rs.next())
-            {
-                cnt = rs.getInt(1);
-            }
-            rs.close();
+//            int cnt = -1;
+//            ResultSet rs = st.executeQuery("select count(idx) from DedupHashBlock");
+//            if (rs.next())
+//            {
+//                cnt = rs.getInt(1);
+//            }
+//            rs.close();
             long maxMem = Runtime.getRuntime().maxMemory();
             long freeMem = Runtime.getRuntime().freeMemory();
             long totalMem = Runtime.getRuntime().totalMemory();
+            Log.info("Speicher vor Cache", "Max: " + SizeStr.format(maxMem) + " Total: " + SizeStr.format(totalMem) + " Free: " + SizeStr.format(freeMem)  );
 
-            Log.info("Block-Cachegröße für Pool", pool.getName() + ": " + cnt);
-            Log.info("Speicher", "Max: " + SizeStr.format(maxMem) + " Total: " + SizeStr.format(totalMem) + " Free: " + SizeStr.format(freeMem)  );
-
-            rs = st.executeQuery("select idx, hashvalue, blockLen from DedupHashBlock");
+            ResultSet rs = st.executeQuery("select idx, hashvalue  from DedupHashBlock");
 
             while (rs.next())
             {
@@ -75,10 +73,14 @@ public class HashCache
                 String has = rs.getString(2);
 
                 hashMap.put(has, idx);
-
             }
             rs.close();
+            Log.info("Block-Cachegröße für Pool", pool.getName() + ": " + hashMap.size());
 
+            maxMem = Runtime.getRuntime().maxMemory();
+            freeMem = Runtime.getRuntime().freeMemory();
+            totalMem = Runtime.getRuntime().totalMemory();
+            Log.info("Speicher nach Cache", "Max: " + SizeStr.format(maxMem) + " Total: " + SizeStr.format(totalMem) + " Free: " + SizeStr.format(freeMem)  );
             
 
             inited = true;
