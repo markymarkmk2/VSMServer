@@ -109,9 +109,9 @@ public class JDBCStoragePoolHandler extends StoragePoolHandler
         return null;
     }
 
-    long fsMax = 0;
-    long fsMin = Long.MAX_VALUE;
-    long cnt = 0;
+//    long fsMax = 0;
+//    long fsMin = Long.MAX_VALUE;
+//    long cnt = 0;
 
     @Override
     public DedupHashBlock findHashBlock( String remote_hash )
@@ -122,33 +122,33 @@ public class JDBCStoragePoolHandler extends StoragePoolHandler
 
         try
         {
-            long fs = System.nanoTime();
+//            long fs = System.nanoTime();
 
             blk = createSingleResultQuery("SELECT * FROM DedupHashBlock T1 WHERE T1.hashvalue='" + remote_hash + "'", DedupHashBlock.class);
 
-            long fe = System.nanoTime();
+//            long fe = System.nanoTime();
+//
+//            long diff = fe - fs;
 
-            long diff = fe - fs;
-
-            cnt++;
-            if (cnt > 10)
-            {
-                // SHOW us
-                diff /=1000;
-                if (cnt%10 == 0)
-                    System.out.println("Act HBtime " + diff + " us");
-
-                if (diff > fsMax)
-                {
-                    fsMax = diff;
-                    System.out.println("Max HBtime " + fsMax + " us");
-                }
-                if (diff < fsMin)
-                {
-                    fsMin = diff;
-                    System.out.println("Min HBtime " + fsMin + " us");
-                }
-            }
+//            cnt++;
+//            if (cnt > 10)
+//            {
+//                // SHOW us
+//                diff /=1000;
+//                if (cnt%10 == 0)
+//                    System.out.println("Act HBtime " + diff + " us");
+//
+//                if (diff > fsMax)
+//                {
+//                    fsMax = diff;
+//                    System.out.println("Max HBtime " + fsMax + " us");
+//                }
+//                if (diff < fsMin)
+//                {
+//                    fsMin = diff;
+//                    System.out.println("Min HBtime " + fsMin + " us");
+//                }
+//            }
 
             if (blk != null)
             {
