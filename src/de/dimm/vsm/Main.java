@@ -39,7 +39,7 @@ public class Main
 {
 
     static String source_str = "trunk";
-    static String version_str = "1.1.0";
+    static String version_str = "1.1.2";
         
     public static int writeThreads = 1;
     public static int maxOpenFiles = 1024;
@@ -121,6 +121,8 @@ public class Main
     {
         textManager = new TextBaseManager("DE");
         DefaultTextProvider.setProvider(textManager);
+
+        Log.info( "VSM Server Version",  get_version_str() );
 
         work_dir = new File(".").getAbsolutePath();
         if (work_dir.endsWith("."))
@@ -572,7 +574,10 @@ public class Main
                 continue;
 
             if (handleShutdown( f ))
+            {
+                System.exit(0);
                 break;
+            }
 
         }
     }
