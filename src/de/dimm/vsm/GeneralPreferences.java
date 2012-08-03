@@ -64,6 +64,7 @@ public class GeneralPreferences extends Preferences
     public static final String LANGUAGE = "Language";
     public static final String PERFORMANCE_DIAGNOSTIC = "PerformaceDiagnostic";
     public static final String HASH_URL_FORMAT_FIX = "HashUrlFormatFix";
+    public static final String HASH_URL_FORMAT_EMPTY_LINKS = "HashUrlFormatAllowEmptyHashLinks";
 
 
 
@@ -143,6 +144,7 @@ public class GeneralPreferences extends Preferences
         prop_names.add( IGNORE_ACL );
         prop_names.add( HASH_URL_FORMAT_FIX );
         prop_names.add( WITH_BOOTSTRAP );
+        prop_names.add( HASH_URL_FORMAT_EMPTY_LINKS );
 
 
 

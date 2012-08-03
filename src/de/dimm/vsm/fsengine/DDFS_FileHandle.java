@@ -296,13 +296,12 @@ public class DDFS_FileHandle implements FileHandle
         return fs;
     }
 
-
-
     @Override
     public String toString()
     {
-        return fh.getAbsolutePath();
+        return node.toString();
     }
+
 
 
     public File get_fh()
@@ -539,5 +538,23 @@ public class DDFS_FileHandle implements FileHandle
     {
         throw new PoolReadOnlyException("Cannot delete in dedup FS");
     }
+
+    @Override
+    public boolean exists()
+    {
+        try
+        {
+            ensure_open(0, 0);
+            close();
+            return true;
+        }
+        catch (Exception iOException)
+        {
+        }
+        return false;
+    }
+
+
+
 
 }

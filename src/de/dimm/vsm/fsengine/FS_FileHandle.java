@@ -108,6 +108,14 @@ public class FS_FileHandle implements FileHandle
     }
 
     @Override
+    public boolean exists()
+    {
+        return fh.exists();
+    }
+
+
+
+    @Override
     public void create() throws IOException, PoolReadOnlyException
     {
         if (isDirectory)

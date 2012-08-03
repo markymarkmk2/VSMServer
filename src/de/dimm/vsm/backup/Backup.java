@@ -80,6 +80,8 @@ public class Backup
     private static boolean hashOnAgent = true;
     private static boolean checkDHBExistance = true;
 
+    private static boolean testModeFull = false;
+
 
     public static final int DEFAULT_START_WINDOW_S = 60;
 
@@ -625,6 +627,14 @@ public class Backup
 
                     s = s.replace("$AGENT", f );
                 }
+                if (s.indexOf("$NAME") >= 0)
+                {
+                    String f = "";
+                    if (clientInfo != null)
+                        f = clientInfo.getSched().getName();
+
+                    s = s.replace("$NAME", f );
+                }
                 return s;
             }
         };
@@ -634,11 +644,10 @@ public class Backup
             apiEntry = LogicControl.getApiEntry( clientInfo );
             if (apiEntry == null || !apiEntry.isOnline())
             {
-                preStartStatus = Main.Txt("Kann Agenten nicht kontaktieren") + " " + clientInfo.toString();
-                String msg = "Backup " + clientInfo.getSched().getName() + Main.Txt("Kann Agenten nicht kontaktieren") + clientInfo.toString();
-                Log.err(msg);
+                preStartStatus = connectVr.resolveVariableText(Main.Txt("Der Agent kann nicht kontaktiert werden"));
+                Log.err(preStartStatus);
 
-                baNotify(BackupManager.BA_AGENT_OFFLINE, msg, connectVr);
+                baNotify(BackupManager.BA_AGENT_OFFLINE, preStartStatus, connectVr);
                 return null;
             }
             p = apiEntry.getApi().get_properties();
@@ -646,9 +655,9 @@ public class Backup
         catch (Exception e)
         {
             preStartStatus = Main.Txt("Abbruch beim Connect zu Agent") + " " + clientInfo.toString();
-            String msg = "Backup " + clientInfo.getSched().getName() + Main.Txt("Abbruch beim Connect zu Agent") + clientInfo.toString();
-            baNotify(BackupManager.BA_AGENT_OFFLINE, msg, connectVr);
-            Log.err(msg, e);
+            
+            baNotify(BackupManager.BA_AGENT_OFFLINE, preStartStatus, connectVr);
+            Log.err(preStartStatus, e);
             return null;
         }
         
@@ -672,9 +681,8 @@ public class Backup
             {
             }
             preStartStatus = Main.Txt("Quellpfad ist leer oder existiert nicht") + " " + clientVolume.getVolumePath().getPath();
-            baNotify(BackupManager.BA_ERROR, preStartStatus, connectVr);
-            String msg = "Backup " + clientInfo.getSched().getName() + ": " + preStartStatus;
-            Log.err(msg);
+            baNotify(BackupManager.BA_ERROR, preStartStatus, connectVr);            
+            Log.err(preStartStatus);
             return null;
         }
 
@@ -732,6 +740,12 @@ public class Backup
 
             // RESOLVE STARTPATH IF POSSIBLE
             FileSystemElemNode node = context.poolhandler.resolve_elem_by_path( abs_path );
+
+            if (testModeFull)
+            {
+                Log.err("****** TEST MODE FULL ******");
+                node = null;
+            }
 
             // MAP NODE IN THIS CONTEXT
             if (node != null)
@@ -895,7 +909,7 @@ public class Backup
             throw new IOException( "Nodespeicherplatz nicht gefunden");
         }
        
-        // HANDLE OPS FOR THIS ENTRY       
+        // HANDLE OPS FOR THIS ENTRY
         try
         {
             boolean ret = handle_single_fs_entry( context, node, remoteFSElem);
@@ -934,25 +948,6 @@ public class Backup
 
             buildStatusText(context, remoteFSElem.getPath() );
 
-            // HANMDLE DIR LIST IN PARALLEL
-
-            FutureTask<List<FileSystemElemNode>> fLocal = new FutureTask<List<FileSystemElemNode>>( new Callable<List<FileSystemElemNode>>() {
-
-                @Override
-                public List<FileSystemElemNode> call() throws Exception
-                {
-                    List<FileSystemElemNode> childNodes = null;
-                    if (node != null)
-                    {
-                        childNodes = node.getChildren(context.poolhandler.getEm());
-                    }
-                    return childNodes;
-                }
-            });
-            context.localListDirexecutor.execute(fLocal);
-
-            
-
 
             FutureTask<List<RemoteFSElem>> fRemote = new FutureTask<List<RemoteFSElem>>( new Callable<List<RemoteFSElem>>()
             {
@@ -980,27 +975,30 @@ public class Backup
 
 
             List<FileSystemElemNode> childNodes = null;
-            try
+            
+            if (node != null)
             {
-                childNodes = fLocal.get();
+                node.getChildren(context.poolhandler.getEm());
             }
-            catch (InterruptedException interruptedException)
-            {
-            }
-            catch (ExecutionException executionException)
-            {
-                throw executionException.getCause();
-            }
+
             // BUILD A MAP WITH ALL EXISTING NODES TO DETECT DELETED OBJECTS
             // THIS WORKS ONLY IF WE GET ALL DATA FROM AGENT (!onlyNewer)
             HashMap<Long, FileSystemElemNode> deleteMap = null;
             if (!onlyNewer && childNodes != null && !childNodes.isEmpty())
             {
                 deleteMap =  new HashMap<Long, FileSystemElemNode>(childNodes.size());
-                for (int i = 0; i < childNodes.size(); i++)
+
+                try
                 {
-                    FileSystemElemNode fileSystemElemNode = childNodes.get(i);
-                    deleteMap.put(fileSystemElemNode.getIdx(), fileSystemElemNode);
+                    for (int i = 0; i < childNodes.size(); i++)
+                    {
+                        FileSystemElemNode fileSystemElemNode = childNodes.get(i);
+                        deleteMap.put(fileSystemElemNode.getIdx(), fileSystemElemNode);
+                    }
+                }
+                catch (Exception e)
+                {
+                    Log.err(Main.Txt("Fehler beim Lesen von DelList") , remoteFSElem.getPath(), e);
                 }
             }
 
@@ -1040,7 +1038,7 @@ public class Backup
 
                 // IF WE HAVE A NEW NODE, WE SWITCH TO RECURSIVE TRUE
                 if (recursive || child_node == null || !child_node.isDirectory())
-                {
+                {                    
                     backupRemoteFSElem( context, childRemoteFSElem, child_node, true, onlyNewer);
                 }
 
@@ -1081,7 +1079,8 @@ public class Backup
             }
 
             if (node != null)
-            {
+            {                
+                //node.getChildren().unRealize();
                 context.poolhandler.em_detach(node);
             }
         }        
@@ -2380,44 +2379,92 @@ public class Backup
 
         if (checkDHBExistance)
         {
-            try
-            {
-                FileHandle fh = context.poolhandler.open_dedupblock_handle(dhb, /*create*/ false);
-                if (fh instanceof FS_FileHandle)
-                {
-                    FS_FileHandle sfh = (FS_FileHandle) fh;
-                    if (!sfh.get_fh().exists())
-                    {
-                        // MABE BLOCK IS CREATED BUT NOT WRITTEN ALREADY
-                        try
-                        {
-                            context.getWriteRunner().flush();
-                        }
-                        catch (InterruptedException ex)
-                        {
-                        }
+            if (!checkDHBExistance(context, dhb ))
+                return null;
+        }
+        return dhb;
+    }
 
-                        if (!sfh.get_fh().exists())
-                        {
-                            Log.err("Filesystemblock nicht gefunden für Hash", ": " + remote_hash + ": " + sfh.get_fh().getAbsolutePath());
-                        }
-                    }
+    static boolean checkDHBExistance(GenericContext context,  DedupHashBlock dhb )
+    {
+        try
+        {
+            FileHandle fh = context.poolhandler.open_dedupblock_handle(dhb, /*create*/ false, /*mustExist*/ false);
+            if (!fh.exists())
+            {
+                // MABE BLOCK IS CREATED BUT NOT WRITTEN ALREADY
+                try
+                {
+                    context.getWriteRunner().flush();
+                }
+                catch (InterruptedException ex)
+                {
+                }
+
+                if (!fh.exists())
+                {
+                    Log.err("Filesystemblock nicht gefunden für Hash", ": " + dhb.getHashvalue() + ": " + fh.toString());
+                    return false;
                 }
             }
-            catch (IOException e)
-            {
-               // System.out.println("Patgh exeption during check of DHB existence: " + e.getMessage());
-                return null;
-            }
         }
-
-        return dhb;
+        catch (Exception e)
+        {
+            Log.err("Path exeption during check of DHB existence", ": " + dhb.getHashvalue() , e);
+            return false;
+        }
+        return true;
     }
 
     private static void transfer_block_and_update_db( GenericContext context, FileSystemElemNode node, RemoteFSElemWrapper remote_handle, String remote_hash,  int streamInfo, long offset, int read_len, boolean isXa, long ts ) throws PoolReadOnlyException, SQLException
     {
         // CREATE NEW DEDUP BLOCK ENTRY
-        DedupHashBlock dhb = context.poolhandler.create_dedup_hashblock( node, remote_hash, read_len );
+        DedupHashBlock dhb = null;
+        try
+        {
+            dhb = context.poolhandler.create_dedup_hashblock( node, remote_hash, read_len );
+        }
+        catch( java.sql.SQLIntegrityConstraintViolationException exc)
+        {
+            // WE CANNOT INSERT BECAUSE THIS BLOCK EXISTS ALREADY IN DB
+            // 2 REASONS: BLOCK IS MISSING IN FS OR CACHE IS NOT UP TO DATE
+
+            dhb = context.poolhandler.findHashBlock(remote_hash );
+            if (dhb != null)
+            {
+                if (!checkDHBExistance( context, dhb))
+                {
+                    Log.err("Fehlender Hashblock wird erneut geschrieben", dhb.toString());
+                    // WE DO NOTHING, SINCE WE HAVE TO WRITE THIS NODE NEW
+                }
+                else
+                {
+                    // DOUBLE CHECK
+                    long idx = context.hashCache.getDhbIdx(remote_hash);
+                    if (idx <= 0)
+                        Log.warn("Hashblock fehlt im Cache, Cache wird aktualisiert", dhb.toString());
+                    else
+                        Log.warn("Hashblock fehlt nicht im Cache, Cache wird dennoch aktualisiert", dhb.toString());
+
+
+                    // OKAY, WE FOUND EARLIER BLOCK, REGISTER HASHBLOCK FOR THIS FILE AND LEAVE
+                    HashBlock hb = context.poolhandler.create_hashentry(node, remote_hash, dhb, offset, read_len, /*reorganize*/ false, ts);
+                    node.getHashBlocks().addIfRealized(hb);
+
+                    if (context.hashCache.isInited())
+                    {
+                        context.hashCache.addDhb(remote_hash, dhb.getIdx());
+                        context.stat.setDhbCacheSize( context.hashCache.size() );
+                    }
+                    return;
+                }
+            }
+            else
+            {
+                // CANNOT HANDLE HERE -> SEND UPWARDS
+                throw exc;
+            }
+        }
 
         
         FileHandle handle = null;
@@ -2453,7 +2500,9 @@ public class Backup
                 }
             }
             else
+            {
                 data = context.apiEntry.getApi().read(remote_handle, offset, read_len);
+            }
 
             if (data == null || data.length == 0)
             {

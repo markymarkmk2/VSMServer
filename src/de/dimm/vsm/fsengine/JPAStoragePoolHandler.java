@@ -7,7 +7,6 @@ package de.dimm.vsm.fsengine;
 import de.dimm.vsm.auth.User;
 import de.dimm.vsm.net.StoragePoolQry;
 import de.dimm.vsm.records.DedupHashBlock;
-import de.dimm.vsm.records.FileSystemElemNode;
 import de.dimm.vsm.records.StoragePool;
 import java.sql.SQLException;
 import java.util.List;
@@ -57,17 +56,7 @@ public class JPAStoragePoolHandler extends StoragePoolHandler /*implements Remot
         return list.get(0);
     }
 
-    @Override
-    public void addDedupBlock2Cache( DedupHashBlock blk )
-    {
-        throw new UnsupportedOperationException("Not supported yet.");
-    }
-
-    @Override
-    public DedupHashBlock getDedupBlockFromCache( String remote_hash )
-    {
-        throw new UnsupportedOperationException("Not supported yet.");
-    }
+   
 
 
 

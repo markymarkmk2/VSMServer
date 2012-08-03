@@ -9,6 +9,7 @@ import de.dimm.vsm.Exceptions.PathResolveException;
 import de.dimm.vsm.Exceptions.PoolReadOnlyException;
 import de.dimm.vsm.Main;
 import de.dimm.vsm.fsengine.StoragePoolHandler;
+import de.dimm.vsm.log.Log;
 import de.dimm.vsm.net.interfaces.FileHandle;
 import de.dimm.vsm.records.DedupHashBlock;
 import de.dimm.vsm.records.FileSystemElemAttributes;
@@ -192,9 +193,16 @@ class WriteRunner implements Runnable
                     }
                     finally
                     {
-                        if (elem.doClose)
+                        try
                         {
-                            elem.fh.close();
+                            if (elem.doClose)
+                            {
+                                elem.fh.close();
+                            }
+                        }
+                        catch (Exception iOException)
+                        {
+                            Log.err( "Exception on close in WriteRunner", iOException );
                         }
                         aiw.readyLock.unlock();
                     }
@@ -202,7 +210,7 @@ class WriteRunner implements Runnable
             }
             catch (Exception e)
             {
-                e.printStackTrace();
+                Log.err( "Exception in WriteRunner", e );
                 aiw.writeError = true;
             }
         }
@@ -282,15 +290,18 @@ public class HandleWriteRunner
             readyLock.lock();
 
             // THIS IS SYNCHRONIZING WITH LAST READY READY CONDITION AFTER WRITE OF LAST_ELEM
-            if (!lastAddedElem.written)
+            if (lastAddedElem != null && !lastAddedElem.written)
             {
                 // AWAIT RELEASES AND REAQUIRES LOCK
-
-                isReady.await(5000, TimeUnit.MILLISECONDS);
+                if (!isReady.await(5000, TimeUnit.MILLISECONDS))
+                {
+                    Log.err("waitForFinish failed, remaining size: " + workList.size());
+                }
             }
         }
         catch(Exception exc)
         {
+            Log.err("waitForFinish failed", exc);
             writeError = true;
         }
         finally
@@ -312,6 +323,10 @@ public class HandleWriteRunner
             {
 
             }
+        }
+        if (maxCnt <= 0)
+        {
+            Log.err("Flush failed, remaining size: " + workList.size());
         }
 
         waitForFinish();
@@ -340,19 +355,20 @@ public class HandleWriteRunner
                 workList.put(filler);
             }
             
-            if (Main.isPerformanceDiagnostic())
-            {
-                int len = workList.size();
-                if (len != lastQueueLen)
-                {
-                    if (Main.isPerformanceDiagnostic())
-                        System.out.println("WriteQueuelen: " + len);
-                    lastQueueLen = len;
-                }
-            }
+//            if (Main.isPerformanceDiagnostic())
+//            {
+//                int len = workList.size();
+//                if (len != lastQueueLen)
+//                {
+//                    if (Main.isPerformanceDiagnostic())
+//                        System.out.println("WriteQueuelen: " + len);
+//                    lastQueueLen = len;
+//                }
+//            }
         }
         catch (InterruptedException interruptedException)
         {
+            Log.err("Interrupted in addElem", interruptedException );
             writeError = true;
         }
     }

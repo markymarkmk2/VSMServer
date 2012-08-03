@@ -1,3 +1,10 @@
+Veränderungen in V1.1.3
+FIX: Bessere Garbage-Collection
+
+Veränderungen in V1.1.2
+FIX: Noch nicht geschriebene Hashblöcke mit Datenbank serialisieren
+FIX: Mac-/Unix Server beendet mit stop_script korrekt
+
 Veränderungen in V1.1.0
 UPD: BootstrapHandles werden auch für Hashblöcke geschrieben
 

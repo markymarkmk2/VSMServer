@@ -447,6 +447,7 @@ public class Restore
             // SET DIR TIMES
             RemoteFSElem remoteFSElem = create_target_elem(node, attr, targetPath);
             actualContext.apiEntry.getApi().set_filetimes_named(remoteFSElem);
+            node.getChildren().unRealize();
         }
     }
 
@@ -460,6 +461,9 @@ public class Restore
         RemoteFSElem elem = new RemoteFSElem(sb.toString(), node.getTyp(),
                 attr.getModificationDateMs(), attr.getCreationDateMs(), attr.getAccessDateMs(),
                 attr.getFsize(), attr.getStreamSize());
+
+
+        elem.setPosixData(attr.getPosixMode(), attr.getUid(), attr.getGid(), attr.getUidName(), attr.getGidName());
 
         if (elem.isSymbolicLink())
         {

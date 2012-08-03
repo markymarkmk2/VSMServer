@@ -5,7 +5,9 @@
 
 package de.dimm.vsm.net;
 
+import de.dimm.vsm.GeneralPreferences;
 import de.dimm.vsm.LogicControl;
+import de.dimm.vsm.Main;
 import de.dimm.vsm.Utilities.CryptTools;
 import de.dimm.vsm.auth.User;
 import de.dimm.vsm.fsengine.FS_FileHandle;
@@ -188,9 +190,16 @@ public class FixHashUrlBug
                         s += fileSystemElemNode.getName();
                         s += "\n;";
                     }
-                    throw new IOException(s);
+                    if (Main.get_bool_prop(GeneralPreferences.HASH_URL_FORMAT_EMPTY_LINKS, false))
+                    {
+                        Log.err(s);
+                        continue;
+                    }
+                    else
+                    {
+                        throw new IOException(s);
+                    }
                 }
-
                 
 
                 if (doMove)

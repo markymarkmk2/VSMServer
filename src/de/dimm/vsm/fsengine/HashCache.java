@@ -9,12 +9,12 @@ import de.dimm.vsm.Utilities.SizeStr;
 import de.dimm.vsm.log.Log;
 import de.dimm.vsm.records.DedupHashBlock;
 import de.dimm.vsm.records.StoragePool;
-import gnu.trove.map.hash.THashMap;
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
@@ -28,12 +28,12 @@ public class HashCache
     StoragePool pool;
 
     boolean inited = false;
-    THashMap<String,Long> hashMap;
+    HashMap<String,Long> hashMap;
 
     public HashCache( StoragePool pool)
     {
         this.pool = pool;
-        hashMap = new THashMap<String, Long>();
+        hashMap = new HashMap<String, Long>();
     }
 
     public boolean isInited()

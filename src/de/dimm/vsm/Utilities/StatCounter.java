@@ -256,7 +256,7 @@ public class StatCounter {
         entry.add( Main.Txt("Files_transfered"), "fx", fx );
         entry.add( Main.Txt("Speed_transfered"), "btps", btps_str );
         entry.add( Main.Txt("Files/s_transfered"), "ftps", ftps_str );
-        entry.add( Main.Txt("Blocks_checked"), "cblocks", statCheckedBlocks );
+       // entry.add( Main.Txt("Blocks_checked"), "cblocks", statCheckedBlocks ); PIET WILL DAS NICHT
         entry.add( Main.Txt("Blocks_transfered"), "tblocks", statTransferedBlocks );
         entry.add( Main.Txt("Blocks_deduped"), "dblocks", statDedupBlocks );
         entry.add( Main.Txt("DhbCacheHit"), "dhbHit", statDhbCacheHit );

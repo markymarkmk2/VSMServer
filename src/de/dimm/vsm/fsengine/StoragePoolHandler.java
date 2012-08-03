@@ -154,8 +154,8 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
     public abstract void em_refresh( Object fseNode );
     public abstract DedupHashBlock findHashBlock( String remote_hash );
 
-    public abstract void addDedupBlock2Cache(DedupHashBlock blk );
-    public abstract DedupHashBlock getDedupBlockFromCache( String remote_hash );
+//    public abstract void addDedupBlock2Cache(DedupHashBlock blk );
+//    public abstract DedupHashBlock getDedupBlockFromCache( String remote_hash );
 
 
 
@@ -671,7 +671,7 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
         if (isReadOnly())
             throw new PoolReadOnlyException(pool);
 
-        FSEIndexer indexer = Main.get_control().getStorageNubHandler().getIndexer(pool);
+        FSEIndexer indexer = LogicControl.getStorageNubHandler().getIndexer(pool);
         indexer.open();
 
         em_refresh(job);
@@ -1518,8 +1518,6 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
 
     }
 
-
-
     public String get_single_hash_block( FileSystemElemNode node, long offset, int read_len )
     {
         // TODO SPEED UP WITH HASHMAP OR DIRECT ACCESS
@@ -1552,10 +1550,11 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
 
         check_commit_transaction();
 
-        addDedupBlock2Cache( he );
+        //addDedupBlock2Cache( he );
 
         return he;
     }
+
     public FileHandle open_dedupblock_handle( DedupHashBlock dhb, boolean create ) throws PathResolveException, UnsupportedEncodingException, IOException
     {
         return open_dedupblock_handle(dhb, create, true);
@@ -1563,13 +1562,14 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
 
     public FileHandle open_dedupblock_handle( DedupHashBlock dhb, boolean create, boolean mustExist ) throws PathResolveException, UnsupportedEncodingException, IOException
     {
+        FileHandle ret = null;
         if (create)
         {
             AbstractStorageNode s_node = get_primary_dedup_node();
             if (s_node.isFS())
             {
                 StorageNodeHandler snHandler = get_handler_for_node(s_node);
-                FileHandle ret = snHandler.create_file_handle(dhb, true);
+                ret = snHandler.create_file_handle(dhb, true);
                 return ret;
             }
             throw new IOException("Unsupported StorageNode type " + s_node.getName());
@@ -1583,12 +1583,13 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
                 if (s_node.isFS())
                 {
                     StorageNodeHandler snHandler = get_handler_for_node(s_node);
-                    FileHandle ret = snHandler.create_file_handle(dhb, false);
-                    if (ret instanceof FS_FileHandle)
+                    ret = snHandler.create_file_handle(dhb, false);
+                    if (mustExist)
                     {
-                        FS_FileHandle fsfh = (FS_FileHandle)ret;
-                        if (!mustExist || fsfh.get_fh().exists())
-                            return fsfh;
+                        if (ret.exists())
+                            return ret;
+
+                        throw new IOException("DedupBlock " + dhb.toString() + " id not existent: " + ret.toString()  );
                     }
                     else
                     {
@@ -1613,7 +1614,7 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
 
         check_commit_transaction();
 
-        HashCache hashCache = Main.get_control().getStorageNubHandler().getHashCache(getPool());
+        HashCache hashCache = LogicControl.getStorageNubHandler().getHashCache(getPool());
 
         hashCache.removeDhb( dhb );
 
@@ -2072,7 +2073,7 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
     public List<FileSystemElemNode> search( ArrayList<SearchEntry> slist, int limit ) throws SQLException
     {
 
-        FSEIndexer fse = Main.get_control().getStorageNubHandler().getIndexer(pool);
+        FSEIndexer fse = LogicControl.getStorageNubHandler().getIndexer(pool);
 
         
         List<FileSystemElemNode> list = fse.searchNodes(this, slist, null, limit);
@@ -2098,7 +2099,7 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
     public List<ArchiveJob> searchJob( ArrayList<SearchEntry> slist, int limit ) throws SQLException
     {
 
-        FSEIndexer fse = Main.get_control().getStorageNubHandler().getIndexer(pool);
+        FSEIndexer fse = LogicControl.getStorageNubHandler().getIndexer(pool);
 
         
         List<ArchiveJob> list = fse.searchJobs(this, slist,  limit);
@@ -2199,6 +2200,7 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
             }
         }
     }
+     
     public void removeDedupBlock( DedupHashBlock dhb, FileSystemElemNode node ) throws SQLException, PathResolveException, UnsupportedEncodingException, PoolReadOnlyException, IOException
     {
         List<PoolNodeFileLink> link_list = get_pool_node_file_links(node );

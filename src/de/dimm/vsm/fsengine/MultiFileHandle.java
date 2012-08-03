@@ -142,11 +142,40 @@ public class MultiFileHandle implements FileHandle
             }
             catch (Exception iOException)
             {
-
             }
         }
        
         return 0;
+    }
+
+    @Override
+    public boolean exists()
+    {
+        for (int i = 0; i < fh_list.size(); i++)
+        {
+            FileHandle fileHandle = fh_list.get(i);
+
+            if (fileHandle.exists())
+            {
+                return true;
+            }
+            
+        }
+        return false;
+    }
+
+    @Override
+    public String toString()
+    {
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < fh_list.size(); i++)
+        {
+            FileHandle fileHandle = fh_list.get(i);
+            if (sb.length() > 0)
+                sb.append(", ");
+            sb.append(fileHandle.toString());
+        }
+        return sb.toString();
     }
 
 

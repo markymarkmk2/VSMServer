@@ -8,13 +8,10 @@ import de.dimm.vsm.log.Log;
 import de.dimm.vsm.auth.User;
 import de.dimm.vsm.net.StoragePoolQry;
 import de.dimm.vsm.records.DedupHashBlock;
-import de.dimm.vsm.records.FileSystemElemNode;
 import de.dimm.vsm.records.StoragePool;
 import java.io.IOException;
 import java.sql.SQLException;
 import java.util.List;
-import net.sf.ehcache.Cache;
-import net.sf.ehcache.Element;
 
 /**
  *
@@ -89,25 +86,25 @@ public class JDBCStoragePoolHandler extends StoragePoolHandler
 //        updateLazyListsHandler( node.getXaNodes());
 //    }
 
-    @Override
-    public void addDedupBlock2Cache(DedupHashBlock blk )
-    {
-         Cache c = em.getDedupBlockCache();
-
-         Element elem = new Element(blk.getHashvalue(), blk);
-         c.putIfAbsent(elem);
-    }
-
-    @Override
-    public DedupHashBlock getDedupBlockFromCache( String remote_hash )
-    {
-        Cache c = em.getDedupBlockCache();
-        Element elem = c.get(remote_hash);
-        if (elem != null)
-            return (DedupHashBlock)elem.getObjectValue();
-
-        return null;
-    }
+//    @Override
+//    public void addDedupBlock2Cache(DedupHashBlock blk )
+//    {
+//         Cache c = em.getDedupBlockCache();
+//
+//         Element elem = new Element(blk.getHashvalue(), blk);
+//         c.putIfAbsent(elem);
+//    }
+//
+//    @Override
+//    public DedupHashBlock getDedupBlockFromCache( String remote_hash )
+//    {
+//        Cache c = em.getDedupBlockCache();
+//        Element elem = c.get(remote_hash);
+//        if (elem != null)
+//            return (DedupHashBlock)elem.getObjectValue();
+//
+//        return null;
+//    }
 
 //    long fsMax = 0;
 //    long fsMin = Long.MAX_VALUE;
@@ -116,15 +113,15 @@ public class JDBCStoragePoolHandler extends StoragePoolHandler
     @Override
     public DedupHashBlock findHashBlock( String remote_hash )
     {
-        DedupHashBlock blk = getDedupBlockFromCache( remote_hash );
-        if (blk != null)
-            return blk;
+//        DedupHashBlock blk = getDedupBlockFromCache( remote_hash );
+//        if (blk != null)
+//            return blk;
 
         try
         {
 //            long fs = System.nanoTime();
 
-            blk = createSingleResultQuery("SELECT * FROM DedupHashBlock T1 WHERE T1.hashvalue='" + remote_hash + "'", DedupHashBlock.class);
+            DedupHashBlock blk = createSingleResultQuery("SELECT * FROM DedupHashBlock T1 WHERE T1.hashvalue='" + remote_hash + "'", DedupHashBlock.class);
 
 //            long fe = System.nanoTime();
 //
@@ -150,10 +147,10 @@ public class JDBCStoragePoolHandler extends StoragePoolHandler
 //                }
 //            }
 
-            if (blk != null)
-            {
-                addDedupBlock2Cache( blk );
-            }
+//            if (blk != null)
+//            {
+//                addDedupBlock2Cache( blk );
+//            }
             return blk;
         }
         catch (SQLException sQLException)

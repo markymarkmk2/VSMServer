@@ -103,7 +103,7 @@ public class BackupManager extends WorkerParent
                 "Fehler beim Sichern in Backup $NAME", "In Volume $VOLUME bei Agent $AGENT im Backup $NAME können folgende Einträge nicht gesichert werden", NotificationEntry.Level.WARNING, false));
 
         Main.addNotification( new NotificationEntry(BA_ABORT,
-                "Abbruch beim Sichern in Backup $NAME", "In Volume $VOLUME bei Agent $AGENT im Backup $NAME wurde folgende Datei nicht gesichert", NotificationEntry.Level.ERROR, false));
+                "Abbruch beim Sichern in Backup $NAME", "Die Sicherung von Volume $VOLUME bei Agent $AGENT im Backup $NAME wurde abgebrochen", NotificationEntry.Level.ERROR, false));
 
 
         Main.addNotification( new NotificationEntry(BA_VOLUME_OKAY,
