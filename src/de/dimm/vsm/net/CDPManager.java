@@ -10,7 +10,9 @@ import de.dimm.vsm.Main;
 import de.dimm.vsm.WorkerParent;
 import de.dimm.vsm.backup.AgentApiEntry;
 import de.dimm.vsm.fsengine.GenericEntityManager;
+import de.dimm.vsm.net.interfaces.AgentApi;
 import de.dimm.vsm.records.ClientVolume;
+import de.dimm.vsm.records.Excludes;
 import de.dimm.vsm.records.StoragePool;
 import java.io.IOException;
 import java.net.UnknownHostException;
@@ -353,7 +355,22 @@ public class CDPManager extends WorkerParent
             if (ticket.isOk())
             {
                 t.ticket = ticket;
+                if (!clientVolume.getClinfo().getExclList().isEmpty() && api.hasBooleanOption(AgentApi.OP_CDP_EXCLUDES))
+                {
+                    // CREATE DUPLICATES W/O DB LINKS
+                    ArrayList<Excludes> clientExcList = new ArrayList<Excludes>();
+                    for (int i = 0; i < clientVolume.getClinfo().getExclList().size(); i++)
+                    {
+                        Excludes excludes = clientVolume.getClinfo().getExclList().get(i);
+                        Excludes cloneexcludes = new Excludes();
+                        cloneexcludes.clone(excludes);
+                        cloneexcludes.setClinfo(null);
+                        clientExcList.add(cloneexcludes);
+                    }
+                    api.getApi().set_cdp_excludes( t.ticket, clientExcList );
+                }
                 Log.debug("CDP wurde gestartet", name );
+
             }
             else
             {
