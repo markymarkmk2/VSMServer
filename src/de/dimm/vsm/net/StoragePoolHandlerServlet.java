@@ -216,8 +216,11 @@ public class StoragePoolHandlerServlet extends HessianServlet implements Storage
     public List<RemoteFSElem> get_child_nodes( StoragePoolHandler handler, RemoteFSElem node ) throws SQLException
     {        
         StoragePoolQry qry = handler.getPoolQry();
+        List<RemoteFSElem> ret = new ArrayList<RemoteFSElem>();
               
         FileSystemElemNode fseNode = handler.resolve_node_by_remote_elem(  node );
+        if (fseNode == null)
+            return ret;
 
         try
         {
@@ -234,7 +237,7 @@ public class StoragePoolHandlerServlet extends HessianServlet implements Storage
 
         UserManager umgr = Main.get_control().getUsermanager();
 
-        List<RemoteFSElem> ret = new ArrayList<RemoteFSElem>();
+        
 
         if (fseNode != null)
         {
@@ -247,9 +250,14 @@ public class StoragePoolHandlerServlet extends HessianServlet implements Storage
                 // THIS IS THE NEWEST ENTRY FOR THIS FILE
                 FileSystemElemAttributes attr = handler.getActualFSAttributes(fileSystemElemNode, qry );
 
-                // ACLS
-                if (!qry.matchesUser(fileSystemElemNode, attr, umgr))
-                    continue;
+                // ACLS STARTUNDER SYSTEMROOT
+                if (!node.getPath().equals("/"))
+                {
+                    if (!qry.matchesUser(fileSystemElemNode, attr, umgr))
+                    {
+                        continue;
+                    }
+                }
 
                 // OBVIOUSLY THE FILE WAS CREATED AFTER TS
                 if (attr == null)
