@@ -199,11 +199,6 @@ public class JobManager extends WorkerParent
                     public void run()
                     {
                         job.run();
-                        if (job.getJobState() == JOBSTATE.FINISHED_OK_REMOVE)
-                        {
-                            entry.close();
-                            list.remove(entry);
-                        }
                     }
                 }, "JobEntry");
                 entry.setThread(workerThr);
@@ -272,8 +267,10 @@ public class JobManager extends WorkerParent
                     }
                     else if (jobEntry.getJob().getJobState() == JobInterface.JOBSTATE.ABORTED)
                     {
+                        jobEntry.close();
                         list.remove(jobEntry);
-                    }
+                        i--;
+                    }                    
                 }
             }
         }
@@ -306,7 +303,8 @@ public class JobManager extends WorkerParent
         for (int i = 0; i < list.size(); i++)
         {
             JobEntry jobEntry = list.get(i);
-            if (jobEntry.getUser().equals(user))
+
+            if (jobEntry.getUser() != null && jobEntry.getUser().equals(user))
                 userList.add(jobEntry);
         }
         return userList.toArray( new JobEntry[0]);
