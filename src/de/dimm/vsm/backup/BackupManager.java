@@ -487,6 +487,12 @@ public class BackupManager extends WorkerParent
         return new CDPJobInterface(api, sched, info, volume, ev);
     }
 
+    public JobInterface createCDPJob(AgentApiEntry api, Schedule sched, ClientInfo info, ClientVolume volume, List<CdpEvent> evList)
+    {
+        setStatusTxt(Main.Txt("Starte CDP JobList"));
+        return new CDPJobInterface(api, sched, info, volume, evList);
+    }
+
     public class CDPJobInterface implements JobInterface
     {
 
@@ -495,7 +501,7 @@ public class BackupManager extends WorkerParent
         Schedule sched;
         ClientInfo info;
         ClientVolume volume;
-        CdpEvent ev;
+        List<CdpEvent> evList;
         Date start = new Date();
         JOBSTATE js;
 
@@ -506,7 +512,19 @@ public class BackupManager extends WorkerParent
             this.sched = sched;
             this.info = info;
             this.volume = volume;
-            this.ev = ev;
+            this.evList = new ArrayList<CdpEvent>();
+            this.evList.add(ev);
+            js = JOBSTATE.MANUAL_START;
+        }
+        public CDPJobInterface( AgentApiEntry api, Schedule sched, ClientInfo info, ClientVolume volume, List<CdpEvent> evList )
+        {
+            this.actualContext = null;
+            this.api = api;
+            this.sched = sched;
+            this.info = info;
+            this.volume = volume;
+            this.evList = new ArrayList<CdpEvent>();
+            this.evList.addAll(evList);
             js = JOBSTATE.MANUAL_START;
         }
 
@@ -545,7 +563,7 @@ public class BackupManager extends WorkerParent
         {
             if (actualContext != null)
             {
-                actualContext.getStatus();
+                return actualContext.getStatus();
             }
             return "";
         }
@@ -555,7 +573,7 @@ public class BackupManager extends WorkerParent
         {
             if (actualContext != null)
             {
-                actualContext.getStat().toString();
+                return actualContext.getStat().toString();
             }
             return "";
         }
@@ -576,7 +594,7 @@ public class BackupManager extends WorkerParent
         public int getProcessPercent()
         {
             if (actualContext != null)
-                return (int)(actualContext.getStat().getTotalSize() / 1000*1000);
+                return  (int)(actualContext.stat.Speed() / (1000*1000));
             return 0;
         }
 
@@ -601,7 +619,7 @@ public class BackupManager extends WorkerParent
             try
             {
                 actualContext = initCDPbackup(api, sched, info, volume);
-                handleCDPbackup(actualContext, api, ev.getElem(), ev.getMode() == CdpEvent.CDP_SYNC_DIR_RECURSIVE, sched);
+                handleCDPbackup(actualContext, api, evList, sched);
             }
             catch (Throwable ex)
             {
@@ -614,8 +632,8 @@ public class BackupManager extends WorkerParent
                 {
                     try
                     {
+
                         closeCDPbackup(actualContext);
-                        actualContext.close();
                     }
                     catch (Exception exception)
                     {
@@ -666,40 +684,50 @@ public class BackupManager extends WorkerParent
 
     public void closeCDPbackup(  BackupContext actualContext ) throws IOException, Exception
     {
-        StoragePoolHandler sp_handler = actualContext.getPoolhandler();
-        sp_handler.commit_transaction();
+        actualContext.close();
+        //Log.debug("Closing CDP BackupContext" );
+        StoragePoolHandler sp_handler = actualContext.getPoolhandler();       
         sp_handler.close_transaction();
         sp_handler.close_entitymanager();
     }
 
 
-    public BackupContext handleCDPbackup( BackupContext actualContext, AgentApiEntry api,  RemoteFSElem elem, boolean recursive, Schedule sched ) throws Exception, Throwable
+    public BackupContext handleCDPbackup( BackupContext actualContext, AgentApiEntry api,  List<CdpEvent> evList, Schedule sched ) throws Exception, Throwable
     {
-        setStatusTxt(Main.Txt("Sichere CDP") + ": " + elem.getPath());
-        actualContext.setStatus(Main.Txt("CDP ist aktiv mit") + " " + elem.getPath());
-        
-        
-        try
+
+        for (int i = 0; i < evList.size(); i++)
         {
-        // DETECT PATH IN STORAGE
-            String abs_path = actualContext.getRemoteElemAbsPath( elem );
+            CdpEvent ev = evList.get(i);
+            
+            RemoteFSElem elem = ev.getElem();
+            boolean recursive = ev.getMode() == CdpEvent.CDP_SYNC_DIR_RECURSIVE;
 
-            // RESOLVE STARTPATH IF POSSIBLE
-            FileSystemElemNode node = actualContext.poolhandler.resolve_elem_by_path( abs_path );
+            setStatusTxt(Main.Txt("Sichere CDP") + ": " + elem.getPath());
+            actualContext.setStatus(Main.Txt("CDP ist aktiv mit") + " " + elem.getPath());
 
-            // MAP NODE IN THIS CONTEXT
-            if (node != null)
+
+            try
             {
-                node = actualContext.poolhandler.em_find(FileSystemElemNode.class, node.getIdx());
-            }
+                // DETECT PATH IN STORAGE
+                String abs_path = actualContext.getRemoteElemAbsPath( elem );
 
-            Backup.backupRemoteFSElem(actualContext, elem, node, recursive, /*onlyNewer*/ false);
-        }
-        catch (Throwable throwable)
-        {
-             Log.err("Fehler beim CDP des Elements " + elem.getName(), throwable );
-             actualContext.setStatus("Fehler beim CDP des Elements " + elem.getName() + ": " + throwable.getMessage() );
-             actualContext.setResult(false);
+                // RESOLVE STARTPATH IF POSSIBLE
+                FileSystemElemNode node = actualContext.poolhandler.resolve_elem_by_path( abs_path );
+
+                // MAP NODE IN THIS CONTEXT
+                if (node != null)
+                {
+                    node = actualContext.poolhandler.em_find(FileSystemElemNode.class, node.getIdx());
+                }
+
+                Backup.backupRemoteFSElem(actualContext, elem, node, recursive, /*onlyNewer*/ false);
+            }
+            catch (Throwable throwable)
+            {
+                 Log.err("Fehler beim CDP des Elements " + elem.getName(), throwable );
+                 actualContext.setStatus("Fehler beim CDP des Elements " + elem.getName() + ": " + throwable.getMessage() );
+                 actualContext.setResult(false);
+            }
         }
         
         // SUCCEEDED?
