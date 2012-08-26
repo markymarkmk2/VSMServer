@@ -11,6 +11,7 @@ import de.dimm.vsm.Main;
 import de.dimm.vsm.net.RemoteFSElem;
 import de.dimm.vsm.net.ScheduleStatusEntry;
 import de.dimm.vsm.net.ScheduleStatusEntry.ValueEntry;
+import de.dimm.vsm.records.DedupHashBlock;
 import java.util.List;
 
 /**
@@ -50,6 +51,8 @@ public class StatCounter {
     long statDhbCacheHit = 0;
     long statDhbCacheMiss = 0;
     long statDhbCacheSize = 0;
+    long statDedupSize;
+    long statDedupCheckSize;
 
     double speedPerSec;
 
@@ -94,6 +97,8 @@ public class StatCounter {
         statDhbCacheHit = 0;
         statDhbCacheMiss = 0;
         statDhbCacheSize = 0;
+        statDedupSize = 0;
+        statDedupCheckSize = 0;
 
         blocksize = Main.get_int_prop(GeneralPreferences.FILE_HASH_BLOCKSIZE, CS_Constants.FILE_HASH_BLOCKSIZE);
 
@@ -107,13 +112,25 @@ public class StatCounter {
     {
         statTransferedBlocks++;
     }
-    public void addCheckBlock()
+    public void addCheckBlock(DedupHashBlock dhb)
     {
         statCheckedBlocks++;
+        statDedupCheckSize += dhb.getBlockLen();
     }
-    public void addDedupBlock()
+    public void addCheckBlockSize(long size)
+    {
+        statCheckedBlocks++;
+        statDedupCheckSize += size;
+    }
+    public void addDedupBlock(DedupHashBlock dhb)
     {
         statDedupBlocks++;
+        statDedupSize += dhb.getBlockLen();
+    }
+    public void addDedupBlockSize(long size)
+    {
+        statDedupBlocks++;
+        statDedupSize += size;
     }
     public void addTotalStat( RemoteFSElem remoteFSElem )
     {
@@ -228,6 +245,8 @@ public class StatCounter {
         statDhbCacheSize += stat.statDhbCacheSize;
         statDhbCacheHit += stat.statDhbCacheHit;
         statDhbCacheMiss += stat.statDhbCacheMiss;
+        statDedupCheckSize += stat.statDedupCheckSize;
+        statDedupSize += stat.statDedupSize;
     }
 
     public void setName( String name )
@@ -245,6 +264,7 @@ public class StatCounter {
         SizeStr ft = new SizeStr(statTotalFiles, true);
         SizeStr dt = new SizeStr(statTotalDirs, true);
         SizeStr sx = new SizeStr(statTransferedSize);
+        SizeStr ssx = new SizeStr(statTransferedSize + statDedupCheckSize + statDedupSize);
         SizeStr fx = new SizeStr(statTransferedFiles, true);
 
 
@@ -252,11 +272,14 @@ public class StatCounter {
         entry.add( Main.Txt("Files_total"), "ftotal", ft );
         entry.add( Main.Txt("Speed"), "bps", bps_str );
         entry.add( Main.Txt("Files/s"), "fps", fps_str );
-        entry.add( Main.Txt("Data_transfered"), "sx", sx );
+        entry.add( Main.Txt("Filedata_changed"), "ssx", ssx );
         entry.add( Main.Txt("Files_transfered"), "fx", fx );
         entry.add( Main.Txt("Speed_transfered"), "btps", btps_str );
         entry.add( Main.Txt("Files/s_transfered"), "ftps", ftps_str );
-       // entry.add( Main.Txt("Blocks_checked"), "cblocks", statCheckedBlocks ); PIET WILL DAS NICHT
+       
+        // entry.add( Main.Txt("Blocks_checked"), "cblocks", statCheckedBlocks ); PIET WILL DAS NICHT
+
+        entry.add( Main.Txt("Filedata_transfered"), "sx", sx );
         entry.add( Main.Txt("Blocks_transfered"), "tblocks", statTransferedBlocks );
         entry.add( Main.Txt("Blocks_deduped"), "dblocks", statDedupBlocks );
         entry.add( Main.Txt("DhbCacheHit"), "dhbHit", statDhbCacheHit );
