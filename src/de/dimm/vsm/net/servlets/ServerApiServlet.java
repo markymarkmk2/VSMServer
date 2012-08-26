@@ -10,6 +10,7 @@ import de.dimm.vsm.net.CdpEvent;
 import de.dimm.vsm.net.CdpTicket;
 import de.dimm.vsm.net.ServerApiImpl;
 import de.dimm.vsm.net.interfaces.ServerApi;
+import java.util.List;
 import java.util.Properties;
 
 
@@ -36,6 +37,12 @@ public class ServerApiServlet extends HessianServlet implements ServerApi
     }
 
     @Override
+    public boolean alert( List<String> reason, String msg )
+    {
+        return api.alert(reason, msg);
+    }
+
+    @Override
     public Properties get_properties()
     {
         return api.get_properties();
@@ -45,6 +52,11 @@ public class ServerApiServlet extends HessianServlet implements ServerApi
     public boolean cdp_call( CdpEvent ev, CdpTicket ticket )
     {
         return api.cdp_call(ev, ticket);
-    }      
+    }
+    @Override
+    public boolean cdp_call( List<CdpEvent> evList, CdpTicket ticket )
+    {
+        return api.cdp_call(evList, ticket);
+    }
   
 }
