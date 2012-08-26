@@ -12,17 +12,13 @@ import de.dimm.vsm.LogicControl;
 import de.dimm.vsm.log.Log;
 import de.dimm.vsm.Main;
 import de.dimm.vsm.Utilities.StatCounter;
-import de.dimm.vsm.fsengine.FSEIndexer;
-import de.dimm.vsm.fsengine.FS_FileHandle;
 import de.dimm.vsm.fsengine.HashCache;
+import de.dimm.vsm.fsengine.FSEIndexer;
 import de.dimm.vsm.fsengine.StoragePoolHandler;
 import de.dimm.vsm.jobs.JobInterface.JOBSTATE;
 import de.dimm.vsm.net.RemoteFSElem;
-import de.dimm.vsm.net.interfaces.FileHandle;
 import de.dimm.vsm.records.ArchiveJob;
-import de.dimm.vsm.records.DedupHashBlock;
 import de.dimm.vsm.records.Excludes;
-import java.io.IOException;
 import java.net.InetAddress;
 import java.sql.SQLException;
 import java.util.ArrayList;
@@ -190,6 +186,8 @@ public abstract class GenericContext
         {
             writeRunner.close();
             apiEntry.close();
+            localListDirexecutor.shutdown();
+            remoteListDirexecutor.shutdown();
             if (poolhandler.is_transaction_active())
             {
                 poolhandler.commit_transaction();
@@ -203,6 +201,7 @@ public abstract class GenericContext
         {
             indexer.flush();
         }
+
         openCounter--;
         Log.debug("Closed Context");
 
