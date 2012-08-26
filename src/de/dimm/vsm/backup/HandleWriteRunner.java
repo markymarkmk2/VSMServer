@@ -226,7 +226,7 @@ public class HandleWriteRunner
 {
     public static final int MAX_WRITE_QUEUE_LEN = 1000;
     public static final int DATABLOCK_PER_FILLER = 100*1024;  // EVERY 100KB WE HAVE A FILLER -> 1MB BLOCK ADDS 10 FILLERS
-    BlockingQueue<HandleWriteElem> workList;
+    final BlockingQueue<HandleWriteElem> workList;
 
     
 
@@ -280,6 +280,7 @@ public class HandleWriteRunner
         catch (InterruptedException interruptedException)
         {
         }
+        lastAddedElem = null;
     }
 
     int idxCnt = 0;
@@ -313,23 +314,27 @@ public class HandleWriteRunner
     void flush() throws InterruptedException
     {
         int maxCnt = 300;
-        while (!workList.isEmpty() && maxCnt-- > 0)
+        synchronized(workList)
         {
-            try
+            while (!workList.isEmpty() && maxCnt-- > 0)
             {
-                Thread.sleep(100);
+                try
+                {
+                    Thread.sleep(100);
+                }
+                catch (InterruptedException ex)
+                {
+
+                }
             }
-            catch (InterruptedException ex)
+
+            if (maxCnt <= 0)
             {
-
+                Log.err("Flush failed, remaining size: " + workList.size());
             }
-        }
-        if (maxCnt <= 0)
-        {
-            Log.err("Flush failed, remaining size: " + workList.size());
-        }
 
-        waitForFinish();
+            waitForFinish();
+        }
     }
 
     public boolean isWriteError()
@@ -346,13 +351,15 @@ public class HandleWriteRunner
     {
         try
         {            
-            lastAddedElem = elem;
-            workList.put(elem);
-            
-            int addFillers = elem.len / DATABLOCK_PER_FILLER;
-            for (int i = 0; i < addFillers; i++)
-            {
-                workList.put(filler);
+            synchronized(workList)
+            {   lastAddedElem = elem;
+                workList.put(elem);
+
+                int addFillers = elem.len / DATABLOCK_PER_FILLER;
+                for (int i = 0; i < addFillers; i++)
+                {
+                    workList.put(filler);
+                }
             }
             
 //            if (Main.isPerformanceDiagnostic())
