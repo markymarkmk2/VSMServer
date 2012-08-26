@@ -5,52 +5,68 @@
 
 package de.dimm.vsm.fsengine;
 
+
+import de.dimm.vsm.GeneralPreferences;
+import de.dimm.vsm.Main;
 import de.dimm.vsm.Utilities.SizeStr;
 import de.dimm.vsm.log.Log;
 import de.dimm.vsm.records.DedupHashBlock;
 import de.dimm.vsm.records.StoragePool;
+import de.dimm.vsm.records.StoragePoolNub;
+import java.io.IOException;
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
-import java.util.Set;
 
 /**
  *
  * @author Administrator
  */
-public class HashCache
+public abstract class HashCache
 {
+
+    static HashCache createCache( StoragePoolNub nub, StoragePool pool )
+    {
+        if (Main.get_bool_prop(GeneralPreferences.USE_H2_CACHE, false))
+            return new H2HashCache(nub, pool);
+        else
+            return new JavaHashCache(pool);
+    }
     StoragePool pool;
 
-    boolean inited = false;
-    HashMap<String,Long> hashMap;
-
-    public HashCache( StoragePool pool)
+    protected HashCache( StoragePool pool )
     {
         this.pool = pool;
-        hashMap = new HashMap<String, Long>();
     }
+
+    
+
+    boolean inited = false;
+
+    public abstract void fill( String hash, long id ) throws IOException;
+    public abstract long getDhbIdx( String hash ) throws IOException;
+    public abstract void addDhb( String hash, long idx ) throws IOException;
+    public abstract long size();
+    public abstract void removeDhb( DedupHashBlock dhb );
+    public abstract List<String> getUrlUnsafeHashes();
 
     public boolean isInited()
     {
         return inited;
     }
+    public abstract boolean shutdown( );
 
-    
-    public boolean init(Connection conn )
+    public boolean init(Connection conn ) throws IOException
     {
         // TODO: CALC MEM
         inited = false;
-        
+
         Statement st  = null;
         try
         {
-            
+
             st = conn.createStatement();
 
 //            int cnt = -1;
@@ -72,16 +88,17 @@ public class HashCache
                 long idx = rs.getLong(1);
                 String has = rs.getString(2);
 
-                hashMap.put(has, idx);
+                fill( has, idx );
+
             }
             rs.close();
-            Log.info("Block-Cachegröße für Pool", pool.getName() + ": " + hashMap.size());
+            Log.info("Block-Cachegröße für Pool", pool.getName() + ": " + size());
 
             maxMem = Runtime.getRuntime().maxMemory();
             freeMem = Runtime.getRuntime().freeMemory();
             totalMem = Runtime.getRuntime().totalMemory();
             Log.info("Speicher nach Cache", "Max: " + SizeStr.format(maxMem) + " Total: " + SizeStr.format(totalMem) + " Free: " + SizeStr.format(freeMem)  );
-            
+
 
             inited = true;
             return true;
@@ -102,66 +119,8 @@ public class HashCache
                 catch (SQLException sQLException)
                 {
                 }
-            }           
-        }
-    }
-
-    public long getDhbIdx( String hash )
-    {
-        Long l = hashMap.get(hash);
-        if (l != null)
-            return l.longValue();
-        
-        return -1;
-    }
-    public void addDhb( String hash, long idx )
-    {
-        hashMap.put(hash, idx);
-    }
-
-    public int size()
-    {
-        return hashMap.size();
-    }
-
-    void removeDhb( DedupHashBlock dhb )
-    {
-        hashMap.remove(dhb.getHashvalue());
-    }
-
-    public List<String> getUrlUnsafeHashes()
-    {
-        ArrayList<String> ret = new ArrayList<String>();
-        Set<String> set = hashMap.keySet();
-
-        for (Iterator<String> it = set.iterator(); it.hasNext();)
-        {
-            String hash = it.next();
-            boolean found = false;
-
-            char lastCh = hash.charAt( hash.length() - 1 );
-            
-            // DETECT PADDED HASHES
-            if (lastCh == '=')
-                found = true;
-            
-            if (!found)
-            {
-                for (int i = 0; i < hash.length(); i++)
-                {
-                    char ch = hash.charAt(i);
-                    if (ch == '/' || ch == '+')
-                    {
-                        found = true;
-                        break;
-                    }
-                }
-            }
-            if (found)
-            {
-                ret.add(hash);
             }
         }
-        return ret;
     }
+
 }
