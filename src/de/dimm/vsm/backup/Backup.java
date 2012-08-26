@@ -23,6 +23,7 @@ import de.dimm.vsm.auth.User;
 import de.dimm.vsm.fsengine.ArrayLazyList;
 import de.dimm.vsm.fsengine.FS_FileHandle;
 import de.dimm.vsm.fsengine.GenericEntityManager;
+import de.dimm.vsm.fsengine.JDBCEntityManager;
 import de.dimm.vsm.fsengine.JDBCStoragePoolHandler;
 import de.dimm.vsm.jobs.InteractionEntry;
 import de.dimm.vsm.net.ScheduleStatusEntry;
@@ -304,6 +305,7 @@ public class Backup
                             actualContext.setJobState(JOBSTATE.FINISHED_ERROR);
                         }
                     }
+                    actualContext.close();
                 }
             }
             finished = true;
@@ -356,6 +358,18 @@ public class Backup
                 return actualContext.getActVolume();
             }
             return null;
+        }
+        public void writeCacheStatistics()
+        {
+            if (actualContext != null)
+            {
+                if (actualContext.poolhandler.getEm() instanceof JDBCEntityManager)
+                {
+                    JDBCEntityManager jem = (JDBCEntityManager)actualContext.poolhandler.getEm();
+                    jem.writeCacheStatistics(JDBCEntityManager.OBJECT_CACHE);
+                    //jem.writeCacheStatistics(JDBCEntityManager.DEDUPBLOCK_CACHE);
+                }
+            }
         }
     }
 
@@ -815,61 +829,7 @@ public class Backup
 
         return context;
     }
-
-    public static boolean _checkExclude( Excludes excludes, RemoteFSElem remoteFSElem )
-    {
-        if (excludes.getIsDir() != remoteFSElem.isDirectory())
-            return false;
-
-        String file = remoteFSElem.getPath();
-
-        if (!excludes.getIsFullPath())
-            file = remoteFSElem.getName();
-
-        String arg = excludes.getArgument();
-        if (excludes.isIgnorecase())
-        {
-            file = file.toLowerCase();            
-            arg = arg.toLowerCase();
-        }
-
-
-        if(excludes.getMode().equals(Excludes.MD_BEGINS_WITH))
-        {
-            if (file.startsWith(arg))
-                return true;
-        }
-        else if(excludes.getMode().equals(Excludes.MD_CONTAINS))
-        {
-            if (file.indexOf(arg) >= 0)
-                return true;
-        }
-        else if (excludes.getMode().equals(Excludes.MD_ENDS_WITH))
-        {
-            if (file.endsWith(arg))
-                return true;
-        }
-        else if (excludes.getMode().equals(Excludes.MD_EXACTLY))
-        {
-            if (file.equals(arg))
-                return true;
-        }
-        else if (excludes.getMode().equals(Excludes.MD_REGEXP))
-        {
-            if (file.matches(arg))
-                return true;
-        }
-
-        return false;
-
-
-    }
-    public static boolean checkExclude( Excludes excludes, RemoteFSElem remoteFSElem )
-    {
-        boolean ret = _checkExclude(excludes, remoteFSElem);
-        return excludes.getIncludeMatches() ? !ret : ret;
-    }
-
+  
 
     public static void backupRemoteFSElem( final GenericContext context, final RemoteFSElem remoteFSElem, final FileSystemElemNode node, boolean recursive, final boolean onlyNewer ) throws PoolReadOnlyException, SQLException, Throwable
     {
@@ -879,7 +839,7 @@ public class Backup
             for (int i = 0; i < exclList.size(); i++)
             {
                 Excludes excludes = exclList.get(i);
-                if (checkExclude( excludes, remoteFSElem ))
+                if (Excludes.checkExclude( excludes, remoteFSElem ))
                 {
                     Log.debug(Main.Txt("Excludefilter"), excludes.toString() + ": " + remoteFSElem.getPath());
                     return;
@@ -1079,13 +1039,35 @@ public class Backup
             }
 
             if (node != null)
-            {                
-                //node.getChildren().unRealize();
+            {
+                unrealizeChildren( node );
                 context.poolhandler.em_detach(node);
             }
-        }        
+        }
+        context.getIndexer().checkFlushAsync();
     }
 
+    static void unrealizeChildren(FileSystemElemNode node)
+    {
+        //node.getChildren().unRealize();
+        if (node.getChildren().isRealized())
+        {
+            for (int i = 0; i < node.getChildren().size(); i++)
+            {
+                FileSystemElemNode child = node.getChildren().get(i);
+                child.getHashBlocks().unRealize();
+                child.getXaNodes().unRealize();
+                child.getLinks().unRealize();
+
+
+                if (child.getChildren().isRealized())
+                {
+                    unrealizeChildren(child);
+                }
+            }
+            node.getChildren().unRealize();
+        }
+    }
 
     static boolean handle_single_fs_entry( GenericContext context, FileSystemElemNode dbNode, RemoteFSElem remoteFSElem ) throws PoolReadOnlyException, PathResolveException, SQLException
     {
@@ -1497,7 +1479,7 @@ public class Backup
                     // UPDATE BOOTSTRAP
                     write_bootstrap_data(context, block, hb);
 
-                    context.stat.addDedupBlock();
+                    context.stat.addDedupBlock(block);
                 }
                 else
                 {
@@ -1525,7 +1507,7 @@ public class Backup
         catch (ClientAccessFileException e)
         {
 
-            Log.err( "Datei wurde nicht gesichert", node.toString(), e);
+            Log.err( "Datei wurde nicht gesichert", node.toString());
             context.setStatus(VSMCMain.Txt("Entferne") + " " + remoteFSElem.getPath() );
             context.poolhandler.remove_fse_node(node, true);
             context.apiEntry.getApi().get_properties();
@@ -1882,7 +1864,7 @@ public class Backup
                     // UPDATE BOOTSTRAP
                     write_bootstrap_data(context, block, xa);
 
-                    context.stat.addDedupBlock();
+                    context.stat.addDedupBlock(block);
                     continue;
                 }
 
@@ -2086,7 +2068,7 @@ public class Backup
                 // BOTH BLOCKS ARE IDENTICAL -> SKIP THIS BLOCK
                 if (!transfer_block)
                 {
-                    context.stat.addCheckBlock();
+                    context.stat.addCheckBlockSize(read_len);
                     continue;
                 }
 
@@ -2117,7 +2099,7 @@ public class Backup
                     // UPDATE BOOTSTRAP
                     write_bootstrap_data(context, block, hb);
 
-                    context.stat.addDedupBlock();
+                    context.stat.addDedupBlock(block);
                     continue;
                 }
 
@@ -2235,7 +2217,7 @@ public class Backup
                 // BOTH BLOCKS ARE IDENTICAL -> SKIP THIS BLOCK
                 if (!transfer_block)
                 {
-                    context.stat.addCheckBlock();
+                    context.stat.addCheckBlockSize(read_len);
                     continue;
                 }
 
@@ -2265,7 +2247,7 @@ public class Backup
                     // UPDATE BOOTSTRAP
                     write_bootstrap_data(context, block, xa);
 
-                    context.stat.addDedupBlock();
+                    context.stat.addDedupBlock(block);
                     continue;
                 }
 
@@ -2336,7 +2318,7 @@ public class Backup
         return !remote_hash.equals(local_hash);        
     }
     
-    static DedupHashBlock check_for_existing_block( GenericContext context, String remote_hash, boolean checkDHBExistance ) throws PathResolveException
+    static DedupHashBlock check_for_existing_block( GenericContext context, String remote_hash, boolean checkDHBExistance ) throws PathResolveException, IOException
     {
         DedupHashBlock dhb = null;
 
@@ -2416,7 +2398,7 @@ public class Backup
         return true;
     }
 
-    private static void transfer_block_and_update_db( GenericContext context, FileSystemElemNode node, RemoteFSElemWrapper remote_handle, String remote_hash,  int streamInfo, long offset, int read_len, boolean isXa, long ts ) throws PoolReadOnlyException, SQLException
+    private static void transfer_block_and_update_db( GenericContext context, FileSystemElemNode node, RemoteFSElemWrapper remote_handle, String remote_hash,  int streamInfo, long offset, int read_len, boolean isXa, long ts ) throws PoolReadOnlyException, SQLException, IOException
     {
         // CREATE NEW DEDUP BLOCK ENTRY
         DedupHashBlock dhb = null;
@@ -2639,14 +2621,14 @@ public class Backup
 
     private static DedupHashBlock reviveHashBlock(  GenericContext context, FileSystemElemNode node, RemoteFSElemWrapper remote_handle, String remote_hash, int streaminfo, long offset, int read_len )
     {
+        Log.err("Todo: Rebuild lost hash");
         try
         {
             DedupHashBlock block = check_for_existing_block(context, remote_hash, false);
 
-            Log.err("Todo: Rebuild lost hash");
             return null;
         }
-        catch (PathResolveException pathResolveException)
+        catch (Exception pathResolveException)
         {
         }
         return null;
