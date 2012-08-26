@@ -205,8 +205,15 @@ public class LoginManager extends WorkerParent implements GuiLoginApi
             user.setIgnoreAcl(true);
             Role role = new Role();
             role.getRoleOptions().addIfRealized( new RoleOption(0, role, RoleOption.RL_ALLOW_VIEW_PARAM, 0, ""));
-            user.setRole(role);
-
+            role.getRoleOptions().addIfRealized( new RoleOption(0, role, RoleOption.RL_FSMAPPINGFILE, 0, "TestMapping"));
+            try
+            {
+                user.setRole(role);
+            }
+            catch (Exception e)
+            {
+                Log.err(Main.Txt("Fehler beim Setzen der Rolle für Benutzer") + " " + userName + " " +  e.getMessage());
+            }
             GuiServerApiImpl guiServerApi = new GuiServerApiImpl(System.currentTimeMillis(), null, user);
 
             return guiServerApi;
