@@ -170,26 +170,46 @@ public class RetentionManager extends WorkerParent
         return retention.getArgType().equals(Retention.ARG_NAME);
     }
 
-    void handleCleanDedups( StoragePoolHandler handler) throws SQLException, IOException, PathResolveException, UnsupportedEncodingException, PoolReadOnlyException
+    boolean abortCleanDedups = false;
+    public void abortDeleteFreeBlocks()
     {
+        abortCleanDedups = true;
+    }
+
+    long handleCleanDedups( StoragePoolHandler handler) throws SQLException, IOException, PathResolveException, UnsupportedEncodingException, PoolReadOnlyException
+    {
+        abortCleanDedups = false;
         GenericEntityManager em = nubHandler.getUtilEm(handler.getPool());
 
         setStatusTxt("Berechne freien DedupSpeicher");
+
+        /*
+         * rs = st.executeQuery("select count(*), sum(bigint(DEDUPHASHBLOCK.BLOCKLEN)) from DEDUPHASHBLOCK"
+                        + " LEFT OUTER JOIN XANODE  ON DEDUPHASHBLOCK.idx = XANODE.dedupblock_idx"
+                        + " left outer join hashblock on DEDUPHASHBLOCK.idx = hashblock.dedupblock_idx"
+                        + " where XANODE.idx is null and hashblock.idx is null
+         */
 
         // SEARCH FÜR DEDUP NODES NOT NEEDED AS HASHBLOCK OR AS XANODE
         List<Object[]> oList = em.createNativeQuery("select DEDUPHASHBLOCK.IDX from DEDUPHASHBLOCK LEFT OUTER JOIN XANODE ON DEDUPHASHBLOCK.idx = XANODE.dedupblock_idx "
                 + "left outer join hashblock on DEDUPHASHBLOCK.idx = hashblock.dedupblock_idx "
                 + "where XANODE.idx is null and hashblock.idx is null", 0);
         
-       
+
+        long cnt = 0;
         if (!oList.isEmpty())
         {
             setStatusTxt("Entferne freien DedupSpeicher");
 
-            long cnt = 0;
+            
             long size = 0;
             for (int i = 0; i < oList.size(); i++)
             {
+                setStatusTxt(Main.Txt("Entferne freien DedupSpeicher")  + "(Block " + i + "/" + oList.size() + ")" );
+                         
+                if (abortCleanDedups)
+                    break;
+
                 Object[] oarr = oList.get(i);
                 if (oarr.length == 1)
                 {
@@ -204,6 +224,8 @@ public class RetentionManager extends WorkerParent
                             handler.removeDedupBlock( hb, null );                           
                             cnt++;
                             size += hb.getBlockLen();
+
+                            handler.check_commit_transaction();
                         }
                     }
                 }
@@ -211,8 +233,12 @@ public class RetentionManager extends WorkerParent
             Log.debug("Enfernte DedupBlöcke", Long.toString(cnt));
             Log.debug("Freigewordener DedupSpeicher", SizeStr.format(size));
         }
-        setStatusTxt("");
+        if (abortCleanDedups)
+            setStatusTxt("Löschen wurde abgebrochen");
+        else
+            setStatusTxt("");
 
+        return cnt;
     }
 
 
@@ -642,6 +668,45 @@ public class RetentionManager extends WorkerParent
         return ret;
     }
 
+    public long handleDeleteFreeBlocks( StoragePool pool ) throws Exception
+    {
+        User user = User.createSystemInternal();
+        StoragePoolHandler sp_handler = null;
+
+        try
+        {
+
+            sp_handler = StoragePoolHandlerFactory.createStoragePoolHandler(pool, user, /*rdonly*/ false);
+            if (pool.getStorageNodes().isEmpty(sp_handler.getEm()))
+            {
+                throw new RetentionException("No Storage for pool defined");
+            }
+
+            sp_handler.check_open_transaction();
+
+            return handleCleanDedups(sp_handler);
+        }
+        catch (SQLException exc)
+        {
+            sp_handler.rollback_transaction();
+            throw exc;
+        }
+        catch (Exception exc)
+        {
+             Log.err("Abbruch beim Freigeben von DedupBlöcken", exc);
+             throw exc;
+        }
+        finally
+        {
+            if (sp_handler != null)
+            {
+                sp_handler.commit_transaction();
+                sp_handler.close_transaction();
+                sp_handler.close_entitymanager();
+            }
+        }
+    }
+    
     public RetentionResult handleRetention( StoragePool pool ) throws RetentionException, IOException, SQLException, PoolReadOnlyException, PathResolveException
     {
         long startIdx = 0;
@@ -705,7 +770,8 @@ public class RetentionManager extends WorkerParent
             }
 
             // NOW REMOVE UNUSED DEDUPBLOCKS
-            handleCleanDedups(sp_handler);
+            // TODO, THIS SHOULD BE HANDLED FROM OWN SCHEDULER -> SPACE USED x%. AGE or SIMPLY IMMEDIATELY
+            // handleCleanDedups(sp_handler);
         }
         finally
         {
@@ -940,7 +1006,8 @@ public class RetentionManager extends WorkerParent
             }
             catch (RetentionException retentionException)
             {
-                Log.warn("Node ist nicht vollständig", node.toString(), retentionException);
+                Log.warn("Node ist nicht vollständig, Retention wird vermieden", node.toString(), retentionException);
+                ret.clear();
             }
         }
         return ret;
@@ -982,5 +1049,6 @@ public class RetentionManager extends WorkerParent
 
         return remove_hash_block_list;
     }
+
 
 }
