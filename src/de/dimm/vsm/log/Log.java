@@ -334,21 +334,30 @@ public class Log implements DBLogger
             sb.append( " (");
             StringBuilder orsb = new StringBuilder();
 
-            orsb.append("additionText like '%");
-            orsb.append(lq.getQry());
-            orsb.append("%' or ");
+            if (lq.getQry().startsWith("="))
+            {
+                orsb.append("additionText = '");
+                orsb.append(lq.getQry().substring(1));
+                orsb.append("'");
+            }
+            else
+            {
+                orsb.append("additionText like '%");
+                orsb.append(lq.getQry());
+                orsb.append("%' or ");
 
-            orsb.append("exceptionText like '%");
-            orsb.append(lq.getQry());
-            orsb.append("%' or ");
+                orsb.append("exceptionText like '%");
+                orsb.append(lq.getQry());
+                orsb.append("%' or ");
 
-            orsb.append("moduleName like '%");
-            orsb.append(lq.getQry());
-            orsb.append("%' or ");
+                orsb.append("moduleName like '%");
+                orsb.append(lq.getQry());
+                orsb.append("%' or ");
 
-            orsb.append("messageId like '%");
-            orsb.append(lq.getQry());
-            orsb.append("%'");
+                orsb.append("messageId like '%");
+                orsb.append(lq.getQry());
+                orsb.append("%'");
+            }
 
             String txqry = "select x from TextBase x where T1.messageText like '%" + lq.getQry() + "%'";
             List<TextBase> li = null;
@@ -386,24 +395,65 @@ public class Log implements DBLogger
     public static MessageLog[] listLogs( int cnt, long offsetIdx, LogQuery lq )
     {
         String qry = "select max(idx) from messagelog";
-        String addQry = buildQryString(lq);
-        if (!addQry.isEmpty())
-        {
-            qry = qry + " where " + addQry;
-        }
         List<Object[]> ret = null;
         try
         {
-            ret = LogicControl.get_log_em().createNativeQuery(qry, 1);
+            ret = LogicControl.get_log_em().createNativeQuery(qry, 1, 10/*timeout*/);
         }
         catch (SQLException e)
         {
             System.out.println("Error in Listlog: " + e.getMessage() );
         }
-        if (ret == null || ret.isEmpty()|| ret.get(0)[0] == null)
+        
+        if (ret == null)
+        {
+            MessageLog l = new MessageLog(0, 0, "", "Timeout");
+            MessageLog[] arr = new MessageLog[1];
+            arr[0] = l;
+            return arr;
+        }
+        if (ret.isEmpty()|| ret.get(0)[0] == null)
+        {
             return new MessageLog[0];
+        }
 
         long maxIdx = (Long)ret.get(0)[0];
+
+        String addQry = buildQryString(lq);
+        if (!addQry.isEmpty())
+        {
+
+            qry = qry + " where " + addQry;
+            if (maxIdx > 100000)
+                qry += " and idx > " + Long.toString(maxIdx - 100000);
+
+            try
+            {
+                ret = LogicControl.get_log_em().createNativeQuery(qry, 1, 30/*timeout*/);
+            }
+            catch (SQLException e)
+            {
+                System.out.println("Error in Listlog: " + e.getMessage() );
+            }
+            if (ret != null && !ret.isEmpty() && ret.get(0)[0] != null)
+            {
+                maxIdx = (Long)ret.get(0)[0];
+            }
+        }
+
+        if (ret == null)
+        {
+            MessageLog l = new MessageLog(0, 0, "", "Timeout");
+            MessageLog[] arr = new MessageLog[1];
+            arr[0] = l;
+            return arr;
+        }
+
+        if (ret.isEmpty()|| ret.get(0)[0] == null)
+        {
+            return new MessageLog[0];
+        }
+
 
         if (addQry.isEmpty())
         {
@@ -420,7 +470,7 @@ public class Log implements DBLogger
             try
             {
                 list = LogicControl.get_log_em().createQuery("select x from Messagelog x where T1.idx between "
-                        + startIdx + " and " + endIdx + " order by T1.idx desc", MessageLog.class);
+                        + startIdx + " and " + endIdx + " order by T1.idx desc", MessageLog.class, /*max*/0, /*timeout*/30);
             }
             catch (SQLException e)
             {
@@ -450,7 +500,7 @@ public class Log implements DBLogger
                 List<MessageLog> localList = null;
                 try
                 {
-                    localList = LogicControl.get_log_em().createQuery(qry, MessageLog.class, blockLen);
+                    localList = LogicControl.get_log_em().createQuery(qry, MessageLog.class, blockLen, /*timeout*/30);
                     int rest = cnt - list.size();
                     if (localList.size() <= rest)
                     {
