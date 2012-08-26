@@ -157,6 +157,8 @@ public class FSEIndexer
 
     QueueRunner qr;
     int autoflushCnt = 5000;
+
+    public static final long MAX_FLUSH_CYCLE_MS = 60*60*1000;
     int n = 0;
 
     Document fseDoc;
@@ -287,17 +289,6 @@ public class FSEIndexer
         indexImpl.updateReadIndex();
     }
 
-    public void addToIndexAsync( final FileSystemElemAttributes attr, final ArchiveJob job )
-    {
-        QueueElem elem = new IndexQueueElem(attr, job, this);
-        qr.addElem(elem);
-        n++;
-        if (n >= autoflushCnt)
-        {
-            n = 0;
-            qr.addElem( new FlushQueueElem(this));
-        }
-    }
     public void addToIndexAsync( final ArchiveJob job )
     {
         QueueElem elem = new IndexJobQueueElem(job, this);
@@ -306,17 +297,6 @@ public class FSEIndexer
         // FLUSH AFTER EVERY JOB TO UPDATE VIEW IN ARCHIVE WINDOW
         qr.addElem( new FlushQueueElem(this));
         
-    }
-    public void updateIndexAsync( final FileSystemElemAttributes attr)
-    {
-        QueueElem elem = new UpdateQueueElem(attr, this);
-        qr.addElem(elem);
-        n++;
-        if (n >= autoflushCnt)
-        {
-            n = 0;
-            qr.addElem( new FlushQueueElem(this));
-        }
     }
     public void flushAsync( )
     {
@@ -1083,6 +1063,18 @@ public class FSEIndexer
         indexImpl.setLowFreeSpace(l);
     }
 
+    public void addToIndexAsync( final FileSystemElemAttributes attr, final ArchiveJob job )
+    {
+        QueueElem elem = new IndexQueueElem(attr, job, this);
+        qr.addElem(elem);
+        n++;
+        if (n >= autoflushCnt)
+        {
+            n = 0;
+            qr.addElem( new FlushQueueElem(this));
+            lastFlush = System.currentTimeMillis();
+        }
+    }
 
     public void updateJobAsync( ArchiveJob job )
     {
@@ -1093,6 +1085,31 @@ public class FSEIndexer
         {
             n = 0;
             qr.addElem( new FlushQueueElem(this));
+            lastFlush = System.currentTimeMillis();
+        }
+    }
+    public void updateIndexAsync( final FileSystemElemAttributes attr)
+    {
+        QueueElem elem = new UpdateQueueElem(attr, this);
+        qr.addElem(elem);
+        n++;
+        if (n >= autoflushCnt)
+        {
+            n = 0;
+            qr.addElem( new FlushQueueElem(this));
+            lastFlush = System.currentTimeMillis();
+        }
+    }
+
+    long lastFlush = System.currentTimeMillis();
+    public void checkFlushAsync()
+    {
+        long now = System.currentTimeMillis();
+        if (now - lastFlush > MAX_FLUSH_CYCLE_MS) // ONCE EVERY HOUR AT LEAST
+        {
+            n = 0;
+            lastFlush = now;
+            flushAsync();
         }
     }
 
