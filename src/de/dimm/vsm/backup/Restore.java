@@ -802,7 +802,7 @@ public class Restore
             dedup_handle = actualContext.poolhandler.open_dedupblock_handle(hashBlock.getDedupBlock(), /*create*/ false);
             handle = dedup_handle;
             readOffset = 0;
-            actualContext.stat.addDedupBlock();
+            actualContext.stat.addDedupBlock(hashBlock.getDedupBlock());
         }
 
         byte[] data = handle.read(read_len, readOffset);
@@ -837,7 +837,7 @@ public class Restore
             dedup_handle = actualContext.poolhandler.open_dedupblock_handle(xaBlock.getDedupBlock(), /*create*/ false);
             handle = dedup_handle;
             readOffset = 0;
-            actualContext.stat.addDedupBlock();
+            actualContext.stat.addDedupBlock(xaBlock.getDedupBlock());
         }
 
         byte[] data = handle.read(read_len, readOffset);
