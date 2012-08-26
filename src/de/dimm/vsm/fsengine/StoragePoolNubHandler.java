@@ -83,6 +83,8 @@ public class StoragePoolNubHandler
             poolMapper.poolEmf.close();
             poolMapper.connectionPoolManager.dispose();
 
+            poolMapper.hashCache.shutdown();
+
             // REMOVE NUB
             LogicControl.get_base_util_em().check_open_transaction();
             LogicControl.get_base_util_em().em_remove(poolMapper.nub);
@@ -463,8 +465,17 @@ public class StoragePoolNubHandler
             FSEIndexer indexer = new FSEIndexer(getIndexPath(storagePoolNub));
 
             PoolMapper poolMapEntry = new PoolMapper(pool, storagePoolNub, poolManager, em, poolEmf, indexer);
-            poolMapEntry.hashCache.init(em.getConnection());
 
+            try
+            {
+                poolMapEntry.hashCache.init(em.getConnection());
+            }
+            catch (IOException iOException)
+            {
+                Log.warn("HashCache kann nicht geladen werden, Fallback to JavaCache", iOException.getMessage());
+                poolMapEntry.hashCache = new JavaHashCache(pool);
+                poolMapEntry.hashCache.init(em.getConnection());
+            }
             if (!new File(idxPath).exists())
             {
                 rebuildIndex( poolMapEntry );
@@ -523,6 +534,7 @@ public class StoragePoolNubHandler
         }
         return -1;
     }
+
 
 
 
@@ -638,6 +650,8 @@ public class StoragePoolNubHandler
                     poolMapper.em.close_entitymanager();
                     poolMapper.poolEmf.close();
                     poolMapper.connectionPoolManager.dispose();
+
+                    poolMapper.hashCache.shutdown();
                 }
                 catch (Exception e)
                 {
@@ -647,7 +661,7 @@ public class StoragePoolNubHandler
         }
     }
 
-    PoolMapper getPoolMapper( StoragePool pool ) 
+    public PoolMapper getPoolMapper( StoragePool pool )
     {
         synchronized(mapperList)
         {
