@@ -11,6 +11,7 @@ import de.dimm.vsm.Utilities.VariableResolver;
 import de.dimm.vsm.log.Log;
 import de.dimm.vsm.log.LogManager;
 import de.dimm.vsm.backup.Backup;
+import de.dimm.vsm.fsengine.JDBCEntityManager;
 import de.dimm.vsm.mail.NotificationEntry;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
@@ -29,6 +30,9 @@ import java.util.Date;
 import java.util.Enumeration;
 import java.util.List;
 import java.util.Properties;
+import net.sf.ehcache.Cache;
+import net.sf.ehcache.CacheManager;
+import net.sf.ehcache.Statistics;
 
 
 /**
@@ -39,7 +43,7 @@ public class Main
 {
 
     static String source_str = "trunk";
-    static String version_str = "1.1.3";
+    static String version_str = "1.2.1";
         
     public static int writeThreads = 1;
     public static int maxOpenFiles = 1024;
@@ -67,7 +71,8 @@ public class Main
     static boolean performanceDiagnostic = false;
 
     ShutdownHook hook;
-    public static final int MAX_DERBY_PAGECACHE_SIZE = 100*1000*1000;
+    public static final long MAX_DERBY_PAGECACHE_SIZE_BYTE = 200*1024*1024; // == real Mem
+    public static final long MIN_DERBY_PAGECACHE_SIZE_BYTE = 8092*1024; // == real Mem
 
 
     static boolean useIpV6()
@@ -117,8 +122,37 @@ public class Main
     {
         Log.info( "Property",  key + ": " + System.getProperty(key) );
     }
+
+    static boolean isJava7orBetter()
+    {
+        String javaVer = System.getProperty("java.version");
+        try
+        {
+
+            String[] a = javaVer.split("\\.");
+            int maj = Integer.parseInt(a[0]);
+            int min = Integer.parseInt(a[1]);
+            if (maj == 1 && min < 7)
+            {
+                return false;
+
+            }
+        }
+        catch (Exception exc)
+        {
+            System.out.println("Fehler beim Ermitten der Javaversion: " + javaVer + ": " + exc.getMessage());
+        }
+        return true;
+    }    
     public void init() throws SQLException
     {
+
+        if (!isJava7orBetter())
+        {
+            System.err.println("Java Version must be at least 1.7, aborting");
+            System.exit(1);
+        }
+
         textManager = new TextBaseManager("DE");
         DefaultTextProvider.setProvider(textManager);
 
@@ -470,8 +504,8 @@ public class Main
     }
     static public boolean get_bool_prop( String pref_name, boolean def )
     {
-        String bool_true = "jJyY1";
-        String bool_false = "nN0";
+        String bool_true = "tTjJyY1";
+        String bool_false = "fFnN0";
 
         if (me != null)
         {
@@ -547,8 +581,16 @@ public class Main
             if ((cnt %60) == 0)
             {
                 long fm = Runtime.getRuntime().freeMemory();
-
-                System.out.println("Free Mem " + SizeStr.format(fm));
+                CacheManager.create();
+                if (CacheManager.getInstance().cacheExists(JDBCEntityManager.OBJECT_CACHE))
+                {
+                    Cache ch = CacheManager.getInstance().getCache(JDBCEntityManager.OBJECT_CACHE);
+                    ch.evictExpiredElements();
+                    Statistics st = ch.getStatistics();
+                    System.out.println("Size: " + ch.getSize() + ": " + st.toString() );
+                }
+                System.out.println("Free Mem " + SizeStr.format(fm));                
+                
             }
 
 
@@ -591,20 +633,26 @@ public class Main
     private void setDerbyProperties()
     {
         long memSize = Runtime.getRuntime().maxMemory();
+        System.out.println("MaxMem: " + Long.toString(memSize));
         if (memSize != Long.MAX_VALUE)
         {
             // NOT MORE THAN 1/20 OF MAX MEM
             memSize /= 20;
-            if (memSize > MAX_DERBY_PAGECACHE_SIZE)
+            if (memSize > MAX_DERBY_PAGECACHE_SIZE_BYTE)
             {
-                memSize = MAX_DERBY_PAGECACHE_SIZE;
+                memSize = MAX_DERBY_PAGECACHE_SIZE_BYTE;
             }
+            if (memSize < MIN_DERBY_PAGECACHE_SIZE_BYTE)
+            {
+                memSize = MIN_DERBY_PAGECACHE_SIZE_BYTE;
+            }
+            System.out.println("DBPageMem: " + Long.toString(memSize));
             setSystemPropPref( "derby.storage.pageCacheSize", Long.toString( memSize / 4096) );
         }
 
 
-        //setSystemPropPref( "derby.storage.pageSize", "4096" );
-        //setSystemPropPref( "derby.locks.deadlockTrace","true");
+        setSystemPropPref( "derby.storage.pageSize", "4096" );
+//        setSystemPropPref( "derby.locks.deadlockTrace","true");
         setSystemPropPref( "derby.language.disableIndexStatsUpdate","true");
 
     }
