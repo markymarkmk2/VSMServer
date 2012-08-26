@@ -185,6 +185,7 @@ public class WriteFileRunner
 
         workList.clear();
         readyList.clear();
+        lastAddedElem = null;
     }
 
     int idxCnt = 0;
