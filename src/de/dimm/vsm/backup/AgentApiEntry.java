@@ -12,6 +12,7 @@ import java.io.IOException;
 import java.net.ConnectException;
 import java.net.InetAddress;
 import java.net.SocketTimeoutException;
+import java.util.Properties;
 
 /**
  *
@@ -22,6 +23,7 @@ public class AgentApiEntry
     private AgentApi api;
     private boolean online;
     RemoteCallFactory factory;
+    Properties agentProps;
 
     public AgentApiEntry( AgentApi api, RemoteCallFactory factory )
     {
@@ -67,7 +69,7 @@ public class AgentApiEntry
     {
         try
         {
-            api.get_properties();
+            agentProps = api.get_properties();
             online = true;
             return true;
         }
@@ -98,5 +100,16 @@ public class AgentApiEntry
         }
         online = false;
         return false;
+    }
+
+    public boolean hasBooleanOption( String opt )
+    {
+        if (agentProps == null)
+        {
+            if (!check_online(false))
+                return false;
+        }
+        String v = agentProps.getProperty(opt, Boolean.FALSE.toString());
+        return v.equals(Boolean.TRUE.toString());
     }
 }
