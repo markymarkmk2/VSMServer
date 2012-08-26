@@ -493,8 +493,7 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
 
         return node;
     }
-
-    public void build_virtual_path( FileSystemElemNode file_node, StringBuilder sb )
+    public static void build_relative_virtual_path( FileSystemElemNode file_node, StringBuilder sb )
     {
         sb.setLength(0);
         sb.insert(0, file_node.getName());
@@ -514,6 +513,11 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
             if (max_depth-- <= 0)
                 throw new RuntimeException("Path_is_too_deep");
         }
+    }
+
+    public void build_virtual_path( FileSystemElemNode file_node, StringBuilder sb )
+    {
+        build_relative_virtual_path( file_node, sb);
 
         sb.insert(0, pool.getName() );
         sb.insert(0, "/" );
@@ -2203,7 +2207,12 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
      
     public void removeDedupBlock( DedupHashBlock dhb, FileSystemElemNode node ) throws SQLException, PathResolveException, UnsupportedEncodingException, PoolReadOnlyException, IOException
     {
-        List<PoolNodeFileLink> link_list = get_pool_node_file_links(node );
+        List<PoolNodeFileLink> link_list = null;
+        if (node != null)
+        {            
+            get_pool_node_file_links(node);
+        }
+        
         if (link_list == null)
         {
             List<AbstractStorageNode> snodes = get_primary_storage_nodes();
