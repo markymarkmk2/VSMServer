@@ -117,13 +117,13 @@ public class RestoreTest {
     @Test
     public void testExcludes()
     {
-        assertTrue(Backup.checkExclude(new Excludes("excl", /*dir*/true, /*fullPath*/false, /*includeM*/false, /*ignoreCase*/true, Excludes.MD_BEGINS_WITH) ,
+        assertTrue(Excludes.checkExclude(new Excludes("excl", /*dir*/true, /*fullPath*/false, /*includeM*/false, /*ignoreCase*/true, Excludes.MD_BEGINS_WITH) ,
                 new RemoteFSElem(new File("Z:\\unittest\\unittestdata\\a\\ExclFolder"))));
-        assertTrue(Backup.checkExclude(new Excludes("Z:\\unittest\\unittestdata\\a\\Excl", /*dir*/true, /*fullPath*/true, /*includeM*/false, /*ignoreCase*/false, Excludes.MD_BEGINS_WITH) ,
+        assertTrue(Excludes.checkExclude(new Excludes("Z:\\unittest\\unittestdata\\a\\Excl", /*dir*/true, /*fullPath*/true, /*includeM*/false, /*ignoreCase*/false, Excludes.MD_BEGINS_WITH) ,
                 new RemoteFSElem(new File("Z:\\unittest\\unittestdata\\a\\ExclFolder"))));
-        assertFalse(Backup.checkExclude(new Excludes("Z:\\unittest\\unittestdata\\a\\Excl", /*dir*/true, /*fullPath*/true, /*includeM*/true, /*ignoreCase*/false, Excludes.MD_BEGINS_WITH) ,
+        assertFalse(Excludes.checkExclude(new Excludes("Z:\\unittest\\unittestdata\\a\\Excl", /*dir*/true, /*fullPath*/true, /*includeM*/true, /*ignoreCase*/false, Excludes.MD_BEGINS_WITH) ,
                 new RemoteFSElem(new File("Z:\\unittest\\unittestdata\\a\\ExclFolder"))));
-        assertTrue(Backup.checkExclude(new Excludes("jpg", /*dir*/false, /*fullPath*/false, /*includeM*/false, /*ignoreCase*/true, Excludes.MD_ENDS_WITH) ,
+        assertTrue(Excludes.checkExclude(new Excludes("jpg", /*dir*/false, /*fullPath*/false, /*includeM*/false, /*ignoreCase*/true, Excludes.MD_ENDS_WITH) ,
                 new RemoteFSElem(new File("Blah.JpG"))));
 
     }
