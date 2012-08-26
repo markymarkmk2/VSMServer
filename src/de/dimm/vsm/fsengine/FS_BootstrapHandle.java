@@ -12,6 +12,7 @@ import com.thoughtworks.xstream.converters.UnmarshallingContext;
 import com.thoughtworks.xstream.io.HierarchicalStreamReader;
 import com.thoughtworks.xstream.io.HierarchicalStreamWriter;
 import de.dimm.vsm.Exceptions.PathResolveException;
+import de.dimm.vsm.log.LogManager;
 import de.dimm.vsm.records.AbstractStorageNode;
 import de.dimm.vsm.records.DedupHashBlock;
 import de.dimm.vsm.records.FileSystemElemAttributes;
@@ -141,9 +142,15 @@ public class FS_BootstrapHandle<T> implements BootstrapHandle
                 fw = new FileWriter(fh);
             }
 
-            XStream xstream = new XStream();
-            xstream.toXML(t, fw);
-            fw.close();
+            try
+            {
+                XStream xstream = new XStream();
+                xstream.toXML(t, fw);                
+            }
+            catch (Exception iOException)
+            {
+                System.out.println("Error writing Bootstrap: " + iOException.getMessage());
+            }
             
         }
         catch (IOException iOException)
