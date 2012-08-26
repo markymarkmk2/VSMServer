@@ -293,6 +293,10 @@ public class JDBCStoragePoolHandler extends StoragePoolHandler
             persistRunner.close();
         }
         Log.debug("Schließe EntityManager");
+        if (pool.getRootDir().getChildren() != null)
+        {
+            pool.getRootDir().getChildren().unRealize();
+        }
         em.close_entitymanager();
   
     }
