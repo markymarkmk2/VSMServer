@@ -4,6 +4,9 @@
  */
 package de.dimm.vsm;
 
+import de.dimm.vsm.Exceptions.PathResolveException;
+import de.dimm.vsm.Exceptions.PoolReadOnlyException;
+import de.dimm.vsm.Exceptions.RetentionException;
 import de.dimm.vsm.log.Log;
 import de.dimm.vsm.Utilities.LicenseChecker;
 import de.dimm.vsm.Utilities.ThreadPoolWatcher;
@@ -15,6 +18,7 @@ import de.dimm.vsm.backup.BackupManager;
 import de.dimm.vsm.backup.hotfolder.HotFolderManager;
 import de.dimm.vsm.fsengine.JDBCConnectionFactory;
 import de.dimm.vsm.fsengine.JDBCEntityManager;
+import de.dimm.vsm.fsengine.PoolMapper;
 import de.dimm.vsm.fsengine.StoragePoolNubHandler;
 import de.dimm.vsm.jobs.JobManager;
 import de.dimm.vsm.lifecycle.RetentionManager;
@@ -28,6 +32,7 @@ import de.dimm.vsm.net.FixHashUrlBug;
 import de.dimm.vsm.net.LogQuery;
 import de.dimm.vsm.net.LoginManager;
 import de.dimm.vsm.net.NetServer;
+import de.dimm.vsm.net.PoolStatusResult;
 import de.dimm.vsm.net.ScheduleStatusEntry;
 import de.dimm.vsm.net.SearchContextManager;
 import de.dimm.vsm.net.StoragePoolHandlerContextManager;
@@ -963,5 +968,45 @@ public class LogicControl
         }
     }
 
+    public PoolStatusResult getPoolStatusResult( StoragePool pool )
+    {
+        PoolMapper mapper = storagePoolNubHandler.getPoolMapper(pool);
+        if (mapper != null)
+            return mapper.getLastStatus();
+        return null;
+    }
+    public PoolStatusResult calcPoolStatusResult( StoragePool pool )
+    {
+        PoolMapper mapper = storagePoolNubHandler.getPoolMapper(pool);
+        if (mapper != null)
+        {
+            mapper.calcStats();
+            return mapper.getLastStatus();
+        }
+        return null;
+    }
+    public PoolStatusResult abortCalcPoolStatusResult( StoragePool pool )
+    {
+        PoolMapper mapper = storagePoolNubHandler.getPoolMapper(pool);
+        if (mapper != null)
+        {
+            mapper.abortCalcStats();
+            return mapper.getLastStatus();
+        }
+        return null;
+    }
+    public long deleteFreeBlocks( StoragePool pool ) throws Exception
+    {
+         return retentionManager.handleDeleteFreeBlocks(pool);
+    }
+    public void abortDeleteFreeBlocks(  )
+    {
+        retentionManager.abortDeleteFreeBlocks();
+    }
+
+    public void reloadNotificationSettings(  ) throws IOException
+    {
+        notificationServer.loadNotifications(get_base_util_em());
+    }
 
 }
