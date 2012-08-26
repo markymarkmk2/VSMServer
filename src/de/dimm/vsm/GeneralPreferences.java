@@ -84,6 +84,7 @@ public class GeneralPreferences extends Preferences
     public static final String SMTP_FROM = "SMTPFrom";
     public static final String SMTP_TLS = "SMTPTLS";
     public static final String WITH_BOOTSTRAP = "WithBootstrap";
+    public static final String USE_H2_CACHE = "UseH2Cache";
 
 
 
@@ -145,6 +146,7 @@ public class GeneralPreferences extends Preferences
         prop_names.add( HASH_URL_FORMAT_FIX );
         prop_names.add( WITH_BOOTSTRAP );
         prop_names.add( HASH_URL_FORMAT_EMPTY_LINKS );
+        prop_names.add( USE_H2_CACHE );
 
 
 
