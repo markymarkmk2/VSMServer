@@ -20,6 +20,8 @@ import de.dimm.vsm.records.StoragePool;
 import java.io.IOException;
 import java.util.List;
 import java.util.Properties;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  *
@@ -63,6 +65,8 @@ public class ServerApiImpl implements ServerApi
     public boolean cdp_call( CdpEvent file, CdpTicket ticket )
     {
         BackupManager bm = Main.get_control().getBackupManager();
+        AgentApiEntry api = null;
+        JobInterface job = null;
         try
         {
             Log.debug("CDP-Call", file.toString());
@@ -71,31 +75,49 @@ public class ServerApiImpl implements ServerApi
                 Log.warn("Ignoriere leeren CDP-Call",  file.toString());
                 return false;
             }
-            StoragePool pool = Main.get_control().getStoragePool(ticket.getPoolIdx());
+            final StoragePool pool = Main.get_control().getStoragePool(ticket.getPoolIdx());
             GenericEntityManager em = Main.get_control().get_util_em(pool);
             Schedule sched = em.em_find(Schedule.class, ticket.getSchedIdx());
             ClientInfo info = em.em_find(ClientInfo.class, ticket.getClientInfoIdx());
             ClientVolume vol = em.em_find(ClientVolume.class, ticket.getClientVolumeIdx());
 
-            AgentApiEntry api = LogicControl.getApiEntry(info);
+            api = LogicControl.getApiEntry(info);
             if (api == null || !api.isOnline())
                 throw new IOException(Main.Txt("Agent kann nicht kontaktiert werden") + ": " + info.toString() );
 
-            JobInterface job = bm.createCDPJob(api, sched, info, vol, file);
+            // DO NOT ALLOW MULTPLE PARALLEL CDP JOBS FOR ONE POOL
+            synchronized(pool)
+            {
+                job = bm.createCDPJob(api, sched, info, vol, file);
 
-            job.setJobState(JobInterface.JOBSTATE.MANUAL_START);
-            Main.get_control().getJobManager().addJobEntry(job);
+                job.setJobState(JobInterface.JOBSTATE.MANUAL_START);
 
-            job.run();
-            
-            Main.get_control().getJobManager().removeJobEntry(job);
+                // CREATE AND RUN JOB MANUALLY
+                Main.get_control().getJobManager().addJobEntry(job);
 
-            api.close();
-
+                job.run();
+            }
         }
         catch (Exception exception)
         {
             Log.err("Fehler bei CDP job", file.toString(), exception);
+        }
+        finally
+        {
+            // REMOVE JOB AND CLOSE API
+            Main.get_control().getJobManager().removeJobEntry(job);
+
+            if (api != null)
+            {
+                try
+                {
+                    api.close();
+                }
+                catch (IOException ex)
+                {
+
+                }
+            }
         }
         return true;
     }
