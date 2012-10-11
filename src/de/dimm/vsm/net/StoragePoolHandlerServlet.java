@@ -17,6 +17,7 @@ import de.dimm.vsm.backup.Restore;
 import de.dimm.vsm.fsengine.StoragePoolHandler;
 import de.dimm.vsm.jobs.JobInterface;
 import de.dimm.vsm.jobs.JobManager;
+import de.dimm.vsm.net.interfaces.IWrapper;
 import de.dimm.vsm.net.interfaces.StoragePoolHandlerInterface;
 import de.dimm.vsm.records.ArchiveJob;
 import de.dimm.vsm.records.FileSystemElemAttributes;
@@ -26,7 +27,11 @@ import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 
 /**
@@ -237,7 +242,8 @@ public class StoragePoolHandlerServlet extends HessianServlet implements Storage
 
         UserManager umgr = Main.get_control().getUsermanager();
 
-        
+        Map<String,FileSystemElemNode>blockedNodes = new HashMap<String, FileSystemElemNode>();
+        Map<String,RemoteFSElem>unBlockedNodes = new HashMap<String, RemoteFSElem>();
 
         if (fseNode != null)
         {
@@ -255,6 +261,7 @@ public class StoragePoolHandlerServlet extends HessianServlet implements Storage
                 {
                     if (!qry.matchesUser(fileSystemElemNode, attr, umgr))
                     {
+                        blockedNodes.put(fileSystemElemNode.getName(), fseNode);
                         continue;
                     }
                 }
@@ -268,8 +275,37 @@ public class StoragePoolHandlerServlet extends HessianServlet implements Storage
                     continue;
 
                 ret.add( genRemoteFSElemfromNode( fileSystemElemNode, attr) );
+//                unBlockedNodes.put(fileSystemElemNode.getName(), genRemoteFSElemfromNode( fileSystemElemNode, attr));
             }
         }
+
+        // NOW REMOVE ALL BLOCKED NODES FROM UNBLOCKED LIST
+        for (RemoteFSElem elem: ret)
+        {
+            if (blockedNodes.containsKey(elem.getName()))
+            {
+                ret.remove(elem);
+            }
+        }
+//        for (String blockedNodePath  : blockedNodes.keySet())
+//        {
+//            unBlockedNodes.remove(blockedNodePath);
+//        }
+
+        // AND ADD THE REST TO THE RETURN LIST
+//        for (String unBlockedNodePath  : unBlockedNodes.keySet())
+//        {
+//            ret.add( unBlockedNodes.get(unBlockedNodePath) );
+//        }
+        Collections.sort(ret, new Comparator<RemoteFSElem>() {
+
+            @Override
+            public int compare( RemoteFSElem o1, RemoteFSElem o2 )
+            {
+                return o1.getPath().compareTo(o2.getPath());
+            }
+        });
+
         return ret;
     }
 
@@ -472,9 +508,10 @@ public class StoragePoolHandlerServlet extends HessianServlet implements Storage
         return handler.isReadOnly();
     }
 
-    boolean removeFSElem( StoragePoolWrapper wrapper, RemoteFSElem node ) throws PoolReadOnlyException, SQLException
+   
+    boolean removeFSElem( IWrapper wrapper, RemoteFSElem node ) throws PoolReadOnlyException, SQLException
     {
-        StoragePoolHandler handler = poolContextManager.getHandlerbyWrapper(wrapper);
+        StoragePoolHandler handler = getPoolHandlerByWrapper( wrapper );
         FileSystemElemNode fseNode = handler.resolve_node_by_remote_elem( node);
         if (fseNode == null)
             return false;
@@ -499,9 +536,9 @@ public class StoragePoolHandlerServlet extends HessianServlet implements Storage
 
     }
     
-    boolean undeleteFSElem( StoragePoolWrapper wrapper, RemoteFSElem node ) throws PoolReadOnlyException, SQLException
+    boolean undeleteFSElem( IWrapper wrapper, RemoteFSElem node ) throws PoolReadOnlyException, SQLException
     {
-        StoragePoolHandler handler = poolContextManager.getHandlerbyWrapper(wrapper);
+        StoragePoolHandler handler = getPoolHandlerByWrapper( wrapper );
         FileSystemElemNode fseNode = handler.resolve_node_by_remote_elem( node);
         if (fseNode == null)
             return false;
@@ -523,9 +560,9 @@ public class StoragePoolHandlerServlet extends HessianServlet implements Storage
         return false;
     }
     
-    boolean deleteFSElem( StoragePoolWrapper wrapper, RemoteFSElem node ) throws PoolReadOnlyException, SQLException
+    boolean deleteFSElem( IWrapper wrapper, RemoteFSElem node ) throws PoolReadOnlyException, SQLException
     {
-        StoragePoolHandler handler = poolContextManager.getHandlerbyWrapper(wrapper);
+        StoragePoolHandler handler = getPoolHandlerByWrapper( wrapper );
         FileSystemElemNode fseNode = handler.resolve_node_by_remote_elem( node);
         if (fseNode == null)
             return false;
@@ -547,27 +584,26 @@ public class StoragePoolHandlerServlet extends HessianServlet implements Storage
         return false;
     }
 
-    void closeTransactions( StoragePoolWrapper wrapper ) throws SQLException
+    void closeTransactions( IWrapper wrapper ) throws SQLException
     {
-        StoragePoolHandler handler = poolContextManager.getHandlerbyWrapper(wrapper);
+        StoragePoolHandler handler = getPoolHandlerByWrapper( wrapper );
         if (handler != null)
             handler.close_transaction();
     }
     
-    public boolean restoreFSElem( StoragePoolWrapper wrapper, RemoteFSElem node, String targetIP, int targetPort, String targetPath, int flags, User user ) throws SQLException, IOException
+    public boolean restoreFSElem( IWrapper wrapper, List<RemoteFSElem> nodes, String targetIP, int targetPort, String targetPath, int flags, User user ) throws SQLException, IOException
     {
-        StoragePoolHandler handler = poolContextManager.getHandlerbyWrapper(wrapper);
+        StoragePoolHandler handler = getPoolHandlerByWrapper( wrapper );
         if (handler != null)
-            return restoreFSElem(handler, node, targetIP, targetPort, targetPath, flags, user);
+            return restoreFSElem(handler, nodes, targetIP, targetPort, targetPath, flags, user);
         else
             Log.err("Ungültiger Handler in Aufruf", "restoreFSElem");
         return false;
     }
 
-    public boolean restoreFSElem( StoragePoolHandler handler, RemoteFSElem node, String targetIP, int targetPort, String targetPath, int flags, User user ) throws SQLException, IOException
+    public boolean restoreFSElem( StoragePoolHandler handler, List<RemoteFSElem> nodes, String targetIP, int targetPort, String targetPath, int flags, User user ) throws SQLException, IOException
     {
-        FileSystemElemNode fseNode = handler.resolve_node_by_remote_elem( node);
-
+        List<FileSystemElemNode> fseNodes = handler.resolve_node_by_remote_elem( nodes);
 
         boolean ret = false;
 
@@ -577,7 +613,7 @@ public class StoragePoolHandlerServlet extends HessianServlet implements Storage
         {
             InetAddress adr = InetAddress.getByName(targetIP);
             RemoteFSElem target = new RemoteFSElem(targetPath, FileSystemElemNode.FT_DIR, 0, 0, 0, 0, 0);
-            Restore rest = new Restore(handler, fseNode, flags, qry, adr, targetPort, target);
+            Restore rest = new Restore(handler, fseNodes, flags, qry, adr, targetPort, target);
 
 
             JobManager jm = Main.get_control().getJobManager();
@@ -633,6 +669,26 @@ public class StoragePoolHandlerServlet extends HessianServlet implements Storage
     boolean removeJob( StoragePoolHandler handler, ArchiveJob job ) throws  SQLException, PoolReadOnlyException
     {
         return handler.remove_job(job);
+    }
+
+    StoragePoolHandler getPoolHandlerByWrapper( IWrapper _wrapper )
+    {
+        if (_wrapper instanceof SearchWrapper)
+        {
+            SearchWrapper wrapper = (SearchWrapper)_wrapper;
+            SearchContextManager contextMgr = Main.get_control().getPoolHandlerServlet().getSearchContextManager();
+            StoragePoolHandler sp_handler = contextMgr.getHandlerbyWrapper(wrapper);
+            return sp_handler;
+        }
+        if (_wrapper instanceof StoragePoolWrapper)
+        {
+            StoragePoolWrapper wrapper = (StoragePoolWrapper)_wrapper;
+            StoragePoolHandlerContextManager contextMgr = Main.get_control().getPoolHandlerServlet().getContextManager();
+            StoragePoolHandler sp_handler = contextMgr.getHandlerbyWrapper(wrapper);
+            return sp_handler;
+        }
+
+        throw new UnsupportedOperationException("Not yet implemented");
     }
 
 }
