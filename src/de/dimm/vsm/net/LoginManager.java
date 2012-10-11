@@ -206,6 +206,8 @@ public class LoginManager extends WorkerParent implements GuiLoginApi
             Role role = new Role();
             role.getRoleOptions().addIfRealized( new RoleOption(0, role, RoleOption.RL_ALLOW_VIEW_PARAM, 0, ""));
             role.getRoleOptions().addIfRealized( new RoleOption(0, role, RoleOption.RL_FSMAPPINGFILE, 0, "TestMapping"));
+            role.getRoleOptions().addIfRealized( new RoleOption(0, role, RoleOption.RL_USERPATH, 0, "192.168.1.145:8082:z:\\a\\FaxXP"));
+            role.getRoleOptions().addIfRealized( new RoleOption(0, role, RoleOption.RL_USERPATH, 0, "127.0.0.1:8082:/tmp"));
             try
             {
                 user.setRole(role);
@@ -301,7 +303,7 @@ public class LoginManager extends WorkerParent implements GuiLoginApi
                             auth.close_user_context();
                         }
 
-                        user.setGroups(groupsThisUser);
+                        user.setGroups(groupsThisUser, null);
 
                         Log.debug(Main.Txt("Benutzer") + " " + userName + " " + Main.Txt("wird angemeldet"), role.getName());
 
