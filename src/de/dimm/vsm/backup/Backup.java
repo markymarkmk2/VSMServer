@@ -21,7 +21,6 @@ import de.dimm.vsm.Utilities.VariableResolver;
 import de.dimm.vsm.Utilities.ZipUtilities;
 import de.dimm.vsm.auth.User;
 import de.dimm.vsm.fsengine.ArrayLazyList;
-import de.dimm.vsm.fsengine.FS_FileHandle;
 import de.dimm.vsm.fsengine.GenericEntityManager;
 import de.dimm.vsm.fsengine.JDBCEntityManager;
 import de.dimm.vsm.fsengine.JDBCStoragePoolHandler;
@@ -139,6 +138,49 @@ public class Backup
     }
 
     String preStartStatus;
+
+    private String createNokResultText( List<BackupVolumeResult> list, int totalVolumesTried )
+    {
+        StringBuilder sb = new StringBuilder();
+
+        sb.append(Main.Txt("Volumes gestartet"));
+        sb.append( ": ");
+        sb.append(totalVolumesTried);
+        sb.append( "\n");
+        int cntOk = 0;
+        int cntNok = 0;
+        for (int i = 0; i < list.size(); i++)
+        {
+            BackupVolumeResult backupVolumeResult = list.get(i);
+            if (backupVolumeResult.isOk())
+                cntOk++;
+            else
+                cntNok++;
+        }
+        sb.append(Main.Txt("Volumes okay"));
+        sb.append( ": ");
+        sb.append(cntOk);
+        sb.append( "\n");
+        sb.append(Main.Txt("Volumes nicht okay"));
+        sb.append( ": ");
+        sb.append(cntNok);
+        sb.append( "\n\n");
+        sb.append(Main.Txt("Volumeliste"));
+        sb.append( ":\n");
+
+        for (int i = 0; i < list.size(); i++)
+        {
+            BackupVolumeResult backupVolumeResult = list.get(i);
+            sb.append( backupVolumeResult.getVolume().getClinfo().getIp() );
+            sb.append( " -> ");
+            sb.append( backupVolumeResult.getVolume().getVolumePath() );
+            sb.append( ": ");
+            sb.append( backupVolumeResult.isOk()? Main.Txt("OK"):Main.Txt("NOK"));
+            sb.append( "\n");
+        }
+
+        return sb.toString();
+    }
 
     public class BackupJobInterface implements JobInterface
     {
@@ -276,14 +318,19 @@ public class Backup
             {
                 if (actualContext != null)
                 {
+                    Log.err("Abbruch mit context in Sicherung", exception );
+
                     actualContext.setJobState( JOBSTATE.FINISHED_ERROR );
-                    actualContext.setStatus(Main.Txt("Das Backup wurde abgebrochen") + ": " + exception.getMessage());                    
+                    actualContext.setStatus(Main.Txt("Das Backup wurde abgebrochen") + ": " + exception.getMessage());
+
 
                     baNotify( BackupManager.BA_ABORT, actualContext.getStatus(), actualContext );
+                                        
                 }
                 else
                 {
                      Log.err("Abbruch in Sicherung", exception );
+                     baNotify( BackupManager.BA_ABORT, exception.getMessage(), actualContext );
                 }
             }
             finally
@@ -340,6 +387,10 @@ public class Backup
             if (actualContext != null)
             {
                 return actualContext.getActClientInfo().getSched();
+            }
+            if (sched != null)
+            {
+                return sched;
             }
             return null;
         }
@@ -489,6 +540,32 @@ public class Backup
         };
         return vr;
     }
+    private VariableResolver createSchedVr(final Schedule sched)
+    {
+        VariableResolver vr = new VariableResolver()
+        {
+
+            @Override
+            public String resolveVariableText( String s )
+            {
+                if (s.indexOf("$NAME") >= 0)
+                {
+                    String f = "";
+                    f = sched.getName();
+                    s = s.replace("$NAME", f );
+                }
+
+                if (s.indexOf("$POOL") >= 0)
+                {
+                    String f = "";
+                    f = sched.getPool().getName();
+                    s = s.replace("$POOL", f );
+                }
+                return s;
+            }
+        };
+        return vr;
+    }
 
 
     private boolean run_schedule( final Schedule sched, StoragePoolHandler hdl ) throws PoolReadOnlyException, SQLException
@@ -500,29 +577,45 @@ public class Backup
         baJobResult.setStartTime( new Date());
         baJobResult.setBackupVolumeResults( new ArrayLazyList<BackupVolumeResult>());
 
-        hdl.em_persist(baJobResult);
+        hdl.em_persist(baJobResult, /*noCache*/true);
         boolean globalOk = false;
 
         try
         {
+            // RELOAD FROM DB
+            sched.getClientList().unRealize();
+            
+            // AND HOLD A COPY
+            List<ClientInfo> client_list = new ArrayList<ClientInfo>();
+            client_list.addAll( sched.getClientList().getList(hdl.getEm()) );
 
-            List<ClientInfo> client_list = sched.getClientList().getList(hdl.getEm());
-            //hdl.updateLazyListsHandler(client_list);
+            int totalVolumesTried = 0;
 
             for (int i = 0; i < client_list.size(); i++)
             {
                 final ClientInfo clientInfo = client_list.get(i);
                 if (clientInfo.getDisabled())
+                {
+                    Log.info(Main.Txt("Client ist disabled") + ":" + clientInfo.toString());
                     continue;
+                }
 
                 if (abort)
+                {
+                    Log.warn(Main.Txt("Backup wurde abgebrochen") + ":" + clientInfo.toString());
                     break;
+                }
 
+                Log.info(Main.Txt("Starte Sicherung von Client") + " " +  clientInfo.toString() +
+                            " (" + Integer.toString(i+1) + "/" + client_list.size()+ ")");
                 boolean allVolsOkay = true;
 
-                List<ClientVolume> volume_list = clientInfo.getVolumeList().getList(hdl.getEm());
-                //hdl.updateLazyListsHandler(volume_list);
-                //hdl.updateLazyListsHandler(clientInfo.getExclList());
+                // RELOAD FROM DB
+                clientInfo.getVolumeList().unRealize();
+
+                // AND HOLD A COPY
+                List<ClientVolume> volume_list = new ArrayList<ClientVolume>();
+                volume_list.addAll( clientInfo.getVolumeList().getList(hdl.getEm()) );
                 
                 StatCounter clientCounter = new StatCounter("Client " + clientInfo.toString());
 
@@ -530,19 +623,29 @@ public class Backup
                 {
                     final ClientVolume clientVolume = volume_list.get(j);
                     if (clientVolume.getDisabled())
+                    {
+                        Log.info(Main.Txt("Volume ist disabled") + ":" + clientVolume.toString());
                         continue;
+                    }
 
                     if (abort)
+                    {
+                        Log.warn(Main.Txt("Backup wurde abgebrochen") + ":" + clientVolume.toString());
                         break;
+                    }
+
+                    Log.info(Main.Txt("Starte Sicherung von Volume") + " " + clientVolume.toString() +
+                            "(" + Integer.toString(j+1) + "/" + volume_list.size()+ ")");
+
+                    totalVolumesTried++;
 
                     VariableResolver vr = createLocalVr(clientInfo, clientVolume);
-
 
                     BackupVolumeResult baVolumeResult = new BackupVolumeResult();
                     baVolumeResult.setStartTime( new Date());
                     baVolumeResult.setVolume(clientVolume);
                     baVolumeResult.setJobResult(baJobResult);
-                    hdl.em_persist(baVolumeResult);
+                    hdl.em_persist(baVolumeResult, /*noCache*/true);
 
                     BackupContext context = backupClientVolume( hdl, clientInfo, clientVolume );
 
@@ -565,10 +668,11 @@ public class Backup
                     if (!baVolumeResult.isOk())
                         allVolsOkay = false;
 
+                    Log.info(Main.Txt("Sicherung von Volume") + " " + clientVolume.toString() + " beendet " + (baVolumeResult.isOk()? "(OK)": "(NOK)") );
+                    
                     hdl.em_merge(baVolumeResult);
 
                     baJobResult.getBackupVolumeResults().addIfRealized(baVolumeResult);
-
 
                     if (context != null)
                     {
@@ -593,6 +697,7 @@ public class Backup
                 globalOk = false;
                 baNotify(BackupManager.BA_ABORT, baJobResult.getStatus(), actualContext);
             }
+
             List<BackupVolumeResult> list = baJobResult.getBackupVolumeResults().getList( hdl.getEm() );
             for (int i = 0; i < list.size(); i++)
             {
@@ -606,6 +711,19 @@ public class Backup
                 String summary = overallCounter.buildSummary();
                 baNotify(BackupManager.BA_OKAY, Main.Txt("Zusammenfassung") + ":\n\n" + summary, actualContext);
             }
+            else
+            {
+                VariableResolver vr = actualContext != null ? actualContext : createSchedVr(sched);
+                String nokResultText = createNokResultText( list, totalVolumesTried );
+                String summary = overallCounter.buildSummary();
+                baNotify(BackupManager.BA_NOT_OKAY, nokResultText + "\n\n" +  Main.Txt("Zusammenfassung") + ":\n\n" + summary, vr);
+            }
+
+        }
+        catch (Exception exc)
+        {
+            Log.err("Abbruch bei Backup " + sched.getName() , exc);
+            throw exc;
         }
         finally
         {
@@ -719,16 +837,19 @@ public class Backup
         if (context.poolhandler.get_primary_dedup_node() == null)
         {
             preStartStatus = Main.Txt("Kein StorageNode für Dedup verfügbar") + " " +  context.poolhandler.getPool().getName();
+            context.close();
             return null;
         }
         if (context.poolhandler.get_primary_storage_nodes().isEmpty())
         {
             preStartStatus = Main.Txt("Kein StorageNodes verfügbar") + " " +  context.poolhandler.getPool().getName();
+            context.close();
             return null;
         }
         if (!context.checkStorageNodesExists())
         {
             preStartStatus = Main.Txt("StorageNode existiert nicht") + " " +  context.poolhandler.getPool().getName();
+            context.close();
             return null;
         }
 
@@ -774,7 +895,7 @@ public class Backup
             {
                 baNotify(BackupManager.BA_ABORT, context.getStatus(), context);
             }
-            if (context.getResult())
+            else if(context.getResult())
             {
                 String summary = actualContext.getStat().buildSummary(  );
                 baNotify(BackupManager.BA_VOLUME_OKAY, Main.Txt("Zusammenfassung") + ":\n\n" + summary, context );
@@ -841,7 +962,7 @@ public class Backup
                 Excludes excludes = exclList.get(i);
                 if (Excludes.checkExclude( excludes, remoteFSElem ))
                 {
-                    Log.debug(Main.Txt("Excludefilter"), excludes.toString() + ": " + remoteFSElem.getPath());
+                    //Log.debug(Main.Txt("Excludefilter"), excludes.toString() + ": " + remoteFSElem.getPath());
                     return;
                 }
             }
@@ -1199,26 +1320,6 @@ public class Backup
         return false;
 
     }
-
-//    static void write_single_block(GenericContext context,RemoteFSElemWrapper remoteFSElem, FileHandle handle, int len ) throws IOException, SQLException, PoolReadOnlyException
-//    {
-//        byte[] data = context.apiEntry.getApi().read(remoteFSElem, 0, (int)len);
-//
-//        if (data == null || (data.length == 0 && len != 0))
-//        {
-//            throw new IOException("Cannot read remote file handle " + remoteFSElem.toString());
-//        }
-//        int realLen = data.length;
-//
-//        // WRITE FILE TO FILEBUFF
-//        if (!speed_test_no_write)
-//        {
-//            context.getWriteRunner().addElem(handle, data, realLen, 0);
-////            handle.writeFile(data,  realLen, /*offset*/0);
-//        }
-//
-//    }
-
     private static boolean write_complete_node( GenericContext context, RemoteFSElem remoteFSElem, FileSystemElemNode node, long ts) throws PoolReadOnlyException
     {
         FileHandle handle = null;
@@ -1232,7 +1333,7 @@ public class Backup
             remote_handle = context.apiEntry.getApi().open_data(remoteFSElem, AgentApi.FL_RDONLY);
 
             if (remote_handle == null)
-                throw new IOException("Cannot open remote file handle " + remoteFSElem.toString());
+                throw new ClientAccessFileException("Cannot open remote file handle " + remoteFSElem.toString());
 
 
             // COPY DATA
@@ -1240,11 +1341,6 @@ public class Backup
 
             // IF SIZE IS BIGGER THAN A HASHBLOC, WE USE HASHBLOCKS
 //            if (len < context.hash_block_size)
-//            {
-//                write_single_block( context, remote_handle, handle, (int)len );
-//                context.stat.addTransferLen( (int)len );
-//            }
-//            else
             {
                 long offset = 0;
 
@@ -1370,6 +1466,14 @@ public class Backup
             }
 
             return true;
+        }
+        catch (ClientAccessFileException e)
+        {
+
+            Log.err( "Datei wurde nicht gesichert", node.toString());
+            context.setStatus(VSMCMain.Txt("Entferne") + " " + remoteFSElem.getPath() );
+            context.poolhandler.remove_fse_node(node, true);
+            context.apiEntry.getApi().get_properties();
         }
         catch (Exception e)
         {
@@ -1653,15 +1757,15 @@ public class Backup
         RemoteFSElemWrapper remote_handle = null;
         try
         {
-            // OPEN LOCAL FILE HANDLE
-            handle = context.poolhandler.open_xa_handle(node, /*create*/ true);
             
-
             // OPEN REMOTE HANDLE
             remote_handle = context.apiEntry.getApi().open_stream_data(remoteFSElem, AgentApi.FL_RDONLY);
 
             if (remote_handle == null)
-                throw new IOException("Cannot open remote file handle " + remoteFSElem.toString());
+                throw new ClientAccessFileException("Cannot open remote file handle " + remoteFSElem.toString());
+
+            // OPEN LOCAL FILE HANDLE
+            handle = context.poolhandler.open_xa_handle(node, /*create*/ true);
 
 
             // COPY DATA
@@ -1728,7 +1832,7 @@ public class Backup
                     }
                 }
 
-                if (data == null || data.length != rlen)
+               if (data == null || data.length != rlen)
                 {
                     throw new IOException("Cannot read_and_hash remote file handle " + remoteFSElem.toString());
                 }
@@ -1739,7 +1843,10 @@ public class Backup
                 if (!speed_test_no_write)
                 {
                     if (len - realLen == 0)
+                    {
                         context.getWriteRunner().addAndCloseElem(handle, data, realLen, offset );
+                        handle =  null;  // IS CLOSED IN WRITE RUNNER
+                    }
                     else
                         context.getWriteRunner().addElem(handle, data, realLen, offset );
                     //handle.writeFile(res.getData(), realLen, offset);
@@ -1764,6 +1871,10 @@ public class Backup
             return true;
 
         }
+        catch (ClientAccessFileException e)
+        {
+            Log.err( "Streamdaten wurden nicht gesichert", node.toString() + ": " + e.getMessage());
+        }
         catch (Exception e)
         {
             Log.err( "Fehler beim Schreiben von StreamDaten", node.toString(), e);
@@ -1777,6 +1888,17 @@ public class Backup
                 try
                 {
                     context.apiEntry.getApi().close_data(remote_handle);
+                }
+                catch (IOException e)
+                {
+                    Log.err( "Fehler beim Schließen von Node", node.toString(), e);
+                }
+            }
+            if (handle != null)
+            {
+                try
+                {
+                    handle.close();
                 }
                 catch (IOException e)
                 {
@@ -1801,7 +1923,7 @@ public class Backup
             remote_handle = context.apiEntry.getApi().open_stream_data(remoteFSElem, AgentApi.FL_RDONLY);
 
             if (remote_handle == null)
-                throw new IOException("Cannot open remote xa handle " + remoteFSElem.toString());
+                throw new ClientAccessFileException("Cannot open remote xa handle " + remoteFSElem.toString());
 
 
             long len = remoteFSElem.getStreamSize();
@@ -1876,6 +1998,11 @@ public class Backup
             }
             return true;
 
+        }
+        catch (ClientAccessFileException e)
+        {
+            Log.err( "Fehler beim Schreiben von DedupStreamDaten", node.toString() + ": " + e.getMessage());
+            return false;
         }
         catch (Exception e)
         {
@@ -1988,7 +2115,7 @@ public class Backup
             remote_handle = context.apiEntry.getApi().open_data(remoteFSElem, AgentApi.FL_RDONLY);
 
             if (remote_handle == null)
-                throw new IOException("Cannot open remote file handle " + remoteFSElem.toString());
+                throw new ClientAccessFileException("Cannot open remote file handle " + remoteFSElem.toString());
             
 
             long len = remoteFSElem.getDataSize();
@@ -2114,6 +2241,11 @@ public class Backup
             return true;
 
         }
+        catch (ClientAccessFileException e)
+        {
+            Log.err( "Fehler beim Update von Node", node.toString() + ": " + e.getMessage());
+            return false;
+        }
         catch (Exception e)
         {
             Log.err( "Fehler beim Update von Node", node.toString(), e);
@@ -2124,7 +2256,10 @@ public class Backup
         {
             try
             {
-                context.apiEntry.getApi().close_data(remote_handle);
+                if (remote_handle != null)
+                {
+                    context.apiEntry.getApi().close_data(remote_handle);
+                }
             }
             catch (IOException e)
             {
@@ -2143,7 +2278,7 @@ public class Backup
             remote_handle = context.apiEntry.getApi().open_stream_data(remoteFSElem, AgentApi.FL_RDONLY);
 
             if (remote_handle == null)
-                throw new IOException("Cannot open remote xa handle " + remoteFSElem.toString());
+                throw new ClientAccessFileException("Cannot open remote xa handle " + remoteFSElem.toString());
             
 
             long len = remoteFSElem.getStreamSize();
@@ -2260,6 +2395,11 @@ public class Backup
             return true;
 
         }
+        catch (ClientAccessFileException e)
+        {
+            Log.err( "Fehler beim Update von StreamDaten", node.toString() + ": " + e.getMessage());
+            return false;
+        }
         catch (Exception e)
         {
             // TODO: WIN + MAC Agent
@@ -2271,7 +2411,10 @@ public class Backup
         {
             try
             {
-                context.apiEntry.getApi().close_data(remote_handle);
+                if (remote_handle != null)
+                {
+                    context.apiEntry.getApi().close_data(remote_handle);
+                }
             }
             catch (IOException e)
             {

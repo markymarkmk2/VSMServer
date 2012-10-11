@@ -79,6 +79,7 @@ public class BackupManager extends WorkerParent
 
    
     public static final String BA_OKAY = "BA_OKAY";
+    public static final String BA_NOT_OKAY = "BA_NOT_OKAY";
     public static final String BA_VOLUME_OKAY = "BA_VOLUME_OKAY";
     public static final String BA_CLIENT_OKAY = "BA_CLIENT_OKAY";
 
@@ -113,13 +114,16 @@ public class BackupManager extends WorkerParent
                 "Client $AGENT beendet", "Client $AGENT bei Backup $NAME wurde erfolgreich gesichert", NotificationEntry.Level.INFO, false));
 
         Main.addNotification( new NotificationEntry(BA_OKAY,
-                "Backup $NAME beendet", "Element $PATH bei Agent $AGENT im Hotfolder $NAME wurde erfolgreich gesichert", NotificationEntry.Level.INFO, false));
+                "Backup $NAME erfolgreich beendet", "", NotificationEntry.Level.INFO, false));
+
+        Main.addNotification( new NotificationEntry(BA_NOT_OKAY,
+                "Backup $NAME nicht erfolgreich beendet", "", NotificationEntry.Level.ERROR, false));
 
         Main.addNotification( new NotificationEntry(BA_SNAPSHOT_FAILED,
                 "Fehler beim Erzeugen des Snapshots in Backup $NAME", "In Volume $VOLUME bei Agent $AGENT im Backup $NAME konnte kein Snapshot erzeugt werden", NotificationEntry.Level.WARNING, false));
 
         Main.addNotification( new NotificationEntry(BA_GROUP_ERROR,
-                "Alle Fehler in Backup", "BA_AGENT_OFFLINE,BA_ERROR,BA_FILE_ERROR,BA_ABORT", NotificationEntry.Level.GROUP, false));
+                "Alle Fehler in Backup", "BA_SNAPSHOT_FAILED,BA_AGENT_OFFLINE,BA_ERROR,BA_FILE_ERROR,BA_ABORT,BA_NOT_OKAY", NotificationEntry.Level.GROUP, false));
     }
 
     @Override
