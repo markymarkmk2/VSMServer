@@ -13,7 +13,6 @@ import de.dimm.vsm.auth.User;
 import de.dimm.vsm.backup.AgentApiEntry;
 import de.dimm.vsm.backup.Backup;
 import de.dimm.vsm.backup.hotfolder.MMImportManager;
-import de.dimm.vsm.fsengine.CloneStorageNodeHandler;
 import de.dimm.vsm.fsengine.FSEIndexer;
 import de.dimm.vsm.fsengine.StorageNodeHandler;
 import de.dimm.vsm.fsengine.StoragePoolHandler;
@@ -22,6 +21,7 @@ import de.dimm.vsm.jobs.JobEntry;
 import de.dimm.vsm.jobs.JobManager;
 import de.dimm.vsm.lifecycle.NodeMigrationManager;
 import de.dimm.vsm.net.interfaces.GuiServerApi;
+import de.dimm.vsm.net.interfaces.IWrapper;
 import de.dimm.vsm.records.AbstractStorageNode;
 import de.dimm.vsm.records.ArchiveJob;
 import de.dimm.vsm.records.FileSystemElemNode;
@@ -35,7 +35,6 @@ import de.dimm.vsm.tasks.TaskEntry;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.InetAddress;
-import java.net.UnknownHostException;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Date;
@@ -409,25 +408,32 @@ public class GuiServerApiImpl implements GuiServerApi
     }
 
     @Override
-    public boolean removeFSElem( StoragePoolWrapper wrapper, RemoteFSElem path ) throws PoolReadOnlyException, SQLException
+    public boolean removeFSElem( IWrapper wrapper, RemoteFSElem path ) throws PoolReadOnlyException, SQLException
     {
         return control.getPoolHandlerServlet().removeFSElem(wrapper, path);
     }
     @Override
-    public boolean undeleteFSElem( StoragePoolWrapper wrapper, RemoteFSElem path ) throws PoolReadOnlyException, SQLException
+    public boolean undeleteFSElem( IWrapper wrapper, RemoteFSElem path ) throws PoolReadOnlyException, SQLException
     {
         return control.getPoolHandlerServlet().undeleteFSElem(wrapper, path);
     }
     @Override
-    public boolean deleteFSElem( StoragePoolWrapper wrapper, RemoteFSElem path ) throws PoolReadOnlyException, SQLException
+    public boolean deleteFSElem( IWrapper wrapper, RemoteFSElem path ) throws PoolReadOnlyException, SQLException
     {
         return control.getPoolHandlerServlet().deleteFSElem(wrapper, path);
     }
 
     @Override
-    public boolean restoreFSElem( StoragePoolWrapper wrapper, RemoteFSElem path, String targetIP, int targetPort, String targetPath, int flags, User user ) throws PoolReadOnlyException, SQLException, IOException
+    public boolean restoreFSElem( IWrapper wrapper, RemoteFSElem path, String targetIP, int targetPort, String targetPath, int flags, User user ) throws PoolReadOnlyException, SQLException, IOException
     {
-        return control.getPoolHandlerServlet().restoreFSElem(wrapper, path, targetIP, targetPort, targetPath, flags, user);
+        List<RemoteFSElem> list = new ArrayList<RemoteFSElem>();
+        list.add(path);
+        return control.getPoolHandlerServlet().restoreFSElem(wrapper, list, targetIP, targetPort, targetPath, flags, user);
+    }
+    @Override
+    public boolean restoreFSElems( IWrapper wrapper, List<RemoteFSElem> paths, String targetIP, int targetPort, String targetPath, int flags, User user ) throws PoolReadOnlyException, SQLException, IOException
+    {
+        return control.getPoolHandlerServlet().restoreFSElem(wrapper, paths, targetIP, targetPort, targetPath, flags, user);
     }
 
     @Override
@@ -543,12 +549,22 @@ public class GuiServerApiImpl implements GuiServerApi
         return contextMgr.get_child_nodes(wrapper, path);
     }
 
-    @Override
-    public boolean restoreFSElem( SearchWrapper wrapper, RemoteFSElem path, String targetIP, int targetPort, String targetPath, int flags, User user ) throws SQLException, PoolReadOnlyException, IOException
-    {
-        SearchContextManager contextMgr = control.getPoolHandlerServlet().getSearchContextManager();
-        return contextMgr.restoreFSElem(wrapper, path, targetIP, targetPort, targetPath, flags, user);
-    }
+//    @Override
+//    public boolean restoreFSElem( IWrapper wrapper, RemoteFSElem path, String targetIP, int targetPort, String targetPath, int flags, User user ) throws SQLException, PoolReadOnlyException, IOException
+//    {
+//        SearchContextManager contextMgr = control.getPoolHandlerServlet().getSearchContextManager();
+//        List<RemoteFSElem> list = new ArrayList<RemoteFSElem>();
+//        list.add(path);
+//
+//        return contextMgr.restoreFSElem(wrapper, list, targetIP, targetPort, targetPath, flags, user);
+//    }
+//    @Override
+//    public boolean restoreFSElems( IWrapper wrapper, List<RemoteFSElem> paths, String targetIP, int targetPort, String targetPath, int flags, User user ) throws SQLException, PoolReadOnlyException, IOException
+//    {
+//        SearchContextManager contextMgr = control.getPoolHandlerServlet().getSearchContextManager();
+//
+//        return contextMgr.restoreFSElem(wrapper, paths, targetIP, targetPort, targetPath, flags, user);
+//    }
 
     @Override
     public boolean restoreJob( SearchWrapper searchWrapper, ArchiveJob job, String targetIP, int targetPort, String targetPath, int rflags, User user ) throws SQLException, PoolReadOnlyException, IOException
@@ -689,29 +705,28 @@ public class GuiServerApiImpl implements GuiServerApi
         return ret;
     }
 
+//    @Override
+//    public InputStream openStream( SearchWrapper wrapper, RemoteFSElem path )
+//    {
+//        SearchContextManager contextMgr = control.getPoolHandlerServlet().getSearchContextManager();
+//        StoragePoolHandler sp_handler = contextMgr.getHandlerbyWrapper(wrapper);
+//        VSMFSInputStream is = new VSMFSInputStream(sp_handler, path.getIdx());
+//        return is;
+//    }
+
     @Override
-    public InputStream openStream( SearchWrapper wrapper, RemoteFSElem path )
+    public InputStream openStream( IWrapper wrapper, RemoteFSElem path )
     {
-        SearchContextManager contextMgr = control.getPoolHandlerServlet().getSearchContextManager();
-        StoragePoolHandler sp_handler = contextMgr.getHandlerbyWrapper(wrapper);
+        StoragePoolHandler sp_handler = control.getPoolHandlerServlet().getPoolHandlerByWrapper(wrapper);
+        
         VSMFSInputStream is = new VSMFSInputStream(sp_handler, path.getIdx());
         return is;
     }
 
     @Override
-    public InputStream openStream( StoragePoolWrapper wrapper, RemoteFSElem path )
+    public String resolvePath( IWrapper wrapper, RemoteFSElem path ) throws SQLException, PathResolveException
     {
-        StoragePoolHandlerContextManager contextMgr = control.getPoolHandlerServlet().getContextManager();
-        StoragePoolHandler sp_handler = contextMgr.getHandlerbyWrapper(wrapper);
-        VSMFSInputStream is = new VSMFSInputStream(sp_handler, path.getIdx());
-        return is;
-    }
-
-    @Override
-    public String resolvePath( SearchWrapper wrapper, RemoteFSElem path ) throws SQLException, PathResolveException
-    {
-        SearchContextManager contextMgr = control.getPoolHandlerServlet().getSearchContextManager();
-        StoragePoolHandler sp_handler = contextMgr.getHandlerbyWrapper(wrapper);
+        StoragePoolHandler sp_handler = control.getPoolHandlerServlet().getPoolHandlerByWrapper(wrapper);
         if (path.getIdx() >= 0)
         {
             FileSystemElemNode node = sp_handler.resolve_fse_node_from_db(path.getIdx());
@@ -725,23 +740,23 @@ public class GuiServerApiImpl implements GuiServerApi
         return "Unknown";
     }
 
-    @Override
-    public String resolvePath( StoragePoolWrapper wrapper, RemoteFSElem path ) throws SQLException, PathResolveException
-    {
-        StoragePoolHandlerContextManager contextMgr = control.getPoolHandlerServlet().getContextManager();
-        StoragePoolHandler sp_handler = contextMgr.getHandlerbyWrapper(wrapper);
-        if (path.getIdx() >= 0)
-        {
-            FileSystemElemNode node = sp_handler.resolve_fse_node_from_db(path.getIdx());
-            if (node != null)
-            {
-                StringBuilder sb = new StringBuilder();
-                sp_handler.build_virtual_path(node, sb);
-                return sb.toString();
-            }
-        }
-        return "Unknown";
-    }
+//    @Override
+//    public String resolvePath( StoragePoolWrapper wrapper, RemoteFSElem path ) throws SQLException, PathResolveException
+//    {
+//        StoragePoolHandlerContextManager contextMgr = control.getPoolHandlerServlet().getContextManager();
+//        StoragePoolHandler sp_handler = contextMgr.getHandlerbyWrapper(wrapper);
+//        if (path.getIdx() >= 0)
+//        {
+//            FileSystemElemNode node = sp_handler.resolve_fse_node_from_db(path.getIdx());
+//            if (node != null)
+//            {
+//                StringBuilder sb = new StringBuilder();
+//                sp_handler.build_virtual_path(node, sb);
+//                return sb.toString();
+//            }
+//        }
+//        return "Unknown";
+//    }
 
     @Override
     public boolean importMMArchiv( HotFolder node, long fromIdx, long tillIdx, boolean withOldJobs, User user ) throws IOException
