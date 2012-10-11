@@ -67,6 +67,12 @@ public class JPAStoragePoolHandler extends StoragePoolHandler /*implements Remot
     }
 
     @Override
+    public void em_persist( Object o, boolean noCache ) throws SQLException
+    {
+        em.em_persist(o);
+    }
+
+    @Override
     public void em_remove( Object o ) throws SQLException
     {
         em.em_remove(o);
