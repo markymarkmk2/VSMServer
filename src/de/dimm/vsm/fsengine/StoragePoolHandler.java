@@ -131,6 +131,7 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
 
 
 
+    public abstract void em_persist( Object o, boolean noCache ) throws SQLException;
     public abstract void em_persist( Object o ) throws SQLException;
     public abstract void em_remove( Object o ) throws SQLException;
     public abstract void em_detach( Object o ) throws SQLException;
@@ -389,6 +390,18 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
     {
         return pathResolver.resolve_node_by_remote_elem(node);
     }
+    // THIS IS THE ENTRY FROM THE MOUNTED DRIVE BEFORE get_child_nodes, AFTER resolve_elem_by_path
+    public List<FileSystemElemNode> resolve_node_by_remote_elem(  List<RemoteFSElem> nodes ) throws SQLException
+    {
+        List<FileSystemElemNode> retList = new ArrayList<FileSystemElemNode>();
+        for (int i = 0; i < nodes.size(); i++)
+        {
+            RemoteFSElem node = nodes.get(i);
+            retList.add(resolve_node_by_remote_elem(node));
+
+        }
+        return retList;
+    }
 
 
     // THIS IS THE ENTRY FROM THE MOUNTED DRIVE
@@ -473,14 +486,21 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
         List<FileSystemElemNode> childNodes = get_child_nodes(act_dir);
         
 
-        for (int i = 0; i < childNodes.size(); i++)
+        if (childNodes != null)
         {
-            FileSystemElemNode fileSystemElemNode = childNodes.get(i);
-            if (fileSystemElemNode.getName().equals(string))
+            for (int i = 0; i < childNodes.size(); i++)
             {
-                node = fileSystemElemNode;
-                break;
+                FileSystemElemNode fileSystemElemNode = childNodes.get(i);
+                if (fileSystemElemNode.getName().equals(string))
+                {
+                    node = fileSystemElemNode;
+                    break;
+                }
             }
+        }
+        else
+        {
+            Log.err("No childs found for node" , act_dir.toString() + ": " + string );
         }
 
         if (useDirHmap && node != null)
@@ -1514,7 +1534,7 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
 
         check_open_transaction();
 
-        em_persist(he);
+        em_persist(he, /*noCache*/true);
 
         check_commit_transaction();
 
@@ -1550,7 +1570,7 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
 
         check_open_transaction();
 
-        em_persist(he);
+        em_persist(he, /*noCache*/true);
 
         check_commit_transaction();
 
@@ -2060,7 +2080,7 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
 
         check_open_transaction();
 
-        em_persist(he);
+        em_persist(he, /*noCache*/true);
 
         check_commit_transaction();
 
@@ -2315,7 +2335,7 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
         ArchiveJobFileLink ajfl = new ArchiveJobFileLink();
         ajfl.setArchiveJob(archiveJob);
         ajfl.setFileNode(node);
-        em_persist(ajfl);
+        em_persist(ajfl, /*noCache*/true);
         archiveJob.getLinks().addIfRealized( ajfl);
         return ajfl;
     }
