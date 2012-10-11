@@ -48,23 +48,42 @@ public class Restore
     RestoreContext actualContext;
     int hash_block_size;
     boolean abort = false;
-    FileSystemElemNode node;
+    List<FileSystemElemNode> nodes;
     
 
     public Restore(StoragePoolHandler poolHandler, FileSystemElemNode node, int flags, StoragePoolQry qry, InetAddress targetIP, int targetPort, RemoteFSElem target) throws IOException
     {
-        setRestoreParam(poolHandler, node, flags, qry, targetIP, targetPort, target);
+        List<FileSystemElemNode> list = new ArrayList<FileSystemElemNode>();
+        list.add(node);
+            
+        setRestoreParam(poolHandler, list, flags, qry, targetIP, targetPort, target);
+    }
+
+    public Restore(StoragePoolHandler poolHandler, List<FileSystemElemNode> nodes, int flags, StoragePoolQry qry, InetAddress targetIP, int targetPort, RemoteFSElem target) throws IOException
+    {
+        setRestoreParam(poolHandler, nodes, flags, qry, targetIP, targetPort, target);
     }
     public Restore(StoragePoolHandler poolHandler, ArchiveJob job, int flags, StoragePoolQry qry, InetAddress targetIP, int targetPort, RemoteFSElem target) throws IOException
     {
         long now = System.currentTimeMillis();
         RemoteFSElem jobDir = new RemoteFSElem(target.getPath() + "/" + job.getName(), FileSystemElemNode.FT_DIR, now, now, now, 0, 0);
-        setRestoreParam(poolHandler, job.getDirectory(), flags, qry, targetIP, targetPort, jobDir);
+
+        List<FileSystemElemNode> list = new ArrayList<FileSystemElemNode>();
+        list.add(job.getDirectory());
+        
+        setRestoreParam(poolHandler, list, flags, qry, targetIP, targetPort, jobDir);
         actualContext.apiEntry.getApi().create_dir(jobDir);
     }
     public final void setRestoreParam(StoragePoolHandler poolHandler, FileSystemElemNode node, int flags, StoragePoolQry qry, InetAddress targetIP, int targetPort, RemoteFSElem target) throws IOException
     {
-        this.node = node;
+        List<FileSystemElemNode> list = new ArrayList<FileSystemElemNode>();
+        list.add(node);
+
+        setRestoreParam(poolHandler, list, flags, qry, targetIP, targetPort, target);
+    }
+    public final void setRestoreParam(StoragePoolHandler poolHandler, List<FileSystemElemNode> nodes, int flags, StoragePoolQry qry, InetAddress targetIP, int targetPort, RemoteFSElem target) throws IOException
+    {
+        this.nodes = nodes;
         if (actualContext != null)
         {
             actualContext.close();
@@ -267,16 +286,25 @@ public class Restore
         try
         {
             // RELOAD NODE
-            node = actualContext.getPoolhandler().em_find(node.getClass(), node.getIdx());
+            for (int i = 0; i < nodes.size(); i++)
+            {
+                FileSystemElemNode node = nodes.get(i);
 
-            // GET CORRECT ATTRIBUTES
-            FileSystemElemAttributes attr = actualContext.poolhandler.getActualFSAttributes(node, actualContext.qry);
+                // RELOAD
+                node = actualContext.getPoolhandler().em_find(node.getClass(), node.getIdx());
 
+                // GET CORRECT ATTRIBUTES
+                FileSystemElemAttributes attr = actualContext.poolhandler.getActualFSAttributes(node, actualContext.qry);
 
-            restore_complete_node(node, attr, targetPath);
-
+                restore_complete_node(node, attr, targetPath);
+            }
             if (actualContext.getResult())
-                buildStatusText( Main.Txt("Restore von") + " " + node.getName() +  Main.Txt("nach") + " " + targetPath + " "+  Main.Txt("beendet") );
+            {
+                String txt = nodes.size() + " " +  Main.Txt("Objekten");
+                if (nodes.size() == 1)
+                    txt = nodes.get(0).getName();
+                buildStatusText( Main.Txt("Restore von") + " " + txt + " " + Main.Txt("nach") + " " + targetPath + " "+  Main.Txt("beendet") );
+            }
         }
         catch (Exception e)
         {
