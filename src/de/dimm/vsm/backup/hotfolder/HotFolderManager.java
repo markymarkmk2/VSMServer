@@ -181,6 +181,33 @@ public class HotFolderManager extends WorkerParent implements VariableResolver
         setStatusTxt("");
     }
 
+    private VariableResolver createSchedVr(final HotFolder hf)
+    {
+        VariableResolver vr = new VariableResolver()
+        {
+
+            @Override
+            public String resolveVariableText( String s )
+            {
+                if (s.indexOf("$NAME") >= 0)
+                {
+                    String f = "";
+                    f = hf.getName();
+                    s = s.replace("$NAME", f );
+                }
+                if (s.indexOf("$AGENT") >= 0)
+                {
+                    String f = "";
+                    f = hf.getIp() + ":" + hf.getPort();
+                    s = s.replace("$AGENT", f );
+                }
+
+                return s;
+            }            
+        };
+        return vr;
+    }
+
     public ArrayList<String> checkHotfolder(  HotFolder hotFolder )
     {
         ArrayList<String> pathList = new ArrayList<String>();
@@ -192,13 +219,14 @@ public class HotFolderManager extends WorkerParent implements VariableResolver
                 api = LogicControl.getApiEntry(hotFolder.getIp(), hotFolder.getPort(), /*withMsg*/ false);
                 if (!api.isOnline())
                 {
-                    Main.fire(HF_AGENT_OFFLINE, hotFolder.getIp(), this);
+                    Main.fire(HF_AGENT_OFFLINE, hotFolder.toString(), createSchedVr(hotFolder));
                     return pathList;
                 }
                 Main.release(HF_AGENT_OFFLINE);
             }
             catch (Exception unknownHostException)
             {
+                Main.fire(HF_AGENT_OFFLINE, unknownHostException.getMessage(), createSchedVr(hotFolder));
                 return pathList;
             }
 
