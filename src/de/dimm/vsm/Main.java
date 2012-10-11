@@ -43,7 +43,7 @@ public class Main
 {
 
     static String source_str = "trunk";
-    static String version_str = "1.2.1";
+    static String version_str = "1.3.2";
         
     public static int writeThreads = 1;
     public static int maxOpenFiles = 1024;
@@ -586,8 +586,11 @@ public class Main
                 {
                     Cache ch = CacheManager.getInstance().getCache(JDBCEntityManager.OBJECT_CACHE);
                     ch.evictExpiredElements();
-                    Statistics st = ch.getStatistics();
-                    System.out.println("Size: " + ch.getSize() + ": " + st.toString() );
+                    if (performanceDiagnostic)
+                    {
+                        Statistics st = ch.getStatistics();
+                        System.out.println("Size: " + ch.getSize() + ": " + st.toString() );
+                    }
                 }
                 System.out.println("Free Mem " + SizeStr.format(fm));                
                 

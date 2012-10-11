@@ -1,3 +1,46 @@
+Veränderungen in V1.3.2
+FIX: Verbesserte Benutzersicht als Baum
+FIX: Locking gegen parallele CDP-Jobs auf einem Pool
+UPD: Bessere Notifications on BA-Fehler
+
+Veränderungen in V1.2.9
+FIX: Fehler beim Sichern mehrerer Volumes -> nur erster wurde gesichert
+
+Veränderungen in V1.2.9
+FIX: PosixRechte sind ACL-Rechten unterlegen
+
+Veränderungen in V1.2.7
+UPD: Sicht des Dateisystems über BenutzerMapping als Baum
+
+Veränderungen in V1.2.5
+UPD: Authentifzierung mittels IMAP / POP3 / SMTP
+
+Veränderungen in V1.2.4
+UPD: Multiple Selections / letzter Pfad bei restores
+
+Veränderungen in V1.2.3
+FIX: User-RestorePfade Exception
+
+Veränderungen in V1.2.2
+UPD: verbesserte Erkennung von Benutzerrechten mit NT-Domain-basierten ACLs
+
+Veränderungen in V1.2.1
+UPD: HashCache als H2 Memory-DB
+UPD: Korrekter Mimetyp bei Download aus Filesystemviewer
+FIX: Memleaks...
+
+Veränderungen in V1.1.9
+UPD: Mapping von Usersichten auf VSM-Dateisystem in Rollenoptionen
+
+Veränderungen in V1.1.8
+FIX: Entfernen von Memleaks
+
+Veränderungen in V1.1.6
+UPD: Entfernen von freien Blöcken für StoragePools
+
+Veränderungen in V1.1.5
+UPD: Statusberechnung für StoragePools
+
 Veränderungen in V1.1.3
 FIX: Bessere Garbage-Collection
 

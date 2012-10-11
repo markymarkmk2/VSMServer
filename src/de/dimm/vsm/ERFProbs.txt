@@ -1,0 +1,79 @@
+07.08.2012 13.32.48.722 Debug de.dimm.vsm.net.LoginManager.handle_login Benutzer juergen@wetzlar.erf.de passt nicht zu Rolle  Admin
+07.08.2012 13.32.48.725 Debug de.dimm.vsm.auth.ActiveDirectoryAuth.connect auth Connecting LDAPreader
+07.08.2012 13.32.48.727 Debug de.dimm.vsm.auth.ActiveDirectoryAuth.connect auth Connected LDAPreader
+07.08.2012 13.32.48.728 Debug de.dimm.vsm.auth.ActiveDirectoryAuth.findFirstLdapEntry auth LDAP try: dc=wetzlar,dc=erf,dc=de -> (&(objectCategory=person)(objectClass=user)(userPrincipalName=juergen@wetzlar.erf.de))
+07.08.2012 13.32.48.730 Debug de.dimm.vsm.auth.ActiveDirectoryAuth.findFirstLdapEntry auth LDAP found: dc=wetzlar,dc=erf,dc=de -> (&(objectCategory=person)(objectClass=user)(userPrincipalName=juergen@wetzlar.erf.de))
+07.08.2012 13.32.48.732 Debug de.dimm.vsm.auth.ActiveDirectoryAuth.open_user auth Found user trying to connect: CN=Karl\, Juergen,OU=IT,OU=Domainen Benutzer,DC=wetzlar,DC=erf,DC=de
+07.08.2012 13.32.48.738 Debug de.dimm.vsm.auth.ActiveDirectoryAuth.open_user auth User connected successfully: CN=Karl\, Juergen,OU=IT,OU=Domainen Benutzer,DC=wetzlar,DC=erf,DC=de
+07.08.2012 13.32.48.739 Debug de.dimm.vsm.auth.ActiveDirectoryAuth.list_attribute_qry auth DN_Qry: dc=wetzlar,dc=erf,dc=de (&(member=CN=Karl\, Juergen,OU=IT,OU=Domainen Benutzer,DC=wetzlar,DC=erf,DC=de)(objectClass=group))
+07.08.2012 13.32.48.744 Debug de.dimm.vsm.net.LoginManager.handle_login Benutzer juergen@wetzlar.erf.de wird angemeldet User
+07.08.2012 13.32.48.746 Debug de.dimm.vsm.net.LoginManager.handle_login Gruppen fÃ¼r Benutzer juergen@wetzlar.erf.de: 0
+
+SOLLTE != 0 SEIN
+
+
+Komma in Usernae wird nicht korrekt gequotet
+
+
+Ordner Israel checken Sicht über User?
+
+Endung .doc  -> Geht bei mir Typ Compressed Folder ist falsch
+http://sourceforge.net/projects/mime-util/
+==OK==
+
+FehlerMeldung wenn Session abgelaufen -> User ungültig -> Abmelden
+
+NTDomainname fpr Bezeichner prüfen
+==OK==
+
+Neu:
+Roolenbezogene Dateisystemansichten die aus einer Tabelle
+/IP/PORT/PFAD1/P2/P3    /Logische/Ansicht
+==OK==
+
+VSM mit Aufruf von MM 1. Sicherung 2. Mount  3. Aufrug eines Skripts -> Sicherung
+
+Metadaten in VSM
+MailSecurer in VSM unterlagern -> DateiSuche und Darstellung im VSM
+
+Ordner ohne ACL-Schutz ?
+
+// SUCHE VON MEHEREN
+
+// Statistik:
+
+Files updated
+Angabe mit text und als Zahl  (23k (13455)
+Angabe GesamtÄnderung ( Dedup + Neu übertragen) um Mit Sync zu vergleichen
+==OK==
+
+CDP:
+==OK==
+
+java.lang.UnsupportedOperationException: com.caucho.hessian.io.UnsafeDeserializer@56d22d9c
+        at com.caucho.hessian.io.AbstractDeserializer.readLengthList(AbstractDeserializer.java:91)
+        at com.caucho.hessian.io.Hessian2Input.readObject(Hessian2Input.java:1927)
+        at com.caucho.hessian.server.HessianSkeleton.invoke(HessianSkeleton.java:300)
+        at com.caucho.hessian.server.HessianSkeleton.invoke(HessianSkeleton.java:202)
+        at com.caucho.hessian.server.HessianServlet.invoke(HessianServlet.java:390)
+        at com.caucho.hessian.server.HessianServlet.service(HessianServlet.java:370)
+        at org.eclipse.jetty.servlet.ServletHolder.handle(ServletHolder.java:534)
+        at org.eclipse.jetty.servlet.ServletHandler.doHandle(ServletHandler.java:475)
+        at org.eclipse.jetty.server.session.SessionHandler.doHandle(SessionHandler.java:224)
+        at org.eclipse.jetty.server.handler.ContextHandler.doHandle(ContextHandler.java:929)
+        at org.eclipse.jetty.servlet.ServletHandler.doScope(ServletHandler.java:403)
+        at org.eclipse.jetty.server.session.SessionHandler.doScope(SessionHandler.java:184)
+        at org.eclipse.jetty.server.handler.ContextHandler.doScope(ContextHandler.java:864)
+        at org.eclipse.jetty.server.handler.ScopedHandler.handle(ScopedHandler.java:117)
+        at org.eclipse.jetty.server.handler.HandlerWrapper.handle(HandlerWrapper.java:114)
+        at org.eclipse.jetty.server.Server.handle(Server.java:352)
+        at org.eclipse.jetty.server.HttpConnection.handleRequest(HttpConnection.java:596)
+        at org.eclipse.jetty.server.HttpConnection$RequestHandler.content(HttpConnection.java:1068)
+        at org.eclipse.jetty.http.HttpParser.parseNext(HttpParser.java:805)
+        at org.eclipse.jetty.http.HttpParser.parseAvailable(HttpParser.java:218)
+        at org.eclipse.jetty.server.HttpConnection.handle(HttpConnection.java:426)
+        at org.eclipse.jetty.io.nio.SelectChannelEndPoint.handle(SelectChannelEndPoint.java:508)
+        at org.eclipse.jetty.io.nio.SelectChannelEndPoint.access$000(SelectChannelEndPoint.java:34)
+        at org.eclipse.jetty.io.nio.SelectChannelEndPoint$1.run(SelectChannelEndPoint.java:40)
+        at org.eclipse.jetty.util.thread.QueuedThreadPool$2.run(QueuedThreadPool.java:451)
+        at java.lang.Thread.run(Unknown Source)
