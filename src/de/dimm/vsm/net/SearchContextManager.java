@@ -193,11 +193,11 @@ public class SearchContextManager extends WorkerParent
         return Main.get_control().getPoolHandlerServlet().get_child_nodes(context.sp_handler, path);
     }
 
-    boolean restoreFSElem( SearchWrapper wrapper, RemoteFSElem path, String targetIP, int targetPort, String targetPath, int flags, User user ) throws SQLException, IOException
+    boolean restoreFSElem( SearchWrapper wrapper, List<RemoteFSElem> paths, String targetIP, int targetPort, String targetPath, int flags, User user ) throws SQLException, IOException
     {
         SearchContext context = getValidContext(wrapper);
 
-        return Main.get_control().getPoolHandlerServlet().restoreFSElem(context.sp_handler, path, targetIP, targetPort, targetPath, flags, user);
+        return Main.get_control().getPoolHandlerServlet().restoreFSElem(context.sp_handler, paths, targetIP, targetPort, targetPath, flags, user);
     }
     boolean restoreJob( SearchWrapper searchWrapper, ArchiveJob job, String targetIP, int targetPort, String targetPath, int rflags, User user ) throws SQLException
     {
