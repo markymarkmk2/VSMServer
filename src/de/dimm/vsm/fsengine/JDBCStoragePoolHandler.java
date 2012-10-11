@@ -177,6 +177,19 @@ public class JDBCStoragePoolHandler extends StoragePoolHandler
     }
 
     @Override
+    public void em_persist( Object o, boolean noCache ) throws SQLException
+    {
+        if (persistRunner != null)
+        {
+            persistRunner.em_persist(o, em, noCache);
+        }
+        else
+        {
+            em.em_persist(o, noCache);
+        }
+    }
+
+    @Override
     public void em_remove( Object o ) throws SQLException
     {
         em.em_remove(o);
