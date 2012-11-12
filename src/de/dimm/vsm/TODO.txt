@@ -1,23 +1,23 @@
-Tests für Datenbank:
+Tests fï¿½r Datenbank:
 - neues Feld hinzu
-- Feld löschen
-- Feld typ ändern
+- Feld lï¿½schen
+- Feld typ ï¿½ndern
 - constraint hinzu
- Das alles für mehrere Datenbanken (FireBird, Mysql, Derby) -> OK
+ Das alles fï¿½r mehrere Datenbanken (FireBird, Mysql, Derby) -> OK
 
 Anbindung an FS mit Win32 jDokan o. Fuse / OpenDedup 32Bit Java -> RemoteConnect an Server  -> OK
 
 Anbindung an Snapshot via dll -> OK
 Anbindung an FS-Change Events via JNA -> OK
 
-Anbindung VSMFS über Agent -> Write und Read müssen noch wg. Dedup umgebaut werden
+Anbindung VSMFS ï¿½ber Agent -> Write und Read mï¿½ssen noch wg. Dedup umgebaut werden
 
 
 GUI:
 Verriegeln von gleichnamigen Nodes
-Verriegeln von gleichem Pfad für verschiedene Nodes
+Verriegeln von gleichem Pfad fï¿½r verschiedene Nodes
 
-Restore während Backup vom aktiven BA-Volume blockiert das Backup, Restore geht
+Restore wï¿½hrend Backup vom aktiven BA-Volume blockiert das Backup, Restore geht
 Doppelclick auf Namensspalte -> Edit Table
 Retention Folgeoperastion Combobox fehlt
 
@@ -26,3 +26,5 @@ Test QueryPlan for
 
 "select f.idx as fidx, a.fsize as fsize, a.modificationDateMs as mtime, a.name as fname, a.idx as aidx, a.ts as ts from FileSystemElemNode f, FileSystemElemAttributes a where f.idx = a.file_idx and f.pool_idx=2 and a.ts<1326819198592 and a.idx>20063 order by a.idx asc"
 
+
+mist
