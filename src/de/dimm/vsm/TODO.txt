@@ -27,4 +27,3 @@ Test QueryPlan for
 "select f.idx as fidx, a.fsize as fsize, a.modificationDateMs as mtime, a.name as fname, a.idx as aidx, a.ts as ts from FileSystemElemNode f, FileSystemElemAttributes a where f.idx = a.file_idx and f.pool_idx=2 and a.ts<1326819198592 and a.idx>20063 order by a.idx asc"
 
 
-mist
