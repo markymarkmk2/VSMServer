@@ -617,6 +617,13 @@ public class BackupManager extends WorkerParent
             }            
         }
 
+        public Schedule getSched()
+        {
+            return sched;
+        }
+
+        
+
         @Override
         public void run()
         {
