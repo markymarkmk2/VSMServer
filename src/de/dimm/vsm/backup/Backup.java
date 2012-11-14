@@ -997,7 +997,7 @@ public class Backup
             if (!ret)
             {
                 context.addError(remoteFSElem);
-                Log.err("Datei wurde nicht gesichert", "%s", remoteFSElem.getPath());
+                Log.err("Fehler beim Sichern der Datei", "%s", remoteFSElem.getPath());
                 if (context.isAbortOnError())
                 {
                     context.setResult( false );
@@ -1469,8 +1469,7 @@ public class Backup
         }
         catch (ClientAccessFileException e)
         {
-
-            Log.err( "Datei wurde nicht gesichert", node.toString());
+            Log.err( "Datei wurde nicht gesichert", e.getMessage());
             context.setStatus(VSMCMain.Txt("Entferne") + " " + remoteFSElem.getPath() );
             context.poolhandler.remove_fse_node(node, true);
             context.apiEntry.getApi().get_properties();
@@ -1610,8 +1609,7 @@ public class Backup
         }
         catch (ClientAccessFileException e)
         {
-
-            Log.err( "Datei wurde nicht gesichert", node.toString());
+            Log.err( "Datei wurde nicht gesichert",e.getMessage());
             context.setStatus(VSMCMain.Txt("Entferne") + " " + remoteFSElem.getPath() );
             context.poolhandler.remove_fse_node(node, true);
             context.apiEntry.getApi().get_properties();
