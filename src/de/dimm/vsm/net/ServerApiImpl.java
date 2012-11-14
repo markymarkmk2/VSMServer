@@ -12,6 +12,7 @@ import de.dimm.vsm.backup.AgentApiEntry;
 import de.dimm.vsm.backup.BackupManager;
 import de.dimm.vsm.fsengine.GenericEntityManager;
 import de.dimm.vsm.jobs.JobInterface;
+import de.dimm.vsm.jobs.JobManager;
 import de.dimm.vsm.net.interfaces.ServerApi;
 import de.dimm.vsm.records.ClientInfo;
 import de.dimm.vsm.records.ClientVolume;
@@ -20,8 +21,6 @@ import de.dimm.vsm.records.StoragePool;
 import java.io.IOException;
 import java.util.List;
 import java.util.Properties;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
 /**
  *
@@ -39,7 +38,7 @@ public class ServerApiImpl implements ServerApi
     }
 
     @Override
-    public boolean alert( List<String> reason, String msg )
+    public boolean alert_list( List<String> reason, String msg )
     {
         for (int i = 0; i < reason.size(); i++)
         {
@@ -65,6 +64,7 @@ public class ServerApiImpl implements ServerApi
     public boolean cdp_call( CdpEvent file, CdpTicket ticket )
     {
         BackupManager bm = Main.get_control().getBackupManager();
+        JobManager jm = Main.get_control().getJobManager();
         AgentApiEntry api = null;
         JobInterface job = null;
         try
@@ -75,19 +75,24 @@ public class ServerApiImpl implements ServerApi
                 Log.warn("Ignoriere leeren CDP-Call",  file.toString());
                 return false;
             }
+            if (jm.isPoolBusy(ticket.getPoolIdx()))
+            {
+                Log.debug("Stoppe CDP-Call da Pool aktiv ist");
+                return false;
+            }
             final StoragePool pool = Main.get_control().getStoragePool(ticket.getPoolIdx());
             GenericEntityManager em = Main.get_control().get_util_em(pool);
             Schedule sched = em.em_find(Schedule.class, ticket.getSchedIdx());
             ClientInfo info = em.em_find(ClientInfo.class, ticket.getClientInfoIdx());
             ClientVolume vol = em.em_find(ClientVolume.class, ticket.getClientVolumeIdx());
 
-            api = LogicControl.getApiEntry(info);
-            if (api == null || !api.isOnline())
-                throw new IOException(Main.Txt("Agent kann nicht kontaktiert werden") + ": " + info.toString() );
-
             // DO NOT ALLOW MULTPLE PARALLEL CDP JOBS FOR ONE POOL
             synchronized(pool)
             {
+                api = LogicControl.getApiEntry(info);
+                if (api == null || !api.isOnline())
+                    throw new IOException(Main.Txt("Agent kann nicht kontaktiert werden") + ": " + info.toString() );
+
                 job = bm.createCDPJob(api, sched, info, vol, file);
 
                 job.setJobState(JobInterface.JOBSTATE.MANUAL_START);
@@ -123,14 +128,22 @@ public class ServerApiImpl implements ServerApi
     }
 
     @Override
-    public boolean cdp_call( List<CdpEvent> fileList, CdpTicket ticket )
+    public boolean cdp_call_list( List<CdpEvent> fileList, CdpTicket ticket )
     {
         BackupManager bm = Main.get_control().getBackupManager();
+        JobManager jm = Main.get_control().getJobManager();
+        AgentApiEntry api = null;
+        JobInterface job = null;
         try
         {
             if (ticket == null)
             {
                 Log.warn("Ignoriere ungültigen CDP-Call, Ticket fehlt");
+                return false;
+            }
+            if (jm.isPoolBusy(ticket.getPoolIdx()))
+            {
+                Log.debug("Stoppe CDP-Call da Pool aktiv ist");
                 return false;
             }
             for (int i = 0; i < fileList.size(); i++)
@@ -142,7 +155,6 @@ public class ServerApiImpl implements ServerApi
                     Log.warn("Ignoriere leeren CDP-Call",  file.toString());
                     return false;
                 }
-
             }
             StoragePool pool = Main.get_control().getStoragePool(ticket.getPoolIdx());
             GenericEntityManager em = Main.get_control().get_util_em(pool);
@@ -150,25 +162,42 @@ public class ServerApiImpl implements ServerApi
             ClientInfo info = em.em_find(ClientInfo.class, ticket.getClientInfoIdx());
             ClientVolume vol = em.em_find(ClientVolume.class, ticket.getClientVolumeIdx());
 
-            AgentApiEntry api = LogicControl.getApiEntry(info);
-            if (api == null || !api.isOnline())
-                throw new IOException(Main.Txt("Agent kann nicht kontaktiert werden") + ": " + info.toString() );
+            // DO NOT ALLOW MULTPLE PARALLEL CDP JOBS FOR ONE POOL
+            synchronized(pool)
+            {
+                api = LogicControl.getApiEntry(info);
+                if (api == null || !api.isOnline())
+                    throw new IOException(Main.Txt("Agent kann nicht kontaktiert werden") + ": " + info.toString() );
 
-            JobInterface job = bm.createCDPJob(api, sched, info, vol, fileList);
+                job = bm.createCDPJob(api, sched, info, vol, fileList);
 
-            job.setJobState(JobInterface.JOBSTATE.MANUAL_START);
-            Main.get_control().getJobManager().addJobEntry(job);
+                job.setJobState(JobInterface.JOBSTATE.MANUAL_START);
+                Main.get_control().getJobManager().addJobEntry(job);
 
-            job.run();
-
-            Main.get_control().getJobManager().removeJobEntry(job);
-
-            api.close();
+                job.run();            
+            }
 
         }
         catch (Exception exception)
         {
             Log.err("Fehler bei CDP List-Job", exception);
+        }
+        finally
+        {
+            // REMOVE JOB AND CLOSE API
+            Main.get_control().getJobManager().removeJobEntry(job);
+
+            if (api != null)
+            {
+                try
+                {
+                    api.close();
+                }
+                catch (IOException ex)
+                {
+
+                }
+            }
         }
         return true;
     }
