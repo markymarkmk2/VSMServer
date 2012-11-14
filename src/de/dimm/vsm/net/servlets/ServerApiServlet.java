@@ -36,10 +36,11 @@ public class ServerApiServlet extends HessianServlet implements ServerApi
         return api.alert(reason, msg);
     }
 
+    // DIFFERENT FUNCS MUST HAVE DIFFERENT NAMENS!!!!!!!!
     @Override
-    public boolean alert( List<String> reason, String msg )
+    public boolean alert_list( List<String> reason, String msg )
     {
-        return api.alert(reason, msg);
+        return api.alert_list(reason, msg);
     }
 
     @Override
@@ -53,10 +54,12 @@ public class ServerApiServlet extends HessianServlet implements ServerApi
     {
         return api.cdp_call(ev, ticket);
     }
+
+    // DIFFERENT FUNCS MUST HAVE DIFFERENT NAMENS!!!!!!!!
     @Override
-    public boolean cdp_call( List<CdpEvent> evList, CdpTicket ticket )
+    public boolean cdp_call_list( List<CdpEvent> evList, CdpTicket ticket )
     {
-        return api.cdp_call(evList, ticket);
+        return api.cdp_call_list(evList, ticket);
     }
   
 }
