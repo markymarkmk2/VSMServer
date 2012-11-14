@@ -9,6 +9,7 @@ import de.dimm.vsm.LogicControl;
 import de.dimm.vsm.WorkerParent;
 import de.dimm.vsm.auth.User;
 import de.dimm.vsm.backup.Backup.BackupJobInterface;
+import de.dimm.vsm.backup.BackupManager;
 import de.dimm.vsm.backup.hotfolder.MMImportManager.MMImportJobInterface;
 import de.dimm.vsm.jobs.JobInterface.JOBSTATE;
 import de.dimm.vsm.lifecycle.NodeMigrationManager.MigrationJob;
@@ -392,6 +393,40 @@ public class JobManager extends WorkerParent
             }
         }
         return false;
+    }
+    public boolean isPoolBusy(long poolIdx)
+    {
+        JobEntry[] jobs = getJobArray(null);
+        for (int i = 0; i < jobs.length; i++)
+        {
+            JobEntry jobEntry = jobs[i];
+            if (jobEntry.getJob() instanceof BackupJobInterface)
+            {
+                BackupJobInterface bi = (BackupJobInterface) jobEntry.getJob();
+                if (bi.getActSchedule() != null && bi.getActSchedule().getPool().getIdx() == poolIdx)
+                {
+                    if (jobEntry.getJobStatus() != JOBSTATE.FINISHED_OK &&
+                        jobEntry.getJobStatus() != JOBSTATE.FINISHED_ERROR)
+                    {
+                        return true;
+                    }
+                }
+            }
+            if (jobEntry.getJob() instanceof BackupManager.CDPJobInterface)
+            {
+                BackupManager.CDPJobInterface bi = (BackupManager.CDPJobInterface) jobEntry.getJob();
+                if (bi.getSched() != null && bi.getSched().getPool().getIdx() == poolIdx)
+                {
+                    if (jobEntry.getJobStatus() != JOBSTATE.FINISHED_OK &&
+                        jobEntry.getJobStatus() != JOBSTATE.FINISHED_ERROR)
+                    {
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
+
     }
 
  
