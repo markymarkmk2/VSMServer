@@ -313,7 +313,8 @@ public class HandleWriteRunner
 
     void flush() throws InterruptedException
     {
-        int maxCnt = 300;
+        // WAIT UP TO 30 SECONDS TO EMPTY CACHE
+        int maxCnt = 3000;
         synchronized(workList)
         {
             while (!workList.isEmpty() && maxCnt-- > 0)
