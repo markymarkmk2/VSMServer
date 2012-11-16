@@ -12,6 +12,7 @@ package de.dimm.vsm;
 import de.dimm.vsm.log.LogManager;
 import de.dimm.vsm.Utilities.Preferences;
 import de.dimm.vsm.Utilities.SizeStr;
+import de.dimm.vsm.fsengine.StoragePoolHandler;
 import de.dimm.vsm.log.Log;
 
 
@@ -85,6 +86,7 @@ public class GeneralPreferences extends Preferences
     public static final String SMTP_TLS = "SMTPTLS";
     public static final String WITH_BOOTSTRAP = "WithBootstrap";
     public static final String USE_H2_CACHE = "UseH2Cache";
+    public static final String MIN_FREE_NODE_SPACE_GB = "MinFreeNodeSpaceGB";
 
 
 
@@ -147,6 +149,7 @@ public class GeneralPreferences extends Preferences
         prop_names.add( WITH_BOOTSTRAP );
         prop_names.add( HASH_URL_FORMAT_EMPTY_LINKS );
         prop_names.add( USE_H2_CACHE );
+        prop_names.add( MIN_FREE_NODE_SPACE_GB );
 
 
 
@@ -172,6 +175,14 @@ public class GeneralPreferences extends Preferences
             Log.info("Verwende EDV Einheiten (1GB == 1024*1024*1024 Byte)");
         SizeStr.setSI(si);
         Main.setPerformanceDiagnostic( get_boolean_prop(GeneralPreferences.PERFORMANCE_DIAGNOSTIC,  Main.isPerformanceDiagnostic() ));
+        long minFreeNodeSpaceGB = get_long_prop(MIN_FREE_NODE_SPACE_GB, 1);
+        if (minFreeNodeSpaceGB <= 0)
+        {
+
+            minFreeNodeSpaceGB = 1;
+        }
+        Log.info(MIN_FREE_NODE_SPACE_GB + ": " + minFreeNodeSpaceGB);
+        StoragePoolHandler.setNodeMinFreeSpace( minFreeNodeSpaceGB * 1000 * 1000 * 1000l );
     }
 
     @Override
