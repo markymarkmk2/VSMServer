@@ -97,7 +97,7 @@ public class FixHashUrlBug
                 boolean doMove = false;
                 boolean doDelete = false;
                 List<FS_FileHandle> delList = new ArrayList<FS_FileHandle>();
-                List<AbstractStorageNode> snodes = sp.get_primary_storage_nodes();
+                List<AbstractStorageNode> snodes = sp.get_primary_storage_nodes(/*forWrite*/ false);
                 for (int j = 0; j < snodes.size(); j++)
                 {
                     AbstractStorageNode snode = snodes.get(j);
