@@ -350,6 +350,8 @@ public class HotFolderManager extends WorkerParent implements VariableResolver
 
         User user = User.createSystemInternal();
         StoragePoolHandler sp_handler = StoragePoolHandlerFactory.createStoragePoolHandler( nubHandler, pool, user, /*rdonly*/false);
+
+
         if (pool.getStorageNodes(sp_handler.getEm()).isEmpty())
             throw new Exception("No Storage for pool defined");
 
@@ -362,6 +364,7 @@ public class HotFolderManager extends WorkerParent implements VariableResolver
             // HOTFOLDER CONTEXT RESOLVES THE FILESYSTEM WE ARE USING
             actualContext = new ArchiveJobContext( hotFolder, elem, api, sp_handler);
             actualContext.setAbortOnError(true);
+            actualContext.checkStorageNodes();
 
             // PRIOR TO VSM ARCHIVE TO MM?
             if (hotFolder.isMmArchive())
