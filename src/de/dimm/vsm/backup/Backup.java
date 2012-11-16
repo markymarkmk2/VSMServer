@@ -446,11 +446,11 @@ public class Backup
                 throw new Exception("No Storage for pool defined");
             }
 
-            if (sp_handler.get_primary_storage_nodes().isEmpty())
+            if (sp_handler.get_primary_storage_nodes(/*forWrite*/ true).isEmpty())
             {
                 throw new Exception(Main.Txt("Keine beschreibbaren StorageNodes für Pool") + "  " + pool.getName());
             }
-            if (sp_handler.get_primary_dedup_node() == null)
+            if (sp_handler.get_primary_dedup_node_for_write() == null)
             {
                 throw new Exception(Main.Txt("Keine beschreibbarer StorageNodes für Dedup bei Pool") + "  " + pool.getName());
             }
@@ -834,13 +834,13 @@ public class Backup
         long freeSpace = context.checkStorageNodes();
         Log.debug("Freier Speicher auf aktuellem SpeicherNode", SizeStr.format(freeSpace));
 
-        if (context.poolhandler.get_primary_dedup_node() == null)
+        if (context.poolhandler.get_primary_dedup_node_for_write() == null)
         {
             preStartStatus = Main.Txt("Kein StorageNode für Dedup verfügbar") + " " +  context.poolhandler.getPool().getName();
             context.close();
             return null;
         }
-        if (context.poolhandler.get_primary_storage_nodes().isEmpty())
+        if (context.poolhandler.get_primary_storage_nodes(/*forWrite*/ true).isEmpty())
         {
             preStartStatus = Main.Txt("Kein StorageNodes verfügbar") + " " +  context.poolhandler.getPool().getName();
             context.close();
@@ -2512,7 +2512,7 @@ public class Backup
     {
         try
         {
-            FileHandle fh = context.poolhandler.open_dedupblock_handle(dhb, /*create*/ false, /*mustExist*/ false);
+            FileHandle fh = context.poolhandler.check_exist_dedupblock_handle(dhb);
             if (!fh.exists())
             {
                 // MABE BLOCK IS CREATED BUT NOT WRITTEN ALREADY
