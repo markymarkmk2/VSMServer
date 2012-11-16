@@ -256,7 +256,7 @@ public abstract class GenericContext
         return poolhandler.checkStorageNodeExists();
     }
 
-    long checkStorageNodes()
+    public long checkStorageNodes()
     {
         // DO WE HAVE TO CHECK SPACE AGAIN?
         if (stat.getByteTransfered() < nextCheckByteSize && lastCheckedSpace != -1)
