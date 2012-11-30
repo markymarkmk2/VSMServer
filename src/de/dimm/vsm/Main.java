@@ -43,7 +43,7 @@ public class Main
 {
 
     static String source_str = "trunk";
-    static String version_str = "1.3.5";
+    static String version_str = "1.3.6";
         
     public static int writeThreads = 1;
     public static int maxOpenFiles = 1024;
@@ -590,6 +590,7 @@ public class Main
                     {
                         Statistics st = ch.getStatistics();
                         System.out.println("Size: " + ch.getSize() + ": " + st.toString() );
+                        System.out.println("Open Commits: " + JDBCEntityManager.getOpenCommits() );
                     }
                 }
                 System.out.println("Free Mem " + SizeStr.format(fm));                

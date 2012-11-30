@@ -27,10 +27,12 @@ import java.util.List;
 public abstract class HashCache
 {
 
-    static HashCache createCache( StoragePoolNub nub, StoragePool pool )
+    static HashCache createCache( JDBCEntityManager em, StoragePoolNub nub, StoragePool pool )
     {
         if (Main.get_bool_prop(GeneralPreferences.USE_H2_CACHE, false))
             return new H2HashCache(nub, pool);
+        else if(Main.get_bool_prop(GeneralPreferences.USE_NO_CACHE, false))
+            return new DBHashCache(em, pool);
         else
             return new JavaHashCache(pool);
     }

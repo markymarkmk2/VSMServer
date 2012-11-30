@@ -40,7 +40,7 @@ public class PoolMapper
         this.em = em;
         this.poolEmf = poolEmf;
         this.indexer = indexer;
-        hashCache = HashCache.createCache(nub, pool);
+        hashCache = HashCache.createCache(em, nub, pool);
 
         lastStatus = null;        
     }

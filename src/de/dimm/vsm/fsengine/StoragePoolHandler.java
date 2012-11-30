@@ -562,29 +562,29 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
 
         return sb.toString();
     }
-
-    public FileHandle resolve_file_handle( FileSystemElemNode dnode, boolean create) throws PathResolveException
-    {
-        FileHandle ret = null;
-
-        List<PoolNodeFileLink> link_list = get_pool_node_file_links( dnode );
-
-        if (link_list == null || link_list.isEmpty())
-            return null;
-
-
-        AbstractStorageNode s_node = get_preferred_storage_node( link_list );
-        if (s_node != null)
-        {
-            StorageNodeHandler sn_handler = new StorageNodeHandler(s_node, this);
-            if (sn_handler != null)
-            {
-                ret = sn_handler.create_file_handle(dnode, create);
-            }
-        }
-
-        return ret;
-    }
+//
+//    public FileHandle resolve_file_handle( FileSystemElemNode dnode, boolean create) throws PathResolveException
+//    {
+//        FileHandle ret = null;
+//
+//        List<PoolNodeFileLink> link_list = get_pool_node_file_links( dnode );
+//
+//        if (link_list == null || link_list.isEmpty())
+//            return null;
+//
+//
+//        AbstractStorageNode s_node = get_preferred_storage_node( link_list );
+//        if (s_node != null)
+//        {
+//            StorageNodeHandler sn_handler = new StorageNodeHandler(s_node, this);
+//            if (sn_handler != null)
+//            {
+//                ret = sn_handler.create_file_handle(dnode, create);
+//            }
+//        }
+//
+//        return ret;
+//    }
 
     public List<PoolNodeFileLink> get_pool_node_file_links( FileSystemElemNode dnode )
     {

@@ -86,7 +86,9 @@ public class GeneralPreferences extends Preferences
     public static final String SMTP_TLS = "SMTPTLS";
     public static final String WITH_BOOTSTRAP = "WithBootstrap";
     public static final String USE_H2_CACHE = "UseH2Cache";
+    public static final String USE_NO_CACHE = "UseNoCache";
     public static final String MIN_FREE_NODE_SPACE_GB = "MinFreeNodeSpaceGB";
+    public static final String FIX_DUPL_NAMES = "FixDuplNames";
 
 
 
@@ -149,7 +151,10 @@ public class GeneralPreferences extends Preferences
         prop_names.add( WITH_BOOTSTRAP );
         prop_names.add( HASH_URL_FORMAT_EMPTY_LINKS );
         prop_names.add( USE_H2_CACHE );
+        prop_names.add( USE_NO_CACHE );
         prop_names.add( MIN_FREE_NODE_SPACE_GB );
+        prop_names.add( FIX_DUPL_NAMES );
+
 
 
 

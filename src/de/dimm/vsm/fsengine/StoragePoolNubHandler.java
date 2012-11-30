@@ -12,6 +12,7 @@ import de.dimm.vsm.LogicControl;
 import de.dimm.vsm.log.Log;
 import de.dimm.vsm.Main;
 import de.dimm.vsm.Utilities.DirectoryEntry;
+import de.dimm.vsm.fsengine.fixes.FixDoubleDirNames;
 import de.dimm.vsm.records.FileSystemElemNode;
 import de.dimm.vsm.records.StoragePool;
 import de.dimm.vsm.records.StoragePoolNub;
@@ -459,6 +460,8 @@ public class StoragePoolNubHandler
             // NOW RELOAD FROM CORRECT OBJECT CACHE
             pool = em.em_find(StoragePool.class, pool.getIdx());
 
+            checkFixes(pool, em, storagePoolNub);
+
             // CREATE LUCENE INDEX
 
             String idxPath = getIndexPath(storagePoolNub);
@@ -732,6 +735,25 @@ public class StoragePoolNubHandler
                 poolMapper.calcStats();
                 poolMapper.logStats();
             }
+        }
+    }
+
+    private void checkFixes( StoragePool pool, JDBCEntityManager em, StoragePoolNub storagePoolNub )
+    {
+        if (Main.get_bool_prop(GeneralPreferences.FIX_DUPL_NAMES, false))
+        {
+            FixDoubleDirNames fix = new FixDoubleDirNames(pool, em);
+            try
+            {
+                Log.info("Fixing duplicate names started");
+                fix.runFix();
+                Log.info("Fixing duplicate names done");
+            }
+            catch( Exception exc )
+            {
+                Log.err("Fixing duplicate names failed:", exc);
+            }
+
         }
     }
 }
