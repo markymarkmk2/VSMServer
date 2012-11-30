@@ -1,0 +1,3 @@
+java -cp lib/derbytools.jar;lib/derby.jar org.apache.derby.tools.ij
+ij> connect 'jdbc:derby:db/db_1/VSMParams;user=mw';
+ij> select * from ArchiveJob;
