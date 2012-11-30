@@ -678,49 +678,7 @@ public class StoragePoolHandlerTest
         assertEquals("Path resolve", "/UnitTestPool1/Dir/File", sb.toString());
     }
 
-    /**
-     * Test of resolve_file_handle method, of class StoragePoolHandler.
-     */
-    @Test
-    public void testResolve_file_handle() throws Exception
-    {
-        System.out.println("resolve_file_handle");
-
-        sp_handler.check_open_transaction();
-
-        StringBuilder sb = new StringBuilder();
-        StoragePoolHandler instance = null;
-
-        instance = sp_handler;
-
-        FileHandle result = instance.resolve_file_handle(file_node, /*create*/ false);
-        assertEquals(FS_FileHandle.class, result.getClass());
-
-        FS_FileHandle ffh = (FS_FileHandle) result;
-        File fh = ffh.get_fh();
-        File tfh = new File(fs_node.getMountPoint() + "\\fs\\" + Long.toString(pool.getRootDir().getIdx(), 16).toUpperCase() + "\\"
-                + Long.toString(dir_node.getIdx(), 16).toUpperCase() + "\\" + Long.toString(file_node.getIdx(), 16).toUpperCase() + ".file");
-
-        assertEquals(tfh.getAbsolutePath(), fh.getAbsolutePath());
-
-
-        // CHECK BOOTSTRAP PATH
-        File btfh = new File(fs_node.getMountPoint() + "\\fs\\" + Long.toString(pool.getRootDir().getIdx(), 16).toUpperCase() + "\\"
-                + Long.toString(dir_node.getIdx(), 16).toUpperCase() + "\\bootstrap\\fs_" + Long.toString(file_node.getIdx(), 16).toUpperCase() + ".xml");
-
-        File testbtfh = new File(instance.resolve_bootstrap_path(fs_node, file_node));
-
-        assertEquals(btfh.getAbsolutePath(), testbtfh.getAbsolutePath());
-
-        // CHECK BOOTSTRAP CONTENT
-        FSE_Bootstrap bt = FS_BootstrapHandle.read_FSE_bootstrap(btfh);
-
-        assertEquals(bt.modificationDateMs, file_node.getAttributes().getModificationDateMs());
-        assertEquals(bt.name, file_node.getName());
-        assertEquals(bt.file_size, file_node.getAttributes().getFsize());
-
-
-    }
+   
 
     /**
      * Test of remove_fse_node method, of class StoragePoolHandler.
