@@ -4,9 +4,6 @@
  */
 package de.dimm.vsm;
 
-import de.dimm.vsm.Exceptions.PathResolveException;
-import de.dimm.vsm.Exceptions.PoolReadOnlyException;
-import de.dimm.vsm.Exceptions.RetentionException;
 import de.dimm.vsm.log.Log;
 import de.dimm.vsm.Utilities.LicenseChecker;
 import de.dimm.vsm.Utilities.ThreadPoolWatcher;
@@ -20,8 +17,10 @@ import de.dimm.vsm.fsengine.JDBCConnectionFactory;
 import de.dimm.vsm.fsengine.JDBCEntityManager;
 import de.dimm.vsm.fsengine.PoolMapper;
 import de.dimm.vsm.fsengine.StoragePoolNubHandler;
+import de.dimm.vsm.fsengine.checks.ICheck;
 import de.dimm.vsm.jobs.JobManager;
 import de.dimm.vsm.lifecycle.RetentionManager;
+import de.dimm.vsm.log.LogManager;
 import de.dimm.vsm.records.ClientInfo;
 import de.dimm.vsm.log.VSMLogger;
 import de.dimm.vsm.mail.NotificationEntry;
@@ -1007,6 +1006,22 @@ public class LogicControl
     public void reloadNotificationSettings(  ) throws IOException
     {
         notificationServer.loadNotifications(get_base_util_em());
+    }
+
+    static public ICheck getCheck(String className)
+    {
+        String checkClassName = "de.dimm.vsm.fsengine.checks." + className;
+        try
+        {
+            Class clazz = Class.forName(checkClassName);
+            return (ICheck) clazz.newInstance();
+        }
+        catch (Exception exception)
+        {
+            LogManager.err_db("Unknown CheckClass " + checkClassName + ": " + exception.getMessage());
+            
+        }
+        return null;
     }
 
 }

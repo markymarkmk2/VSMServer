@@ -950,24 +950,9 @@ public class Backup
 
         return context;
     }
-  
 
-    public static void backupRemoteFSElem( final GenericContext context, final RemoteFSElem remoteFSElem, final FileSystemElemNode node, boolean recursive, final boolean onlyNewer ) throws PoolReadOnlyException, SQLException, Throwable
+    static void checkSpace(final GenericContext context) throws IOException
     {
-        List<Excludes> exclList = context.getExcludes();
-        if (exclList != null)
-        {
-            for (int i = 0; i < exclList.size(); i++)
-            {
-                Excludes excludes = exclList.get(i);
-                if (Excludes.checkExclude( excludes, remoteFSElem ))
-                {
-                    //Log.debug(Main.Txt("Excludefilter"), excludes.toString() + ": " + remoteFSElem.getPath());
-                    return;
-                }
-            }
-        }
-
         context.checkStorageNodes();
 
         if (context.indexer.noSpaceLeft())
@@ -989,6 +974,25 @@ public class Backup
             context.setResult( false );
             throw new IOException( "Nodespeicherplatz nicht gefunden");
         }
+    }
+
+    public static void backupRemoteFSElem( final GenericContext context, final RemoteFSElem remoteFSElem, final FileSystemElemNode node, boolean recursive, final boolean onlyNewer ) throws PoolReadOnlyException, SQLException, Throwable
+    {
+        List<Excludes> exclList = context.getExcludes();
+        if (exclList != null)
+        {
+            for (int i = 0; i < exclList.size(); i++)
+            {
+                Excludes excludes = exclList.get(i);
+                if (Excludes.checkExclude( excludes, remoteFSElem ))
+                {
+                    //Log.debug(Main.Txt("Excludefilter"), excludes.toString() + ": " + remoteFSElem.getPath());
+                    return;
+                }
+            }
+        }
+
+        checkSpace(context);
        
         // HANDLE OPS FOR THIS ENTRY
         try
@@ -1544,6 +1548,10 @@ public class Backup
                 {
                     context.stat.check_stat();
                 }
+                if (blockCnt % 500 == 0)
+                {
+                    checkSpace( context );
+                }
 
                
                 String remote_hash = null;
@@ -1560,10 +1568,6 @@ public class Backup
                 try
                 {
                     block = check_for_existing_block( context, remote_hash, checkDHBExistance );
-//                    if (block != null && context.getBugFixHash() != null)
-//                    {
-//                        remote_hash = context.getBugFixHash();
-//                    }
                 }
                 catch (PathResolveException pathResolveException)
                 {
@@ -1593,16 +1597,14 @@ public class Backup
                     context.stat.addTransferLen( read_len );
                 }
 
-
+                if (context.getWriteRunner().isWriteError())
+                {
+                    context.getWriteRunner().resetError();
+                    throw new IOException("Write error in StorageNode");
+                }
 
                 offset += read_len;
                 len -= read_len;
-            }
-
-            if (context.getWriteRunner().isWriteError())
-            {
-                context.getWriteRunner().resetError();
-                throw new IOException("Write error in StorageNode");
             }
 
             return true;
@@ -1993,6 +1995,13 @@ public class Backup
 
                 context.stat.addTransferBlock();
                 context.stat.addTransferLen( read_len );
+
+                if (context.getWriteRunner().isWriteError())
+                {
+                    context.getWriteRunner().resetError();
+                    throw new IOException("Write error in StorageNode");
+                }
+
             }
             return true;
 

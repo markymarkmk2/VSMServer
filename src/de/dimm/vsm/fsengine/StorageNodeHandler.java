@@ -53,7 +53,7 @@ public class StorageNodeHandler
         this.storage_pool_handler = fsh_handler;
     }
 
-    static StorageNodeHandler createStorageNodeHandler( AbstractStorageNode fs_node, StoragePoolHandler aThis )
+    public static StorageNodeHandler createStorageNodeHandler( AbstractStorageNode fs_node, StoragePoolHandler aThis )
     {
         if (fs_node.getCloneNode() != null && fs_node.getCloneNode() != fs_node)
         {
