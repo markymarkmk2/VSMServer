@@ -253,25 +253,24 @@ public class JobManager extends WorkerParent
                 for (int i = 0; i < list.size(); i++)
                 {
                     JobEntry jobEntry = list.get(i);
-                    if (jobEntry.getJob().getJobState() == JobInterface.JOBSTATE.NEEDS_INTERACTION)
-                    {
-                        InteractionEntry ientry = jobEntry.getJob().getInteractionEntry();
-
-                        if (ientry.getTimeout_s() > 0)
-                        {
-                            if (ientry.getCreated().getTime() + ientry.getTimeout_s()*1000 > now)
-                            {
-                                ientry.setAnswer( ientry.getDefaultAnswer() );
-                                jobEntry.getJob().setJobState(JobInterface.JOBSTATE.RUNNING);
+                    try {
+                        if (jobEntry.getJob().getJobState() == JobInterface.JOBSTATE.NEEDS_INTERACTION) {
+                            InteractionEntry ientry = jobEntry.getJob().getInteractionEntry();
+                            
+                            if (ientry.getTimeout_s() > 0) {
+                                if (ientry.getCreated().getTime() + ientry.getTimeout_s() * 1000 > now) {
+                                    ientry.setAnswer(ientry.getDefaultAnswer());
+                                    jobEntry.getJob().setJobState(JobInterface.JOBSTATE.RUNNING);
+                                }
                             }
+                        } else if (jobEntry.getJob().getJobState() == JobInterface.JOBSTATE.ABORTED) {
+                            jobEntry.close();
+                            list.remove(jobEntry);
+                            i--;
                         }
+                    } catch (Exception e) {
+                        e.printStackTrace();
                     }
-                    else if (jobEntry.getJob().getJobState() == JobInterface.JOBSTATE.ABORTED)
-                    {
-                        jobEntry.close();
-                        list.remove(jobEntry);
-                        i--;
-                    }                    
                 }
             }
         }
