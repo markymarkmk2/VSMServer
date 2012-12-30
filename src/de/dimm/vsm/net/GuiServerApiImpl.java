@@ -17,7 +17,9 @@ import de.dimm.vsm.fsengine.FSEIndexer;
 import de.dimm.vsm.fsengine.StorageNodeHandler;
 import de.dimm.vsm.fsengine.StoragePoolHandler;
 import de.dimm.vsm.fsengine.VSMFSInputStream;
+import de.dimm.vsm.fsengine.checks.CheckManager;
 import de.dimm.vsm.jobs.JobEntry;
+import de.dimm.vsm.jobs.JobInterface;
 import de.dimm.vsm.jobs.JobManager;
 import de.dimm.vsm.lifecycle.NodeMigrationManager;
 import de.dimm.vsm.net.interfaces.GuiServerApi;
@@ -795,6 +797,22 @@ public class GuiServerApiImpl implements GuiServerApi
     public boolean initNode( AbstractStorageNode node, User user )
     {
         return StorageNodeHandler.initNode(node);
+    }
+
+    @Override
+    public void initCheck(User user, String checkName, Object arg, Object optArg) {
+        
+        JobManager jm = control.getJobManager();
+        JobInterface job = control.getCheckManager().createCheckJob(checkName, arg, optArg, user);
+        if (job != null ) {
+            jm.addJobEntry( job);      
+        }
+          
+    }
+
+    @Override
+    public List<String> getCheckNames() {
+        return control.getCheckManager().getCheckNames();
     }
 
 
