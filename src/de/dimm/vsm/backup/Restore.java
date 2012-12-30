@@ -721,6 +721,10 @@ public class Restore
 
     public static List<HashBlock> filter_hashblocks( List<HashBlock> hbList, StoragePoolQry qry )
     {
+        return filter_hashblocks(hbList, qry.getSnapShotTs());
+    }
+    public static List<HashBlock> filter_hashblocks( List<HashBlock> hbList, long ts )
+    {
         // BUILD A LIST BASED ON QUERY WITH ASCENDING BLOCK POS
         // IF SOMETHING IS MISSING; WE WILL GET INTO TROUBLE HERE...
 
@@ -745,9 +749,9 @@ public class Restore
             HashBlock hashBlock = hbList.get(i);
 
             // IS VALID DATA ENTRY ?
-            if (qry.getSnapShotTs() > 0)
+            if (ts > 0)
             {
-                if (hashBlock.getTs() > qry.getSnapShotTs())
+                if (hashBlock.getTs() > ts)
                     continue; // NOO TOO YOUNG
             }
 
@@ -768,6 +772,10 @@ public class Restore
     }
 
     public static List<XANode> filter_xanodes( List<XANode> hbList, StoragePoolQry qry )
+    {
+        return filter_xanodes(hbList, qry.getSnapShotTs());
+    }
+    public static List<XANode> filter_xanodes( List<XANode> hbList, long ts )
     {
         // BUILD A LIST BASED ON QUERY WITH ASCENDING BLOCK POS
         // IF SOMETHING IS MISSING; WE WILL GET INTO TROUBLE HERE...
@@ -793,9 +801,9 @@ public class Restore
             XANode hashBlock = hbList.get(i);
 
             // IS VALID DATA ENTRY ?
-            if (qry.getSnapShotTs() > 0)
+            if (ts > 0)
             {
-                if (hashBlock.getTs() > qry.getSnapShotTs())
+                if (hashBlock.getTs() > ts)
                     continue; // NOO TOO YOUNG
             }
 
