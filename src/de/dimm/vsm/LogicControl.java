@@ -17,6 +17,7 @@ import de.dimm.vsm.fsengine.JDBCConnectionFactory;
 import de.dimm.vsm.fsengine.JDBCEntityManager;
 import de.dimm.vsm.fsengine.PoolMapper;
 import de.dimm.vsm.fsengine.StoragePoolNubHandler;
+import de.dimm.vsm.fsengine.checks.CheckManager;
 import de.dimm.vsm.fsengine.checks.ICheck;
 import de.dimm.vsm.jobs.JobManager;
 import de.dimm.vsm.lifecycle.RetentionManager;
@@ -101,6 +102,7 @@ public class LogicControl
     UserManager userManager;
     CDPManager cdpManager;
     NotificationServer notificationServer;
+    CheckManager checkManager;
     
 
 
@@ -350,6 +352,9 @@ public class LogicControl
 
         taskPrefs = new TaskPreferences(workerList);
         taskPrefs.readTaskState(workerList);
+        
+        checkManager = new CheckManager();
+        workerList.add(checkManager);
 
 
         List<Role> roles = null;
@@ -843,6 +848,11 @@ public class LogicControl
     {
         return userManager;
     }
+
+    public CheckManager getCheckManager() {
+        return checkManager;
+    }
+    
 
 
     public void initSchedules()
