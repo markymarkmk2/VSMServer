@@ -9,7 +9,6 @@ import de.dimm.vsm.LogicControl;
 import de.dimm.vsm.Main;
 import de.dimm.vsm.Utilities.SizeStr;
 import de.dimm.vsm.auth.User;
-import de.dimm.vsm.fsengine.FS_FileHandle;
 import de.dimm.vsm.fsengine.HashCache;
 import de.dimm.vsm.fsengine.StorageNodeHandler;
 import de.dimm.vsm.fsengine.StoragePoolHandler;
@@ -40,6 +39,10 @@ public class CheckPhysicalHashblockIntegrity implements ICheck {
     HashCache hashCache;
     boolean abort;
     String errText = "";
+    String statusStr = "";
+    int percentDone = 0;
+    long blocks;
+    
 
     @Override
     public String getErrText()
@@ -48,9 +51,8 @@ public class CheckPhysicalHashblockIntegrity implements ICheck {
     }
 
 
-
     @Override
-    public boolean init( Object obj )
+    public boolean init( Object obj, Object optArg )
     {
         if (obj instanceof AbstractStorageNode)
         {
@@ -94,8 +96,6 @@ public class CheckPhysicalHashblockIntegrity implements ICheck {
         return true;
     }
 
-  
-
     int getIdFromFile( File file )
     {
         int didx = -1;
@@ -111,10 +111,9 @@ public class CheckPhysicalHashblockIntegrity implements ICheck {
 
     private void checkRecursiveChildrenNodes( File fs, int i, long idx ) throws Exception
     {
-        
         File[] children = fs.listFiles();
         if (children == null)
-            throw new IOException("Fehler beim lesen von Verzeichnis " + fs.getAbsolutePath());
+            throw new IOException("Fehler beim Lesen von Verzeichnis " + fs.getAbsolutePath());
 
         idx <<= 8;
 
@@ -150,7 +149,11 @@ public class CheckPhysicalHashblockIntegrity implements ICheck {
                 if (file.getName().length() < 26)
                     continue;
 
+                blocks++;                
+                
                 String hash = file.getName();
+                
+                statusStr = Main.Txt("Prüfe") + " " + hash;
 
                 if (!checkDHBExists(hash, idx, file.getAbsolutePath()))
                 {
@@ -163,7 +166,6 @@ public class CheckPhysicalHashblockIntegrity implements ICheck {
 
     private boolean checkDHBExists( String hash, long idx, String fullPath ) throws IOException, Exception
     {
-
         DedupHashBlock dhb = null;
 
         // READ FROM CACHE
@@ -251,11 +253,14 @@ public class CheckPhysicalHashblockIntegrity implements ICheck {
         {
             try
             {
+                statusStr = Main.Txt("Lösche ungenutzte Blöcke");
                 for (int i = 0; i < unusedDHBs.size(); i++)
                 {
                     File file = unusedDHBs.get(i);
                     file.delete();
+                    percentDone = (i*100) / unusedDHBs.size();
                 }
+                statusStr = Main.Txt("Fertig");
                 return true;
             }
             catch (Exception e)
@@ -279,6 +284,28 @@ public class CheckPhysicalHashblockIntegrity implements ICheck {
         return Main.Txt("Physikalische Blöcke prüfen");
     }
 
+    @Override
+    public String getDescription() {
+        return Main.Txt("Sucht unbenutzte und zu löschende Blöcke auf dem StorageNode");
+    }
 
+    @Override
+    public String getStatus() {
+        return statusStr;
+    }
 
+    @Override
+    public int getProcessPercent() {
+        return percentDone;
+    }
+
+    @Override
+    public String getProcessPercentDimension() {
+        return "";
+    }
+
+    @Override
+    public String getStatisticStr() {
+        return "Blocks: " + blocks + " Data: " + SizeStr.format(dataSize);
+    }
 }
