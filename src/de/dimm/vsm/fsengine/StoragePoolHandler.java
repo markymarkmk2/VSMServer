@@ -1599,7 +1599,7 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
  
     public FileHandle check_exist_dedupblock_handle( DedupHashBlock dhb ) throws PathResolveException, UnsupportedEncodingException, IOException
     {
-        FileHandle ret = null;
+        
         List<AbstractStorageNode> s_nodes = get_primary_storage_nodes(/*forWrite*/ false);
         for (int i = 0; i < s_nodes.size(); i++)
         {
@@ -1607,14 +1607,14 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
             if (s_node.isFS())
             {
                 StorageNodeHandler snHandler = get_handler_for_node(s_node);
-                ret = snHandler.create_file_handle(dhb, false);
+                FileHandle ret = snHandler.create_file_handle(dhb, false);
                 if (ret.exists())
                 {
-                    break;
+                    return ret;
                 }
             }
         }
-        return ret;
+        return null;
 
     }
 

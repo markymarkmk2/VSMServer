@@ -256,7 +256,7 @@ public class Backup
         public int getProcessPercent()
         {
             if (actualContext != null)
-                return  (int)(actualContext.stat.Speed() / (1000*1000));
+                return  (int)(actualContext.stat.Speed());
 
             return 0;
         }
@@ -301,7 +301,10 @@ public class Backup
         @Override
         public String getProcessPercentDimension()
         {
-            return "MB/s";
+            if (actualContext != null)
+                return  actualContext.stat.getSpeedDim();
+
+            return "";
         }
 
        

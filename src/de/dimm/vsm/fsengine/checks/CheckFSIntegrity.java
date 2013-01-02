@@ -10,16 +10,15 @@ import de.dimm.vsm.Utilities.CryptTools;
 import de.dimm.vsm.Utilities.SizeStr;
 import de.dimm.vsm.auth.User;
 import de.dimm.vsm.backup.Restore;
-import de.dimm.vsm.fsengine.StorageNodeHandler;
 import de.dimm.vsm.fsengine.StoragePoolHandler;
 import de.dimm.vsm.fsengine.StoragePoolHandlerFactory;
 import de.dimm.vsm.net.interfaces.FileHandle;
-import de.dimm.vsm.records.AbstractStorageNode;
 import de.dimm.vsm.records.DedupHashBlock;
 import de.dimm.vsm.records.FileSystemElemAttributes;
 import de.dimm.vsm.records.FileSystemElemNode;
 import de.dimm.vsm.records.HashBlock;
 import de.dimm.vsm.records.StoragePool;
+import de.dimm.vsm.records.XANode;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -32,8 +31,8 @@ import org.apache.commons.lang.StringUtils;
  */
 public class CheckFSIntegrity implements ICheck {
 
-    AbstractStorageNode snode;
-    StorageNodeHandler snHandler;
+    StoragePool pool;
+    
     StoragePoolHandler poolhandler;
     List<ErrBuff> badFiles;
     fr.cryptohash.Digest digest;
@@ -88,8 +87,8 @@ public class CheckFSIntegrity implements ICheck {
 
     @Override
     public boolean init(Object obj, Object optArg) {
-        if (obj instanceof AbstractStorageNode) {
-            this.snode = (AbstractStorageNode) obj;
+        if (obj instanceof StoragePool) {
+            pool = (StoragePool) obj;
             badFiles = new ArrayList<ErrBuff>();
             digest = new fr.cryptohash.SHA1();
             return true;
@@ -99,7 +98,7 @@ public class CheckFSIntegrity implements ICheck {
 
     @Override
     public boolean check() {
-        StoragePool pool = snode.getPool();
+        
 
         try
         {
@@ -109,12 +108,11 @@ public class CheckFSIntegrity implements ICheck {
         {
             return false;
         }
-        snHandler = StorageNodeHandler.createStorageNodeHandler(snode, poolhandler);
-        
+         
         FileSystemElemNode root = pool.getRootDir();
         
         boolean ret = checkExistance( root );
-        status = Main.Txt("Prüfung beendet");
+        status = Main.Txt("Prüfung beendet") + ", " + (badFiles.isEmpty() ? Main.Txt("keine Fehler") :  Main.Txt("bitte Aktion auswählen"));
 
         
         return ret;
@@ -139,22 +137,29 @@ public class CheckFSIntegrity implements ICheck {
             dirs++;
             status = Main.Txt("Prüfe") +" " + node.getName();
             
-            List<FileSystemElemNode> children = node.getChildren(poolhandler.getEm());
+            // LOAD CHILDREN OIUT OF CACHE
+            List<FileSystemElemNode> children = new ArrayList<>();
+            children.addAll(node.getChildren(poolhandler.getEm()));
+            
+            StringBuilder sb = new StringBuilder();
+            StoragePoolHandler.build_relative_virtual_path( node, sb);            
+            
+
             for (int i = 0; i < children.size(); i++) {
                 if (abort) {
                     errText = Main.Txt("Abgebrochen");
                     ret = false;
+                    break;
                 }
                 FileSystemElemNode childNode = children.get(i);
                 try {
                     checkExistance(childNode);
                 }
-                catch( Exception exc )
-                {
-                    badFiles.add(new ErrBuff(childNode, exc.getMessage()));
-                    
+                catch( Exception exc )                 {
+                    badFiles.add(new ErrBuff(childNode, exc.getMessage()));                    
                 }                
             }
+           
         }
         return ret;
     }
@@ -180,6 +185,7 @@ public class CheckFSIntegrity implements ICheck {
         StringBuilder sb = new StringBuilder();
         if (StringUtils.isNotEmpty(errText)) {
             sb.append( errText);
+            sb.append("\n");           
         }
         for (int i = 0; i < badFiles.size(); i++) {
             ErrBuff errBuff = badFiles.get(i);
@@ -213,6 +219,8 @@ public class CheckFSIntegrity implements ICheck {
         List<FileSystemElemAttributes> attrs = node.getHistory(poolhandler.getEm());
         List<HashBlock>blocks = node.getHashBlocks(poolhandler.getEm());
         
+        List<XANode>xaBlocks = node.getXaNodes(poolhandler.getEm());
+        
         for (int i = 0; i < attrs.size(); i++) {
             if (abort)
                 break;
@@ -226,6 +234,32 @@ public class CheckFSIntegrity implements ICheck {
             if (abort)
                 break;
             HashBlock hashBlock = blocks.get(i);
+            DedupHashBlock dhb = poolhandler.findHashBlock(hashBlock.getHashvalue() );
+            if (dhb == null)
+                throw new IOException("Fehlender DedupHashblock für HashBlock " + hashBlock.toString());        
+            
+            sumData+= dhb.getBlockLen();
+            
+            if (isExistanceCheckEnabled()) {
+                FileHandle fh = poolhandler.check_exist_dedupblock_handle(dhb);
+                if ( fh == null) {
+                    throw new IOException("DedupHashblock existiert nicht  " + dhb.toString()); 
+                }
+                if (fh.length() != dhb.getBlockLen()){
+                    throw new IOException("DedupHashblock hat falsche Länge " + dhb.toString()); 
+                }
+                if (isHashCheckEnabled()) {
+                    String hashValue = createHashFromFile( fh, dhb );
+                    if (!hashValue.equals(dhb.getHashvalue())) {
+                        throw new IOException("DedupHashblock hat falschen hash " + dhb.toString() + ": " + hashValue); 
+                    }
+                }
+            }
+        }
+        for (int i = 0; i < xaBlocks.size(); i++) {
+            if (abort)
+                break;
+            XANode hashBlock = xaBlocks.get(i);
             DedupHashBlock dhb = poolhandler.findHashBlock(hashBlock.getHashvalue() );
             if (dhb == null)
                 throw new IOException("Fehlender DedupHashblock für HashBlock " + hashBlock.toString());        

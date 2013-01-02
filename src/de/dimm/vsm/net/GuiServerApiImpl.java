@@ -811,13 +811,9 @@ public class GuiServerApiImpl implements GuiServerApi
     }
 
     @Override
-    public List<String> getCheckNames() {
-        return control.getCheckManager().getCheckNames();
+    public List<String> getCheckNames(Class<?> clazz) {
+        return control.getCheckManager().getCheckNames(clazz);
     }
-
-
-
-
 
 
 

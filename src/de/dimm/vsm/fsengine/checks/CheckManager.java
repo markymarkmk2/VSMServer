@@ -12,15 +12,19 @@ import de.dimm.vsm.jobs.CheckJobInterface;
 import de.dimm.vsm.jobs.InteractionEntry;
 import de.dimm.vsm.jobs.JobInterface;
 import de.dimm.vsm.jobs.JobInterface.JOBSTATE;
+import de.dimm.vsm.records.AbstractStorageNode;
+import de.dimm.vsm.records.StoragePool;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import org.apache.commons.lang.StringUtils;
 
 /**
  *
  * @author mw
  */
 public class CheckManager  extends WorkerParent{
+
 
 
     public class CheckJob implements CheckJobInterface {
@@ -30,6 +34,7 @@ public class CheckManager  extends WorkerParent{
         ICheck check;
         Date startTime = new Date();
         InteractionEntry ie;
+        
 
         public CheckJob( User user, ICheck check) {
             this.state = JOBSTATE.RUNNING;
@@ -69,7 +74,14 @@ public class CheckManager  extends WorkerParent{
 
         @Override
         public String getStatusStr() {
-            return check.getStatus();
+            if (state == JOBSTATE.FINISHED_ERROR && StringUtils.isNotEmpty(check.getErrText()))
+                return check.getErrText();
+            
+            if (StringUtils.isNotEmpty(check.getStatus()))
+                return check.getStatus();
+            if (StringUtils.isNotEmpty(check.getErrText()))
+                return check.getErrText();
+            return "-";
         }
 
         @Override
@@ -100,7 +112,12 @@ public class CheckManager  extends WorkerParent{
         @Override
         public void abortJob() {
             check.abort();
-            setJobState(JOBSTATE.ABORTED);
+            if (getJobState() == JOBSTATE.FINISHED_ERROR) {
+                setJobState(JOBSTATE.ABORTED);
+            }
+            else {
+                setJobState(JOBSTATE.FINISHED_ERROR);
+            }
         }
 
         @Override
@@ -110,8 +127,24 @@ public class CheckManager  extends WorkerParent{
                 setJobState(JOBSTATE.FINISHED_ERROR);
                 return;
             }
+            List<String> options = new ArrayList<>();
+            String text = check.fillUserOptions(options);
+            if (options.isEmpty())
+            {
+                if (StringUtils.isEmpty( check.getErrText())) {
+                    if (StringUtils.isNotEmpty(text)) {
+                        setStatusTxt(text);
+                    }
+                    setJobState(JOBSTATE.FINISHED_OK);
+                }
+                else {
+                    setJobState(JOBSTATE.FINISHED_ERROR);
+                }
+                return;                    
+            }
+            
             setJobState(JOBSTATE.NEEDS_INTERACTION);
-            while(getJobState() != JOBSTATE.ABORTED){
+            while(getJobState() != JOBSTATE.ABORTED && getJobState() != JOBSTATE.FINISHED_ERROR){
                 if (ie != null)
                 {
                     if (ie.wasAnswered())
@@ -133,7 +166,7 @@ public class CheckManager  extends WorkerParent{
                 }
             }
             else
-                setJobState(JOBSTATE.ABORTED);
+                setJobState(JOBSTATE.FINISHED_ERROR);
         }
 
         @Override
@@ -165,6 +198,7 @@ public class CheckManager  extends WorkerParent{
     static class CheckDescriptor {
         String name;
         String className;
+        Class paramClass;
 
         public String getName() {
             return name;
@@ -174,10 +208,18 @@ public class CheckManager  extends WorkerParent{
             return className;
         }
 
-        public CheckDescriptor(String name, String className) {
+        public Class getParamClass() {
+            return paramClass;
+        }
+
+        public CheckDescriptor(Class<?> paramClass, String name, String className) {
             this.name = name;
             this.className = className;
+            this.paramClass = paramClass;
         }
+
+        
+        
         
     }
     List<CheckDescriptor> checks;
@@ -187,26 +229,30 @@ public class CheckManager  extends WorkerParent{
         
     }
     
-    public List<String> getCheckNames() {
+    public List<String> getCheckNames(Class<?> clazz) {
         List<String> ret = new ArrayList<>();
         for (int i = 0; i < checks.size(); i++) {
             CheckDescriptor check = checks.get(i);
-            ret.add(check.getName());
+            if (check.getParamClass().equals(clazz)) {
+                ret.add(check.getName());
+            }
         }
         return ret;
     }
     
-    static private void addCheck(List<CheckDescriptor> checkList, String txt, String descTxt) {
-        checkList.add( new CheckDescriptor(txt, descTxt));
+
+    
+    static private void addCheck(List<CheckDescriptor> checkList, Class<?> paramClass, String txt, String descTxt) {
+        checkList.add( new CheckDescriptor(paramClass, txt, descTxt));
     }
 
     @Override
     public boolean initialize() {
         checks = new ArrayList<>();
-        addCheck( checks, Main.Txt("Physikalische Hashblöcke prüfen"), "CheckPhysicalHashblockIntegrity");
-        addCheck( checks, Main.Txt("VSM-Dateisystem prüfen"), "CheckFSIntegrity");
-        addCheck( checks, Main.Txt("VSM-Dateisystem und Node prüfen"), "CheckFSIntegrityWithStorage");
-        addCheck( checks, Main.Txt("VSM-Dateisystem und Node und Datenprüfen"), "CheckFSIntegrityWithStorageAndHash");
+        addCheck( checks, AbstractStorageNode.class, Main.Txt("Physikalische Hashblöcke prüfen"), "CheckPhysicalHashblockIntegrity");
+        addCheck( checks, StoragePool.class, Main.Txt("VSM-Dateisystem prüfen"), "CheckFSIntegrity");
+        addCheck( checks, StoragePool.class, Main.Txt("VSM-Dateisystem und Node prüfen"), "CheckFSIntegrityWithStorage");
+        addCheck( checks, StoragePool.class, Main.Txt("VSM-Dateisystem und Node und Datenprüfen"), "CheckFSIntegrityWithStorageAndHash");
 
         
         return true;

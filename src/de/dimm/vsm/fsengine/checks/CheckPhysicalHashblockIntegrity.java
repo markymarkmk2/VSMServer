@@ -93,6 +93,8 @@ public class CheckPhysicalHashblockIntegrity implements ICheck {
                 return false;
             }
         }
+        statusStr = Main.Txt("Prüfung beendet") + ", " 
+                  + (unusedDHBs.isEmpty() ? Main.Txt("keine freien Blöcke gefunden") : Main.Txt("bitte Aktion auswählen"));
         return true;
     }
 
@@ -260,7 +262,7 @@ public class CheckPhysicalHashblockIntegrity implements ICheck {
                     file.delete();
                     percentDone = (i*100) / unusedDHBs.size();
                 }
-                statusStr = Main.Txt("Fertig");
+                
                 return true;
             }
             catch (Exception e)
@@ -269,6 +271,7 @@ public class CheckPhysicalHashblockIntegrity implements ICheck {
                 return false;
             }
         }
+        statusStr = Main.Txt("Fertig");
         return true;
     }
 

@@ -45,6 +45,7 @@ public class StatCounter {
     long lastStatTransferedDirs;
     double bytePerSec;
     double filesPerSec ;
+    double dirsPerSec ;
     double byteTransferedPerSec;
     double filesTransferedPerSec;
     double dirsTransferedPerSec;
@@ -60,6 +61,8 @@ public class StatCounter {
     String name;
     int blocksize;
 
+    String speedDim;
+    
     public StatCounter(String name)
     {
         this.name = name;
@@ -91,6 +94,7 @@ public class StatCounter {
 
         bytePerSec = 0;
         filesPerSec = 0 ;
+        dirsPerSec = 0;
         byteTransferedPerSec = 0;
         filesTransferedPerSec = 0;
         dirsTransferedPerSec = 0;
@@ -104,6 +108,11 @@ public class StatCounter {
 
     }
 
+    public String getSpeedDim() {
+        return speedDim;
+    }
+
+    
     public void addTransferLen( int l )
     {
         statTransferedSize += l;
@@ -172,15 +181,21 @@ public class StatCounter {
             
             bytePerSec = (statTotalSize - lastStatTotalSize)*1000 / diff;
             filesPerSec = ((statTotalFiles - lastStatTotalFiles)*1000) / (diff);
+            dirsPerSec = ((statTotalDirs - lastStatTotalDirs)*1000) / (diff);
             byteTransferedPerSec = (statTransferedSize - lastStatTransferedSize)*1000 / diff;
             filesTransferedPerSec = ((statTransferedFiles - lastStatTransferedFiles)*1000) / diff;
             dirsTransferedPerSec = ((statTransferedDirs - lastStatTransferedDirs)*1000) / diff;
 
-            speedPerSec = filesPerSec;
+            speedPerSec = bytePerSec / (1000*1000);
+            speedDim = "MB/s";
+            if (speedPerSec < filesPerSec + dirsPerSec) {
+                speedPerSec = filesPerSec + dirsPerSec;
+                speedDim = "f/s";
+            }
             double blocksPerSec = (statCheckedBlocks - lastStatCheckedBlocks)*1000.0 / diff;
             blocksPerSec += (statTransferedBlocks - lastStatTransferedBlocks)*1000.0 / diff;
             blocksPerSec += (statDedupBlocks - lastStatDedupBlocks)*1000.0 / diff;
-            speedPerSec += blocksPerSec*blocksize;
+            //speedPerSec += blocksPerSec*blocksize;
 
             SizeStr bps_str = new SizeStr(bytePerSec);
             SizeStr fps_str = new SizeStr(filesPerSec, true);
