@@ -1,3 +1,9 @@
+Veränderungen in V1.3.8
+UPD: Checks für StoragePool
+UPD: Checks für StorageNode
+FIX: Serialisieren von DB-Zugriffen in einem Pool -> keine DB-Timeouts mehr
+UPD: Betrieb ohne HashCache
+
 Veränderungen in V1.3.2
 FIX: Verbesserte Benutzersicht als Baum
 FIX: Locking gegen parallele CDP-Jobs auf einem Pool

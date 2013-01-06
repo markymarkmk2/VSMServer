@@ -211,13 +211,10 @@ public class BackupManager extends WorkerParent
                 baseCal.set(GregorianCalendar.MINUTE, m);
                 baseCal.set(GregorianCalendar.SECOND, s);
                 baseCal.set(GregorianCalendar.MILLISECOND, 0);
-                baseCal.roll(GregorianCalendar.DAY_OF_YEAR, false);
+                baseCal.add(GregorianCalendar.DAY_OF_YEAR, -1);
             }
 
-/*                baseCal.set(GregorianCalendar.HOUR_OF_DAY, 0);
-            baseCal.set(GregorianCalendar.MINUTE, 0);
-            baseCal.set(GregorianCalendar.SECOND, 0);
-            baseCal.set(GregorianCalendar.MILLISECOND, 0);*/
+
             long startTime = baseCal.getTimeInMillis();
 
             int n = 0;
@@ -273,10 +270,6 @@ public class BackupManager extends WorkerParent
 
                 baseCal.setTime(schedule.getScheduleStart());
                 ScheduleStart baseTimeStart = new ScheduleStart( baseCal.getTimeInMillis(), schedule);
-                //baseCal.setTimeZone(TimeZone.getTimeZone("GMT"));
-    //            baseCal.setTimeZone(TimeZone.getDefault());
-
-            
 
 
                 int n = 0;
@@ -297,7 +290,7 @@ public class BackupManager extends WorkerParent
                     baseCal.set(GregorianCalendar.MINUTE, (offsetStartS % 3600) / 60);
                     baseCal.set(GregorianCalendar.SECOND, offsetStartS % 60);
                     baseCal.set(GregorianCalendar.MILLISECOND, 0);
-                    baseCal.roll(GregorianCalendar.DAY_OF_YEAR, days);
+                    baseCal.add(GregorianCalendar.DAY_OF_YEAR, days);
 
 
                     long check = baseCal.getTimeInMillis();
