@@ -138,7 +138,7 @@ public class CheckFSIntegrity implements ICheck {
             status = Main.Txt("Prüfe") +" " + node.getName();
             
             // LOAD CHILDREN OIUT OF CACHE
-            List<FileSystemElemNode> children = new ArrayList<>();
+            List<FileSystemElemNode> children = new ArrayList<FileSystemElemNode>();
             children.addAll(node.getChildren(poolhandler.getEm()));
             
             StringBuilder sb = new StringBuilder();

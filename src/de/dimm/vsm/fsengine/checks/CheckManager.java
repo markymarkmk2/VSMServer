@@ -65,7 +65,7 @@ public class CheckManager  extends WorkerParent{
             
             if (ie == null)
             {
-                List<String> userOptions = new ArrayList<>();
+                List<String> userOptions = new ArrayList<String>();
                 String text = check.fillUserOptions(userOptions);
                 ie = new InteractionEntry( text, "", new Date(), /*timeout*/0, userOptions, 0 );
             }
@@ -127,7 +127,7 @@ public class CheckManager  extends WorkerParent{
                 setJobState(JOBSTATE.FINISHED_ERROR);
                 return;
             }
-            List<String> options = new ArrayList<>();
+            List<String> options = new ArrayList<String>();
             String text = check.fillUserOptions(options);
             if (options.isEmpty())
             {
@@ -230,7 +230,7 @@ public class CheckManager  extends WorkerParent{
     }
     
     public List<String> getCheckNames(Class<?> clazz) {
-        List<String> ret = new ArrayList<>();
+        List<String> ret = new ArrayList<String>();
         for (int i = 0; i < checks.size(); i++) {
             CheckDescriptor check = checks.get(i);
             if (check.getParamClass().equals(clazz)) {
@@ -248,7 +248,7 @@ public class CheckManager  extends WorkerParent{
 
     @Override
     public boolean initialize() {
-        checks = new ArrayList<>();
+        checks = new ArrayList<CheckDescriptor>();
         addCheck( checks, AbstractStorageNode.class, Main.Txt("Physikalische Hashblöcke prüfen"), "CheckPhysicalHashblockIntegrity");
         addCheck( checks, StoragePool.class, Main.Txt("VSM-Dateisystem prüfen"), "CheckFSIntegrity");
         addCheck( checks, StoragePool.class, Main.Txt("VSM-Dateisystem und Node prüfen"), "CheckFSIntegrityWithStorage");
