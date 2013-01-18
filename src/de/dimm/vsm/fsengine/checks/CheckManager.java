@@ -112,7 +112,7 @@ public class CheckManager  extends WorkerParent{
         @Override
         public void abortJob() {
             check.abort();
-            if (getJobState() == JOBSTATE.FINISHED_ERROR) {
+            if (getJobState() == JOBSTATE.FINISHED_ERROR || getJobState() == JOBSTATE.FINISHED_OK) {
                 setJobState(JOBSTATE.ABORTED);
             }
             else {
