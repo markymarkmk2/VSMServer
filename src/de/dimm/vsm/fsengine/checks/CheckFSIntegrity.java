@@ -12,6 +12,7 @@ import de.dimm.vsm.auth.User;
 import de.dimm.vsm.backup.Restore;
 import de.dimm.vsm.fsengine.StoragePoolHandler;
 import de.dimm.vsm.fsengine.StoragePoolHandlerFactory;
+import de.dimm.vsm.log.LogManager;
 import de.dimm.vsm.net.interfaces.FileHandle;
 import de.dimm.vsm.records.DedupHashBlock;
 import de.dimm.vsm.records.FileSystemElemAttributes;
@@ -67,7 +68,7 @@ public class CheckFSIntegrity implements ICheck {
 
     @Override
     public String getStatisticStr() {
-        return "Files: " + files + " Dirs: " + dirs + " Data: " + SizeStr.format(sumData);
+        return "Files: " + files + " Dirs: " + dirs + " Data: " + SizeStr.format(sumData) + " Errors: " + this.badFiles.size();
     }
     
     class ErrBuff 
@@ -128,7 +129,7 @@ public class CheckFSIntegrity implements ICheck {
                 checkFileExistance(node);
             } catch (Exception iOException) {
                 badFiles.add(new ErrBuff(node, iOException.getMessage()));
-                
+                LogManager.err_db("Fehler: " + iOException.getMessage() + " Node: " + node);
             }
         }
 
@@ -156,6 +157,7 @@ public class CheckFSIntegrity implements ICheck {
                     checkExistance(childNode);
                 }
                 catch( Exception exc )                 {
+                    LogManager.err_db("Fehler: " + exc.getMessage() + " Node: " + childNode);
                     badFiles.add(new ErrBuff(childNode, exc.getMessage()));                    
                 }                
             }
