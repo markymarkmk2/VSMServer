@@ -174,8 +174,6 @@ public class CheckPhysicalHashblockIntegrity implements ICheck {
         if (hashCache.isInited())
         {
             long check_idx = hashCache.getDhbIdx(hash);
-            if (idx >> 8 != check_idx >> 8)
-                throw new Exception( "Idx from FS and cache do not match");
 
             if (check_idx > 0)
             {
@@ -208,8 +206,6 @@ public class CheckPhysicalHashblockIntegrity implements ICheck {
         if (idx >> 8  != dhb.getIdx() >> 8)
         {
             // Check if we have updated DB to newer entry, then we can get rid of this
-            StringBuilder sb = new StringBuilder();
-
             FileHandle fh = snHandler.create_file_handle(dhb, /*create*/ false);
             if (fh.exists())
             {                
@@ -217,7 +213,7 @@ public class CheckPhysicalHashblockIntegrity implements ICheck {
                 return false;
             }
 
-            throw new Exception( "Idx from FS and DB do not match");
+            throw new Exception( "Idx from FS and DB do not match: " + (idx >> 8) + "/" + (dhb.getIdx() >> 8));
         }
 
         return true;
@@ -261,9 +257,8 @@ public class CheckPhysicalHashblockIntegrity implements ICheck {
                     File file = unusedDHBs.get(i);
                     file.delete();
                     percentDone = (i*100) / unusedDHBs.size();
-                }
-                
-                return true;
+                }                               
+                statusStr = Main.Txt("Fertig");
             }
             catch (Exception e)
             {
@@ -271,7 +266,6 @@ public class CheckPhysicalHashblockIntegrity implements ICheck {
                 return false;
             }
         }
-        statusStr = Main.Txt("Fertig");
         return true;
     }
 
