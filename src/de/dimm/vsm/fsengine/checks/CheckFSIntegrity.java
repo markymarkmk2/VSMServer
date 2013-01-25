@@ -228,7 +228,7 @@ public class CheckFSIntegrity implements ICheck {
                 break;
             FileSystemElemAttributes fileSystemElemAttributes = attrs.get(i);
             
-            List<HashBlock>filteredBlocks = Restore.filter_hashblocks(blocks, fileSystemElemAttributes.getTs());
+            List<HashBlock>filteredBlocks = Restore.filter_hashblocks(blocks, fileSystemElemAttributes);
             checkComplete( fileSystemElemAttributes, filteredBlocks);
         }
         
@@ -312,7 +312,8 @@ public class CheckFSIntegrity implements ICheck {
             
         }
         if (offset != fileSystemElemAttributes.getFsize()) {
-                throw new IOException("Länge der Hashblöcke passt nicht " + offset + " erwartete Länge " + fileSystemElemAttributes.getFsize());
+                throw new IOException("Länge der Hashblöcke passt nicht " + offset + " erwartete Länge " + fileSystemElemAttributes.getFsize() + 
+                        " bei " + fileSystemElemAttributes.toString());
         }
     }    
 }

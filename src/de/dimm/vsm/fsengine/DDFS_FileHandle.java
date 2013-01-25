@@ -9,8 +9,10 @@ import de.dimm.vsm.Exceptions.PoolReadOnlyException;
 import de.dimm.vsm.net.interfaces.FileHandle;
 import de.dimm.vsm.Exceptions.PathResolveException;
 import de.dimm.vsm.backup.Restore;
+import de.dimm.vsm.log.LogManager;
 import de.dimm.vsm.records.AbstractStorageNode;
 import de.dimm.vsm.records.DedupHashBlock;
+import de.dimm.vsm.records.FileSystemElemAttributes;
 import de.dimm.vsm.records.FileSystemElemNode;
 import de.dimm.vsm.records.HashBlock;
 import de.dimm.vsm.records.XANode;
@@ -21,6 +23,7 @@ import java.io.RandomAccessFile;
 import java.io.UnsupportedEncodingException;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 
 
@@ -94,6 +97,7 @@ public class DDFS_FileHandle implements FileHandle
     boolean create;
     boolean isStream;
     RandomAccessFile raf;
+    FileSystemElemAttributes actAttribute;
     
 
     List<DDHandle> lastHandles;
@@ -111,10 +115,10 @@ public class DDFS_FileHandle implements FileHandle
         lastHandles = new ArrayList<DDHandle>();
     }
     
-    List<DDHandle> buildHashBlockList() throws IOException
+    List<DDHandle> buildHashBlockList(FileSystemElemAttributes attrs) throws IOException
     {
         List<HashBlock> hbList = node.getHashBlocks().getList(sp_handler.getEm());
-
+ 
         // IN CASE WE HAVE WRITTEN THIS PRESENTLY, WE HAVE TO REREAD LIST
         if (hbList instanceof LazyList)
         {
@@ -128,7 +132,7 @@ public class DDFS_FileHandle implements FileHandle
         if (!hbList.isEmpty())
         {
             // BUILD SORTED LIST FOR THIS FILE BASED ON poolQry
-            hbList = Restore.filter_hashblocks(hbList, sp_handler.poolQry);
+            hbList = Restore.filter_hashblocks(hbList, attrs);
         }
 
         if (verbose)
@@ -177,7 +181,7 @@ public class DDFS_FileHandle implements FileHandle
         return ret;
     }
 
-    List<DDHandle> buildXABlockList() throws IOException, SQLException
+    List<DDHandle> buildXABlockList(FileSystemElemAttributes attrs) throws IOException, SQLException
     {
         List<XANode> hbList = sp_handler.createQuery("select T1 from XANode T1 where T1.fileNode_idx=" + node.getIdx(), XANode.class);
 
@@ -194,7 +198,7 @@ public class DDFS_FileHandle implements FileHandle
         if (!hbList.isEmpty())
         {
             // BUILD LIST FOR THIS FILE
-            hbList = Restore.filter_xanodes(hbList, sp_handler.poolQry);
+            hbList = Restore.filter_xanodes(hbList, attrs);
         }
         if (verbose)
             System.out.println("XALIST 2: " + hbList.size());
@@ -264,30 +268,64 @@ public class DDFS_FileHandle implements FileHandle
     }
 
    
+    private FileSystemElemAttributes getActAttribute(long ts)
+    {
+       List<FileSystemElemAttributes> attrList = node.getHistory().getList(sp_handler.getEm());
+       if (attrList.size() == 1) {
+           return attrList.get(0);
+       }
+       
+        // DETECT CORRECT ATTRIBUTE
+                // SORT IN BLOCKOFFSET ORDER, NEWER BLOCKS FIRST
+        java.util.Collections.sort(attrList, new Comparator<FileSystemElemAttributes>() {
+
+            @Override
+            public int compare( FileSystemElemAttributes o1, FileSystemElemAttributes o2 )
+            {
+                if (o1.getTs() != o2.getTs()) 
+                    return (o1.getTs() - o2.getTs() > 0) ? -1 : 1;
+                
+                return (o2.getIdx() - o1.getIdx() > 0) ? 1 : -1;
+            }
+        });
+        int lastValidIdx = -1;
+        
+        for (int i = 0; i < attrList.size(); i++) {
+            FileSystemElemAttributes fileSystemElemAttributes = attrList.get(i);
+             
+            if (fileSystemElemAttributes.getTs() > ts)
+                break;
+            lastValidIdx = i;            
+        }
+        if (lastValidIdx >= 0)
+            return attrList.get(lastValidIdx);
+          
+        // OMG we are lost, no Attribute found to ts, we must recover
+        // so we log and give back actual attribute
+        LogManager.err_db("Kein Attribut zu TS " + ts + " für node " + node.toString() + " gefunden");
+        return node.getAttributes();
+    }
 
     private void create_fs_file( FileSystemElemNode node ) throws PathResolveException, IOException, SQLException
     {
         this.node = node;
+        long ts = sp_handler.poolQry.getSnapShotTs();
+        this.actAttribute = getActAttribute(ts);
+       
         if (!isStream)
-            handleList = buildHashBlockList();
+            handleList = buildHashBlockList(actAttribute);
         else
-            handleList = buildXABlockList();
-
+            handleList = buildXABlockList(actAttribute);
+        
 
 
         StringBuilder sb = new StringBuilder();
         StorageNodeHandler.build_node_path(node, sb);
 
-       
 
         fh = new File( fs_node.getMountPoint() + sb.toString() );
     }
 
-    private void open_handles(  ) throws PathResolveException, IOException, SQLException
-    {
-        handleList = buildHashBlockList();
-
-    }
   
     public static FileHandle create_fs_handle(AbstractStorageNode fs_node, StoragePoolHandler sp_handler, FileSystemElemNode node, boolean create, boolean isStream) throws PathResolveException, IOException, SQLException
     {

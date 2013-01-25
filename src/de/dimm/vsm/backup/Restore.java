@@ -18,6 +18,7 @@ import de.dimm.vsm.fsengine.LazyList;
 import de.dimm.vsm.fsengine.StoragePoolHandler;
 import de.dimm.vsm.jobs.InteractionEntry;
 import de.dimm.vsm.jobs.JobInterface;
+import de.dimm.vsm.log.LogManager;
 import de.dimm.vsm.net.StoragePoolQry;
 import de.dimm.vsm.net.RemoteFSElem;
 import de.dimm.vsm.net.RemoteFSElemWrapper;
@@ -607,7 +608,7 @@ public class Restore
                 else
                 {
                     // BUILD LIST FOR THIS FILE
-                    hbList = filter_hashblocks(hbList, actualContext.qry);
+                    hbList = filter_hashblocks(hbList, attr);
 
                     for (int i = 0; i < hbList.size(); i++)
                     {
@@ -686,7 +687,7 @@ public class Restore
                 if (!xablocks.isEmpty())
                 {
                     // BUILD LIST FOR THIS FILE
-                    xablocks = filter_xanodes(xablocks, actualContext.qry);
+                    xablocks = filter_xanodes(xablocks, attr);
 
                     for (int i = 0; i < xablocks.size(); i++)
                     {
@@ -719,11 +720,8 @@ public class Restore
         }
     }
 
-    public static List<HashBlock> filter_hashblocks( List<HashBlock> hbList, StoragePoolQry qry )
-    {
-        return filter_hashblocks(hbList, qry.getSnapShotTs());
-    }
-    public static List<HashBlock> filter_hashblocks( List<HashBlock> hbList, long ts )
+
+    public static List<HashBlock> filter_hashblocks( List<HashBlock> hbList, FileSystemElemAttributes attrs )
     {
         // BUILD A LIST BASED ON QUERY WITH ASCENDING BLOCK POS
         // IF SOMETHING IS MISSING; WE WILL GET INTO TROUBLE HERE...
@@ -739,6 +737,9 @@ public class Restore
                 if (o1.getBlockOffset() != o2.getBlockOffset())
                     return (o1.getBlockOffset() - o2.getBlockOffset() > 0) ? 1 : -1;
 
+                if (o1.getTs() != o2.getTs()) 
+                    return (o1.getTs() - o2.getTs() > 0) ? -1 : 1;
+
                 return (o2.getIdx() - o1.getIdx() > 0) ? 1 : -1;
             }
         });
@@ -749,17 +750,30 @@ public class Restore
             HashBlock hashBlock = hbList.get(i);
 
             // IS VALID DATA ENTRY ?
-            if (ts > 0)
-            {
-                if (hashBlock.getTs() > ts)
-                    continue; // NOO TOO YOUNG
-            }
+            if (hashBlock.getTs() > attrs.getTs())
+                continue; // NO, TOO YOUNG
+            
+           // IS VALID DATA ENTRY ?
+            if (hashBlock.getBlockOffset() > attrs.getFsize())
+                continue; // NO, TOO LARGE
+            
 
             if (lastHashBlock != null)
-            {
+            {                               
                 if (lastHashBlock.getBlockOffset() == hashBlock.getBlockOffset())
                 {
-                    continue;
+                    // FIX FOR XA-NODE IN HASHBLOCKS
+                    if (lastHashBlock.getTs() == hashBlock.getTs() && 
+                            lastHashBlock.getBlockOffset() == 0 && 
+                            lastHashBlock.getBlockLen() == attrs.getStreamSize())
+                    {
+                        LogManager.msg( LogManager.LVL_WARN, LogManager.TYP_DB, "Detected XA-Node in hashList, repaired");
+                        ret.remove(lastHashBlock);                        
+                    }
+                    else
+                    {
+                        continue;
+                    }
                 }
             }
             ret.add(hashBlock);
@@ -767,15 +781,12 @@ public class Restore
             lastHashBlock = hashBlock;
         }
         
-        // NOW WE HAVE A LIST OF THE NEWEST BLOCKS OLDER THAN qry.Timestamp
+        // NOW WE HAVE A LIST OF THE NEWEST BLOCKS OLDER THAN attrs.Timestamp
         return ret;
     }
 
-    public static List<XANode> filter_xanodes( List<XANode> hbList, StoragePoolQry qry )
-    {
-        return filter_xanodes(hbList, qry.getSnapShotTs());
-    }
-    public static List<XANode> filter_xanodes( List<XANode> hbList, long ts )
+
+    public static List<XANode> filter_xanodes( List<XANode> hbList,FileSystemElemAttributes attrs )
     {
         // BUILD A LIST BASED ON QUERY WITH ASCENDING BLOCK POS
         // IF SOMETHING IS MISSING; WE WILL GET INTO TROUBLE HERE...
@@ -801,11 +812,13 @@ public class Restore
             XANode hashBlock = hbList.get(i);
 
             // IS VALID DATA ENTRY ?
-            if (ts > 0)
-            {
-                if (hashBlock.getTs() > ts)
-                    continue; // NOO TOO YOUNG
-            }
+            if (hashBlock.getTs() > attrs.getTs())
+                continue; // NO, TOO YOUNG
+            
+            // IS VALID DATA ENTRY ?
+            if (hashBlock.getBlockOffset() > attrs.getStreamSize())
+                continue; // NO, TOO LARGE
+            
 
             if (lastHashBlock != null)
             {
