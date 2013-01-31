@@ -150,6 +150,8 @@ public class StoragePoolHandlerTest
                 if (pfs_node != null)
                 {
                     fs_node = pfs_node;
+                    fs_node.setMountPoint("z:\\unittest\\testnode");
+                    fs_node.setNodeMode(AbstractStorageNode.NM_ONLINE);
                     sp_handler.em_merge(fs_node);
                 }
                 else
@@ -854,6 +856,27 @@ public class StoragePoolHandlerTest
 
        
 
+    }
+
+       /**
+     * Test of getTotalBlocks method, of class StoragePoolHandler.
+     */
+    @Test
+    public void testSwitchNodeTempOffline()
+    {
+       StoragePoolHandler instance = sp_handler;
+       
+        AbstractStorageNode node = instance.get_primary_dedup_node_for_write();
+        String orig = node.getMountPoint();
+        assertTrue("is Online", node.isOnline());
+        node.setMountPoint("z:\\unittest\\testnodedfsfhdksfkdshdfjhksjfd");
+        long space = instance.checkStorageNodeSpace();
+        assertTrue("No space", space == 0);
+        assertTrue("is TempOffline", node.isTempOffline());
+        node.setMountPoint(orig);
+        space = instance.checkStorageNodeSpace();
+        assertTrue("No space", space != 0);
+        assertTrue("is Online", node.isOnline());
     }
     
 
