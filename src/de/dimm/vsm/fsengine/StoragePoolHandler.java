@@ -207,13 +207,66 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
         }
         return true;
     }
+    
+    void checkAvailable()
+    {
+        List<AbstractStorageNode> node_list = resolve_storage_nodes(pool);
+        for (int i = 0; i < node_list.size(); i++)
+        {
+            AbstractStorageNode abstractStorageNode = node_list.get(i);
+            boolean statusChanged = false;
+
+            if (StorageNodeHandler.isAvailable(abstractStorageNode))
+            {
+                // DETECT ONLINE NODE
+                if (abstractStorageNode.isTempOffline())
+                {
+                    abstractStorageNode.setNodeMode(AbstractStorageNode.NM_ONLINE);
+                    statusChanged = true;
+                }
+            }
+            else
+            {
+                // DETECT MISSING NODE SET TO TEMP-OFFLINE
+                if (abstractStorageNode.isOnline())
+                {
+                    abstractStorageNode.setNodeMode(AbstractStorageNode.NM_TEMP_OFFLINE);
+                    statusChanged = true;
+                }
+            }
+            if (statusChanged)
+            {
+                check_open_transaction();
+                try
+                {
+                    em_merge(abstractStorageNode);
+                    if (abstractStorageNode.getCloneNode() != null)
+                    {
+                        em_merge(abstractStorageNode.getCloneNode());
+                    }
+
+                    commit_transaction();
+                }
+                catch (SQLException exc)
+                {
+                    Log.err("SpeicherNode kann nicht aktualisiert werden", abstractStorageNode.getName(), exc);
+                }
+            }
+        }
+    }
+
     public long checkStorageNodeSpace(List<AbstractStorageNode> node_list)
     {
         for (int i = 0; i < node_list.size(); i++)
         {
             AbstractStorageNode abstractStorageNode = node_list.get(i);
-
+            
+            // OFFLINE
             if (!abstractStorageNode.isOnline())
+                continue;
+
+            // FS MISSING ?
+            if (!StorageNodeHandler.isAvailable(abstractStorageNode))
                 continue;
 
             long free = StorageNodeHandler.getFreeSpace(abstractStorageNode);
@@ -281,6 +334,7 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
     public long checkStorageNodeSpace()
     {
         // CHECK FOR SPACE ON REG NODES
+        checkAvailable();
         List<AbstractStorageNode> node_list = get_primary_storage_nodes(/*forWrite*/ false);
         long freeSpace = checkStorageNodeSpace( node_list );
 

@@ -287,6 +287,15 @@ public class StorageNodeHandler
     {
         return 1024;
     }
+    public static boolean isAvailable(AbstractStorageNode n)
+    {
+        if (n.isFS() && n.getMountPoint() != null)
+        {
+            File f = new File( n.getMountPoint() );
+            return f.exists();
+        }
+        return true;
+    }
     public static long getUsedSpace(AbstractStorageNode n)
     {
         if (n.isFS() && n.getMountPoint() != null)
