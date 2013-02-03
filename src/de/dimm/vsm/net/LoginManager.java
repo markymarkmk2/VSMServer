@@ -208,6 +208,8 @@ public class LoginManager extends WorkerParent implements GuiLoginApi
             role.getRoleOptions().addIfRealized( new RoleOption(0, role, RoleOption.RL_FSMAPPINGFILE, 0, "TestMapping"));
             role.getRoleOptions().addIfRealized( new RoleOption(0, role, RoleOption.RL_USERPATH, 0, "192.168.1.145:8082:z:\\a\\FaxXP"));
             role.getRoleOptions().addIfRealized( new RoleOption(0, role, RoleOption.RL_USERPATH, 0, "127.0.0.1:8082:/tmp"));
+            role.getRoleOptions().addIfRealized( new RoleOption(0, role, RoleOption.RL_USERPATH, 0, "127.0.0.1:8082:/tmp"));
+            
             try
             {
                 user.setRole(role);

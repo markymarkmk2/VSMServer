@@ -322,7 +322,7 @@ public class StoragePoolHandlerContextManager extends WorkerParent
             {
                 if (entry.getValue().isExpired())
                 {
-                    Log.debug(Main.Txt("Entferne abgelaufenen StoragePoolContext")  + " " + entry.getKey().qry.user);
+                    Log.debug(Main.Txt("Entferne abgelaufenen StoragePoolContext")  + " " + entry.getKey().qry.getUser());
                     entry.getValue().closePoolHandler();
                     handlerMap.remove(entry.getKey());
                     break;

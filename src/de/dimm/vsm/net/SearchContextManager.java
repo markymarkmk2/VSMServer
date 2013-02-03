@@ -272,7 +272,7 @@ public class SearchContextManager extends WorkerParent
             {
                 if (entry.getValue().isExpired())
                 {
-                    Log.debug(Main.Txt("Entferne abgelaufenen SuchContext") + " "  + entry.getKey().qry.user);
+                    Log.debug(Main.Txt("Entferne abgelaufenen SuchContext") + " "  + entry.getKey().qry.getUser());
                     entry.getValue().close();
                     handlerMap.remove(entry.getKey());
                     break;

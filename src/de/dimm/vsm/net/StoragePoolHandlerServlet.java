@@ -17,6 +17,7 @@ import de.dimm.vsm.backup.Restore;
 import de.dimm.vsm.fsengine.StoragePoolHandler;
 import de.dimm.vsm.jobs.JobInterface;
 import de.dimm.vsm.jobs.JobManager;
+import de.dimm.vsm.log.LogManager;
 import de.dimm.vsm.net.interfaces.IWrapper;
 import de.dimm.vsm.net.interfaces.StoragePoolHandlerInterface;
 import de.dimm.vsm.records.ArchiveJob;
@@ -86,6 +87,15 @@ public class StoragePoolHandlerServlet extends HessianServlet implements Storage
     public RemoteFSElem resolve_node( StoragePoolWrapper pool, String path ) throws SQLException
     {
         StoragePoolHandler handler = poolContextManager.getHandlerbyWrapper(pool);
+        if (isInsideMappingDir(handler, path))
+        {
+            FileSystemElemNode dummy = FileSystemElemNode.createDirNode();
+            long now = System.currentTimeMillis();
+            RemoteFSElem elem = new RemoteFSElem(path, FileSystemElemNode.FT_DIR, now, now, now, 0, 0);
+            return elem;
+        }
+        path = resolveMappingDir( handler, path);
+            
         FileSystemElemNode e = handler.resolve_node(path);
         if (e == null)
             return null;
@@ -207,6 +217,91 @@ public class StoragePoolHandlerServlet extends HessianServlet implements Storage
 
         return handler.open_stream(fse_node.getIdx(), create);
     }
+    
+    public List<RemoteFSElem> mappedUserDir(StoragePoolHandler handler, RemoteFSElem node) {
+        String path = node.getPath();
+        List<User.VsmFsEntry> mapList = handler.getPoolQry().getUser().getFsMapper().getVsmList();
+        List<RemoteFSElem> ret = new ArrayList<RemoteFSElem>();
+        try {
+
+            for (int i = 0; i < mapList.size(); i++) {
+                User.VsmFsEntry vsmFsEntry = mapList.get(i);
+                // INSIDE THIS MAPPING ENTRY?
+                if (!vsmFsEntry.getuPath().startsWith(path))
+                    continue;
+                
+                String restPath = vsmFsEntry.getuPath().substring(path.length());
+                if (restPath.startsWith("/") && restPath.length() > 1)
+                    restPath = restPath.substring(1);
+                
+                RemoteFSElem remoteNode;
+                String[] paths = restPath.split("/");
+                
+                if (paths.length == 0 || (paths.length == 1 && paths[0].isEmpty()))
+                {
+                    FileSystemElemNode fseNode = handler.resolve_elem_by_path(  vsmFsEntry.getvPath() );
+                    if (fseNode == null)
+                        continue;
+                    
+                    // THIS IS THE NEWEST ENTRY FOR THIS FILE
+                    FileSystemElemAttributes attr = handler.getActualFSAttributes(fseNode, handler.getPoolQry() );
+                    remoteNode = genRemoteFSElemfromNode(fseNode, attr);
+                    return get_unmapped_child_nodes(handler, remoteNode);
+                }
+                else
+                {                    
+                    String dirName = paths[0];
+                    if (dirName.isEmpty() && paths.length > 1)
+                        dirName = paths[1];
+                    
+                    String newPath = path;
+                    if (!newPath.endsWith("/"))
+                        newPath += "/";
+                    newPath += dirName;
+                    
+                    if (containsDir(ret, newPath))
+                        continue;
+                    
+                    long now = System.currentTimeMillis();                    
+
+                    remoteNode = new RemoteFSElem(newPath, FileSystemElemNode.FT_DIR, now,now,now,0,0);
+                }
+                ret.add(remoteNode);                
+            }
+            return ret;
+        } catch (SQLException sQLException) {
+            LogManager.err_db("Kann Mapping node nicht auflösen", sQLException);
+        }
+        return ret;
+    }
+    public boolean isInsideMappingDir(StoragePoolHandler handler, String path) {
+        
+        List<User.VsmFsEntry> mapList = handler.getPoolQry().getUser().getFsMapper().getVsmList();
+        
+            for (int i = 0; i < mapList.size(); i++) {
+                User.VsmFsEntry vsmFsEntry = mapList.get(i);
+                if (vsmFsEntry.getuPath().startsWith(path))
+                    return true;
+            }
+            return false;
+        }
+
+   public String resolveMappingDir(StoragePoolHandler handler, String path) {
+        if (!handler.getPoolQry().isUseMappingFilter())
+            return path;
+        
+        List<User.VsmFsEntry> mapList = handler.getPoolQry().getUser().getFsMapper().getVsmList();
+        
+            for (int i = 0; i < mapList.size(); i++) {
+                User.VsmFsEntry vsmFsEntry = mapList.get(i);
+                if (path.startsWith( vsmFsEntry.getuPath())) {
+                    String restpath = path.substring(vsmFsEntry.getuPath().length());
+                    return vsmFsEntry.getvPath() + "/" + restpath;
+                }
+            }
+            return path;
+        }
+
 
 
     @Override
@@ -214,16 +309,31 @@ public class StoragePoolHandlerServlet extends HessianServlet implements Storage
     {
         StoragePoolHandler handler = poolContextManager.getHandlerbyWrapper(pool);
 
-        return get_child_nodes(handler, node);
+        List<RemoteFSElem> ret = get_child_nodes(handler, node);
+        
+        return ret;
     }
 
   
     public List<RemoteFSElem> get_child_nodes( StoragePoolHandler handler, RemoteFSElem node ) throws SQLException
     {        
         StoragePoolQry qry = handler.getPoolQry();
+        
+        if (qry.isUseMappingFilter()) 
+        {
+            if (isInsideMappingDir( handler, node.getPath()))
+            {
+                return mappedUserDir( handler, node );
+            }
+        }
+        return get_unmapped_child_nodes(handler, node);
+     }
+    
+     private List<RemoteFSElem> get_unmapped_child_nodes( StoragePoolHandler handler, RemoteFSElem node ) throws SQLException
+     {
+        StoragePoolQry qry = handler.getPoolQry();
         List<RemoteFSElem> ret = new ArrayList<RemoteFSElem>();
-              
-        FileSystemElemNode fseNode = handler.resolve_node_by_remote_elem(  node );
+         FileSystemElemNode fseNode = handler.resolve_node_by_remote_elem(  node );
         if (fseNode == null)
             return ret;
 
@@ -256,6 +366,10 @@ public class StoragePoolHandlerServlet extends HessianServlet implements Storage
                 // THIS IS THE NEWEST ENTRY FOR THIS FILE
                 FileSystemElemAttributes attr = handler.getActualFSAttributes(fileSystemElemNode, qry );
 
+                // OBVIOUSLY THE FILE WAS CREATED AFTER TS -> INVISIBLE
+                if (attr == null)
+                    continue;
+
                 // ACLS STARTUNDER SYSTEMROOT
                 if (!node.getPath().equals("/"))
                 {
@@ -265,10 +379,6 @@ public class StoragePoolHandlerServlet extends HessianServlet implements Storage
                         continue;
                     }
                 }
-
-                // OBVIOUSLY THE FILE WAS CREATED AFTER TS
-                if (attr == null)
-                    continue;
 
                 // FILE WAS DELETED AT TS
                 if (attr.isDeleted() && !qry.isShowDeleted())
@@ -280,11 +390,13 @@ public class StoragePoolHandlerServlet extends HessianServlet implements Storage
         }
 
         // NOW REMOVE ALL BLOCKED NODES FROM UNBLOCKED LIST
-        for (RemoteFSElem elem: ret)
+        for (int i = 0; i < ret.size(); i++)
         {
+            RemoteFSElem elem = ret.get(i);
             if (blockedNodes.containsKey(elem.getName()))
             {
-                ret.remove(elem);
+                ret.remove(i);
+                i--;
             }
         }
 //        for (String blockedNodePath  : blockedNodes.keySet())
@@ -689,6 +801,15 @@ public class StoragePoolHandlerServlet extends HessianServlet implements Storage
         }
 
         throw new UnsupportedOperationException("Not yet implemented");
+    }
+
+    private boolean containsDir(List<RemoteFSElem> ret, String dirName) {
+         for (int i = 0; i < ret.size(); i++) {
+            RemoteFSElem remoteFSElem = ret.get(i);
+            if (remoteFSElem.getPath().equals(dirName))
+                return true;
+        }
+         return false;
     }
 
 }

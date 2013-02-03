@@ -74,7 +74,7 @@ public class StoragePoolHandlerFactory
             JDBCConnectionFactory conn = nubHandler.getConnectionFactory(pool);
             JDBCEntityManager em = new JDBCEntityManager(pool.getIdx(), conn);
             JDBCStoragePoolHandler sp_handler = new JDBCStoragePoolHandler( em, pool, qry );
-
+            
             if (isPersistRunnerEnabled())
             {
                   HandlePersistRunner persistRunner = new HandlePersistRunner();
