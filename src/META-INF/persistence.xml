@@ -71,6 +71,7 @@
     <class>de.dimm.vsm.records.MailNotifications</class>
     <class>de.dimm.vsm.records.MailGroup</class>
     <class>de.dimm.vsm.records.SmtpLoginData</class>
+    <class>de.dimm.vsm.records.MountEntry</class>
     <properties>
       <property name="eclipselink.target-database" value="org.eclipse.persistence.platform.database.DerbyPlatform"/>
       <property name="javax.persistence.jdbc.url" value="jdbc:derby:db/VSMBase;create=true"/>

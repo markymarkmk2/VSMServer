@@ -90,7 +90,7 @@ public class StoragePoolHandlerServlet extends HessianServlet implements Storage
         if (isInsideMappingDir(handler, path))
         {
             FileSystemElemNode dummy = FileSystemElemNode.createDirNode();
-            long now = System.currentTimeMillis();
+            long now = handler.getPool().getRootDir().getAttributes().getCreationDateMs();
             RemoteFSElem elem = new RemoteFSElem(path, FileSystemElemNode.FT_DIR, now, now, now, 0, 0);
             return elem;
         }
@@ -181,20 +181,14 @@ public class StoragePoolHandlerServlet extends HessianServlet implements Storage
         return version;
     }
 
-//    @Override
-//    public long open_file_handle_no( StoragePoolWrapper pool, String path, boolean create ) throws IOException
-//    {
-//        StoragePoolHandler handler = contextManager.getHandlerbyWrapper(pool);
-//        return handler.open_file_handle_no(path, create);
-//    }
-
 
     public long open_fh( StoragePoolWrapper pool, long nodeIdx, boolean create ) throws IOException, PoolReadOnlyException, SQLException, PathResolveException
-    {
+    {        
         StoragePoolHandler handler = poolContextManager.getHandlerbyWrapper(pool);
 
         return handler.open_fh(nodeIdx, create);
     }
+    
     public long open_stream( StoragePoolWrapper pool, long nodeIdx, boolean create ) throws IOException, PoolReadOnlyException, SQLException, PathResolveException
     {
         StoragePoolHandler handler = poolContextManager.getHandlerbyWrapper(pool);
@@ -205,17 +199,38 @@ public class StoragePoolHandlerServlet extends HessianServlet implements Storage
     @Override
     public long open_fh( StoragePoolWrapper pool, RemoteFSElem fse_node, boolean create ) throws IOException, PoolReadOnlyException, SQLException, PathResolveException
     {
+        if (!create) {
+            return open_fh(pool, fse_node.getIdx(), false);
+        }
+        return create_fh( pool, fse_node);
+    }
+    
+    public long create_fh( StoragePoolWrapper pool,  RemoteFSElem fse_node) throws IOException, PoolReadOnlyException, SQLException, PathResolveException
+    {        
         StoragePoolHandler handler = poolContextManager.getHandlerbyWrapper(pool);
+        FileSystemElemNode e = handler.create_fse_node_complete ( fse_node.getPath(), 
+                fse_node.isDirectory() ? FileSystemElemNode.FT_DIR : FileSystemElemNode.FT_FILE);
 
-        return handler.open_fh(fse_node.getIdx(), create);
+        return handler.open_fh(e, true);
+        
     }
 
     @Override
     public long open_stream( StoragePoolWrapper pool, RemoteFSElem fse_node, boolean create ) throws IOException, PoolReadOnlyException, SQLException, PathResolveException
     {
+        if (!create) {
+            return open_stream(pool, fse_node.getIdx(), create);
+        }
+        return create_stream( pool, fse_node);
+    }
+    
+    public long create_stream( StoragePoolWrapper pool,  RemoteFSElem fse_node) throws IOException, PoolReadOnlyException, SQLException, PathResolveException
+    {        
         StoragePoolHandler handler = poolContextManager.getHandlerbyWrapper(pool);
+        FileSystemElemNode e = handler.create_fse_node_complete ( fse_node.getPath(), 
+                fse_node.isDirectory() ? FileSystemElemNode.FT_DIR : FileSystemElemNode.FT_FILE);
 
-        return handler.open_stream(fse_node.getIdx(), create);
+        return handler.open_stream(e, true);        
     }
     
     public List<RemoteFSElem> mappedUserDir(StoragePoolHandler handler, RemoteFSElem node) {
@@ -262,8 +277,7 @@ public class StoragePoolHandlerServlet extends HessianServlet implements Storage
                     if (containsDir(ret, newPath))
                         continue;
                     
-                    long now = System.currentTimeMillis();                    
-
+                    long now = handler.getPool().getRootDir().getAttributes().getCreationDateMs();
                     remoteNode = new RemoteFSElem(newPath, FileSystemElemNode.FT_DIR, now,now,now,0,0);
                 }
                 ret.add(remoteNode);                
