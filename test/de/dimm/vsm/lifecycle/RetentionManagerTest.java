@@ -272,6 +272,14 @@ public class RetentionManagerTest {
         String ba_path = "z:\\unittest\\retentiondata";
         String restore_path = "z:\\unittest\\unittestrestore";
         String restore_path_data = "z:\\unittest\\unittestrestore\\retentiondata";
+        
+                if (StoragePoolHandlerTest.isMac()) {
+            ba_path = "/Users/mw/Documents/VSM/unittest/retentiondata";
+             restore_path = "/Users/mw/Documents/VSM/unittest/unittestrestore";
+             restore_path_data = "/Users/mw/Documents/VSM/unittest/unittestrestore/retentiondata";
+
+        }
+
         File rf = new File( restore_path_data );
         rf.mkdir();
 
@@ -309,7 +317,7 @@ public class RetentionManagerTest {
         {
             apiEntry = LogicControl.getApiEntry(ip, port);
             RemoteFSElem direlem = new RemoteFSElem(ba_path, FileSystemElemNode.FT_DIR, 0, 0, 0, 0, 0);
-            RemoteFSElem fileelem = new RemoteFSElem(ba_path + "\\testfile.dat", FileSystemElemNode.FT_FILE, 0, 0, 0, 0, 0);
+            RemoteFSElem fileelem = new RemoteFSElem(ba_path + "/testfile.dat", FileSystemElemNode.FT_FILE, 0, 0, 0, 0, 0);
 
             expResult = apiEntry.getApi().list_dir(direlem, true);
 
@@ -603,7 +611,7 @@ public class RetentionManagerTest {
             fail("Unknown host: " + unknownHostException.getMessage());
         }
 
-        RestoreTest.compareDirLists( apiEntry, expResult, restoreResult, /*mtime*/ false);
+        RestoreTest.compareDirLists( apiEntry, expResult, restoreResult, /*mtime*/ false, /*atime*/StoragePoolHandlerTest.isWin());
 
         byte b1 = readTestFile( restoreTestfile, 1*bs ); // FIRST UPDATE, PROTECTED BY S1
         byte b2 = readTestFile( restoreTestfile, 2*bs );// SECOND UPDATE, PROTECTED BY S2
