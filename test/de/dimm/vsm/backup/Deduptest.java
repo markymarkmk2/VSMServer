@@ -499,7 +499,7 @@ get_fs_handle_for_dedupblock(hb_orig.get(0));
             fail("Unknown host: " + unknownHostException.getMessage());
         }
 
-        RestoreTest.compareDirLists( apiEntry, expResult, restoreResult, /*mtime*/ false);
+        RestoreTest.compareDirLists( apiEntry, expResult, restoreResult, /*mtime*/ false, /*atime*/StoragePoolHandlerTest.isWin());
 
         byte b1 = readTestFile( restoreTestfile, 1*bs ); // FIRST UPDATE, PROTECTED BY S1
         byte b2 = readTestFile( restoreTestfile, 2*bs );// SECOND UPDATE, PROTECTED BY S2

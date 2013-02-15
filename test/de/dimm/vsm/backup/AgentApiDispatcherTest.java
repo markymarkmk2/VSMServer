@@ -5,6 +5,7 @@
 
 package de.dimm.vsm.backup;
 
+import de.dimm.vsm.fsengine.StoragePoolHandlerTest;
 import de.dimm.vsm.net.interfaces.AgentApi;
 import java.io.IOException;
 import java.util.Properties;
@@ -69,8 +70,14 @@ public class AgentApiDispatcherTest {
 
                     apie.close();
 
-                    assertTrue(System.getProperty("os.name").startsWith("Win"));
-                    assertTrue(p.getProperty(AgentApi.OP_OS).startsWith("Win"));
+                    if (StoragePoolHandlerTest.isWin()) {
+                        assertTrue(System.getProperty("os.name").startsWith("Win"));
+                        assertTrue(p.getProperty(AgentApi.OP_OS).startsWith("Win"));
+                    }
+                    if (StoragePoolHandlerTest.isMac()) {
+                        assertTrue(System.getProperty("os.name").startsWith("Mac"));
+                        assertTrue(p.getProperty(AgentApi.OP_OS).startsWith("Mac"));
+                    }
 
                 }
                 catch (Exception e)
@@ -86,8 +93,14 @@ public class AgentApiDispatcherTest {
                 {
 
                     Properties p = apie.getApi().get_properties();
-                    assertTrue(System.getProperty("os.name").startsWith("Win"));
-                    assertTrue(p.getProperty(AgentApi.OP_OS).startsWith("Win"));
+                    if (StoragePoolHandlerTest.isWin()) {
+                        assertTrue(System.getProperty("os.name").startsWith("Win"));
+                        assertTrue(p.getProperty(AgentApi.OP_OS).startsWith("Win"));
+                    }
+                    if (StoragePoolHandlerTest.isMac()) {
+                        assertTrue(System.getProperty("os.name").startsWith("Mac"));
+                        assertTrue(p.getProperty(AgentApi.OP_OS).startsWith("Mac"));
+                    }
 
                 }
                 catch (Exception e)

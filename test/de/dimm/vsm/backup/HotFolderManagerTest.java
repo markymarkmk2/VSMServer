@@ -72,9 +72,13 @@ public class HotFolderManagerTest {
 //        {
 //            fail( sQLException.getMessage() );
 //        }
+        String hf = "z:/unittest/hotfolder";
+        if (StoragePoolHandlerTest.isMac())
+            hf = "/Users/mw/Documents/VSM/unittest/hotfolder";
+        
         HotFolder hotFolder = new HotFolder();
         StoragePoolHandler pool_handler = StoragePoolHandlerTest.getSp_handler();
-        RemoteFSElem fse = new RemoteFSElem("z:/unittest/hotfolder", FileSystemElemNode.FT_DIR, 0, 0, 0, 0, 0);
+        RemoteFSElem fse = new RemoteFSElem( hf, FileSystemElemNode.FT_DIR, 0, 0, 0, 0, 0);
 
         String data = "DummeSau,Du!!";
         hotFolder.setIp("127.0.0.1");
@@ -88,10 +92,10 @@ public class HotFolderManagerTest {
 
         //LogicControl.get_base_util_em().nativeCall("delete * from HotFolderError where hotfolder_idx=0" );
 
-        File f = new File("z:/unittest/hotfolder/A123456");
+        File f = new File(hf + "/A123456");
         if (!f.exists())
             f.mkdirs();
-        f = new File("z:/unittest/hotfolder/A123456/Data.txt");
+        f = new File(hf + "/A123456/Data.txt");
         try
         {
             FileOutputStream fis = new FileOutputStream(f);

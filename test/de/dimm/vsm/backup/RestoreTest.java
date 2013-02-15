@@ -86,6 +86,7 @@ public class RestoreTest {
 
         try
         {
+            if (StoragePoolHandlerTest.isWin()) {
             assertTrue(f.exists());
 
 //            FileSystem fs = FileSystems.getDefault();
@@ -98,7 +99,7 @@ public class RestoreTest {
 
             assertTrue(f.exists());
 
-
+            }
 
 //            file = fs.getPath(f.getAbsolutePath());
 //            assertTrue(file.exists());
@@ -117,12 +118,15 @@ public class RestoreTest {
     @Test
     public void testExcludes()
     {
+        String ut = "Z:\\unittest\\unittestdata";
+        if (StoragePoolHandlerTest.isMac()) 
+            ut = "/Users/mw/Documents/VSM/unittest/unittestdata";
         assertTrue(Excludes.checkExclude(new Excludes("excl", /*dir*/true, /*fullPath*/false, /*includeM*/false, /*ignoreCase*/true, Excludes.MD_BEGINS_WITH) ,
-                new RemoteFSElem(new File("Z:\\unittest\\unittestdata\\a\\ExclFolder"))));
-        assertTrue(Excludes.checkExclude(new Excludes("Z:\\unittest\\unittestdata\\a\\Excl", /*dir*/true, /*fullPath*/true, /*includeM*/false, /*ignoreCase*/false, Excludes.MD_BEGINS_WITH) ,
-                new RemoteFSElem(new File("Z:\\unittest\\unittestdata\\a\\ExclFolder"))));
-        assertFalse(Excludes.checkExclude(new Excludes("Z:\\unittest\\unittestdata\\a\\Excl", /*dir*/true, /*fullPath*/true, /*includeM*/true, /*ignoreCase*/false, Excludes.MD_BEGINS_WITH) ,
-                new RemoteFSElem(new File("Z:\\unittest\\unittestdata\\a\\ExclFolder"))));
+                new RemoteFSElem(new File(ut + "/a/ExclFolder"))));
+        assertTrue(Excludes.checkExclude(new Excludes(ut + "/a/Excl", /*dir*/true, /*fullPath*/true, /*includeM*/false, /*ignoreCase*/false, Excludes.MD_BEGINS_WITH) ,
+                new RemoteFSElem(new File(ut + "/a/ExclFolder"))));
+        assertFalse(Excludes.checkExclude(new Excludes(ut + "/a/Excl", /*dir*/true, /*fullPath*/true, /*includeM*/true, /*ignoreCase*/false, Excludes.MD_BEGINS_WITH) ,
+                new RemoteFSElem(new File(ut + "/a/ExclFolder"))));
         assertTrue(Excludes.checkExclude(new Excludes("jpg", /*dir*/false, /*fullPath*/false, /*includeM*/false, /*ignoreCase*/true, Excludes.MD_ENDS_WITH) ,
                 new RemoteFSElem(new File("Blah.JpG"))));
 
@@ -142,7 +146,13 @@ public class RestoreTest {
         String ba_path = "z:\\unittest\\unittestdata";
         String restore_path = "z:\\unittest\\unittestrestore";
         String restore_path_data = "z:\\unittest\\unittestrestore\\unittestdata";
+        if (StoragePoolHandlerTest.isMac()) {
+            ba_path = "/Users/mw/Documents/VSM/unittest/unittestdata";
+             restore_path = "/Users/mw/Documents/VSM/unittest/unittestrestore";
+             restore_path_data = "/Users/mw/Documents/VSM/unittest/unittestrestore/unittestdata";
 
+        }
+            
         
         String ip = "127.0.0.1";
         int port = 8082;
@@ -237,9 +247,9 @@ public class RestoreTest {
             fail("Backup failed: " + exc.getMessage());
         }
 
-        assertNull("Excluded Elem",  pool_handler.resolve_node_by_remote_elem(new RemoteFSElem(new File("Z:\\unittest\\unittestdata\\a\\ExclFile.txt"))) );
+        assertNull("Excluded Elem",  pool_handler.resolve_node_by_remote_elem(new RemoteFSElem(new File("/Users/mw/Documents/VSM/unittest/unittestdata/a/ExclFile.txt"))) );
     
-        assertNull("Excluded Elem",  pool_handler.resolve_node_by_remote_elem(new RemoteFSElem(new File("Z:\\unittest\\unittestdata\\a\\ExclFolder"))) );
+        assertNull("Excluded Elem",  pool_handler.resolve_node_by_remote_elem(new RemoteFSElem(new File("/Users/mw/Documents/VSM/unittest/unittestdata/a/ExclFolder"))) );
 
         
         int flags = GuiServerApi.RF_RECURSIVE;
@@ -275,7 +285,7 @@ public class RestoreTest {
             fail("Unknown Exception: " + exc.getMessage());
         }
 
-        compareDirLists( apiEntry, expResult, restoreResult, /*mtime*/ true);
+        compareDirLists( apiEntry, expResult, restoreResult, /*mtime*/ true, /*atime*/StoragePoolHandlerTest.isWin());
 
         flags = GuiServerApi.RF_RECURSIVE | GuiServerApi.RF_COMPRESSION | GuiServerApi.RF_ENCRYPTION;
 
@@ -310,10 +320,10 @@ public class RestoreTest {
             fail("Unknown Exception: " + exc.getMessage());
         }
 
-        compareDirLists( apiEntry, expResult, restoreResult, /*mtime*/ true);
+        compareDirLists( apiEntry, expResult, restoreResult, /*mtime*/ true, /*atime*/StoragePoolHandlerTest.isWin());
     }
     
-    public static void compareDirLists( AgentApiEntry apiEntry, List<RemoteFSElem> l1, List<RemoteFSElem> l2, boolean check_mtime )
+    public static void compareDirLists( AgentApiEntry apiEntry, List<RemoteFSElem> l1, List<RemoteFSElem> l2, boolean check_mtime, boolean check_atime )
     {
         for (int i = 0; i < l1.size(); i++)
         {
@@ -347,7 +357,7 @@ public class RestoreTest {
             {
                  List<RemoteFSElem> ll1 = apiEntry.getApi().list_dir(r1, true);
                  List<RemoteFSElem> ll2 = apiEntry.getApi().list_dir(r2, true);
-                 compareDirLists( apiEntry, ll1, ll2, check_mtime );
+                 compareDirLists( apiEntry, ll1, ll2, check_mtime, check_atime );
             }
             else
             {
@@ -355,7 +365,8 @@ public class RestoreTest {
             }
 
             assertEquals(oname + "Filenames", r1.getName(), r2.getName());
-            assertEquals(oname + "Atime", r1.getAtimeMs(), r2.getAtimeMs());
+            if (check_atime)
+                assertEquals(oname + "Atime", r1.getAtimeMs(), r2.getAtimeMs());
             if (check_mtime)
                 assertEquals(oname + "Mtime", r1.getMtimeMs(), r2.getMtimeMs());
             if ( r1.getStreamSize() != r2.getStreamSize())
