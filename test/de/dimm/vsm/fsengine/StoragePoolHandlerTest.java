@@ -75,6 +75,17 @@ public class StoragePoolHandlerTest
     {
         return sp_handler;
     }
+    
+    public static boolean isWin()
+    {
+        String osName = System.getProperty("os.name");   
+        return (osName.startsWith("Win"));
+    }
+    public static boolean isMac()
+    {
+        String osName = System.getProperty("os.name");   
+        return (osName.startsWith("Mac") || osName.startsWith("Dar"));
+    }
 
     static String jdbcConnectString = "untitTest";
     static boolean rebuild =true;
@@ -83,7 +94,10 @@ public class StoragePoolHandlerTest
         // em = LogicControl.get_util_em();
 
         fs_node = AbstractStorageNode.createFSNode();
-        fs_node.setMountPoint("z:\\unittest\\testnode");
+        if (isWin())
+            fs_node.setMountPoint("z:\\unittest\\testnode");
+        if (isMac())
+            fs_node.setMountPoint("/Users/mw/Documents/VSM/unittest/testnode");
         fs_node.setNodeMode(AbstractStorageNode.NM_ONLINE);
         fs_node.setName("UnitTestNode1");
 
