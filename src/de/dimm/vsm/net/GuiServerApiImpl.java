@@ -29,6 +29,7 @@ import de.dimm.vsm.records.ArchiveJob;
 import de.dimm.vsm.records.FileSystemElemNode;
 import de.dimm.vsm.records.HotFolder;
 import de.dimm.vsm.records.MessageLog;
+import de.dimm.vsm.records.MountEntry;
 import de.dimm.vsm.records.Role;
 import de.dimm.vsm.records.Schedule;
 import de.dimm.vsm.records.StoragePool;
@@ -377,14 +378,14 @@ public class GuiServerApiImpl implements GuiServerApi
     public StoragePoolWrapper openPoolView( StoragePool pool, boolean rdonly, FileSystemElemNode node, User user )
     {
         StoragePoolHandlerContextManager contextMgr = control.getPoolHandlerServlet().getContextManager();
-        final StoragePoolWrapper poolWrapper = contextMgr.createPoolWrapper("", 0, pool, rdonly, false, node, user, "");
+        final StoragePoolWrapper poolWrapper = contextMgr.createPoolWrapper("", 0, pool, -1, rdonly, false, node, user, "");
         return poolWrapper;
     }
     @Override
     public StoragePoolWrapper openPoolView( StoragePool pool, boolean rdonly, boolean showDeleted, FileSystemElemNode node, User user )
     {
         StoragePoolHandlerContextManager contextMgr = control.getPoolHandlerServlet().getContextManager();
-        final StoragePoolWrapper poolWrapper = contextMgr.createPoolWrapper("", 0, pool, rdonly, showDeleted, node, user, "");
+        final StoragePoolWrapper poolWrapper = contextMgr.createPoolWrapper("", 0, pool, -1, rdonly, showDeleted, node, user, "");
         return poolWrapper;
     }
 
@@ -814,6 +815,30 @@ public class GuiServerApiImpl implements GuiServerApi
     public List<String> getCheckNames(Class<?> clazz) {
         return control.getCheckManager().getCheckNames(clazz);
     }
+
+    @Override
+    public List<MountEntry> getMountedMountEntries()
+    {
+        return control.getAutoMountManager().getMountList();
+    }
+    @Override
+    public List<MountEntry> getAllMountEntries()
+    {
+        return control.getAutoMountManager().getMountEntryList();
+    }
+
+    @Override
+    public StoragePoolWrapper mountEntry( User user, MountEntry mountEntry )
+    {
+        return control.getAutoMountManager().mountEntry( user, this, mountEntry );
+    }
+
+    @Override
+    public void unMountEntry( MountEntry mountEntry )
+    {
+        control.getAutoMountManager().unMountEntry( this, mountEntry );
+    }
+    
 
 
 

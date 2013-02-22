@@ -18,6 +18,7 @@ import de.dimm.vsm.fsengine.StoragePoolHandlerFactory;
 import de.dimm.vsm.fsengine.StoragePoolNubHandler;
 import de.dimm.vsm.jobs.JobInterface;
 import de.dimm.vsm.mail.NotificationEntry;
+import de.dimm.vsm.net.IAgentIdleManager;
 import de.dimm.vsm.net.RemoteFSElem;
 import de.dimm.vsm.records.HotFolder;
 import de.dimm.vsm.records.HotFolderError;
@@ -34,7 +35,7 @@ import java.util.List;
  *
  * @author Administrator
  */
-public class HotFolderManager extends WorkerParent implements VariableResolver
+public class HotFolderManager extends WorkerParent implements VariableResolver, IAgentIdleManager
 {  
     StoragePoolNubHandler nubHandler;
     ArchiveJobContext actualContext;
@@ -84,7 +85,6 @@ public class HotFolderManager extends WorkerParent implements VariableResolver
         return false;
     }
 
-
    
 
     @Override
@@ -115,33 +115,48 @@ public class HotFolderManager extends WorkerParent implements VariableResolver
         return true;
     }
 
+    @Override
+    public int getCycleSecs() {
+        return 5;
+    }
 
+    
 
+    @Override
+    public void startIdle()
+    {
+        
+    }
+    @Override
+    public void stopIdle()
+    {
+        
+    }
+    @Override
+    public void doIdle() 
+    {
+        if (isPaused())
+            return;         
+                   
+        try
+        {
+            checkHotfolders();
+        }
+        catch (Exception e)
+        {
+            Log.err("Fehler beim Auswerten des Hotfolders", e);
+        } 
+    }
 
+    // IS HANDLED INSIDE AgentIdleManager
     @Override
     public void run()
     {
-        int cnt = 0;
+        
         while (!isShutdown())
         {
             LogicControl.sleep(1000);
 
-            if (isPaused())
-                continue;
-
-            cnt++;
-            // ALLE 5 SEK
-            if ((cnt % 5) == 0)
-            {
-                try
-                {
-                    checkHotfolders();
-                }
-                catch (Exception e)
-                {
-                    Log.err("Fehler beim Auswerten des Hotfolders", e);
-                }
-            }
         }
         
         finished = true;

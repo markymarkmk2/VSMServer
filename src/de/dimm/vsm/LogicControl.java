@@ -27,6 +27,8 @@ import de.dimm.vsm.log.VSMLogger;
 import de.dimm.vsm.mail.NotificationEntry;
 import de.dimm.vsm.mail.NotificationServer;
 import de.dimm.vsm.mail.SmtpNotificationServer;
+import de.dimm.vsm.net.AgentIdleManager;
+import de.dimm.vsm.net.AutoMountManager;
 import de.dimm.vsm.net.CDPManager;
 import de.dimm.vsm.net.FixHashUrlBug;
 import de.dimm.vsm.net.LogQuery;
@@ -103,9 +105,9 @@ public class LogicControl
     CDPManager cdpManager;
     NotificationServer notificationServer;
     CheckManager checkManager;
+    AutoMountManager autoMountManager;
+    AgentIdleManager agentIdleManager;
     
-
-
 
     ArrayList<WorkerParent> workerList;
     TaskPreferences taskPrefs;
@@ -243,12 +245,27 @@ public class LogicControl
         return backupmanager;
     }
 
+    public HotFolderManager getHfManager() {
+        return hfManager;
+    }
 
+    public CDPManager getCdpManager() {
+        return cdpManager;
+    }
 
+    public AutoMountManager getAutoMountManager()
+    {
+        return autoMountManager;
+    }
+    
+    
 
-
-
-
+    
+    public AgentIdleManager getAgentIdleManager() {
+        return agentIdleManager;
+    }
+    
+    
     public static class LicenseHandler
     {
 
@@ -355,6 +372,12 @@ public class LogicControl
         
         checkManager = new CheckManager();
         workerList.add(checkManager);
+        
+        autoMountManager = new AutoMountManager();
+        workerList.add(autoMountManager);
+        
+        agentIdleManager = new AgentIdleManager(storagePoolNubHandler);
+        workerList.add(agentIdleManager);
 
 
         List<Role> roles = null;
@@ -411,15 +434,13 @@ public class LogicControl
     {
         if (notificationServer == null)
             return;
-
-
         notificationServer.addNotificationEntry( e );
     }
+    
     public List<NotificationEntry> listNotificationEntries()
     {
         return notificationServer.listNotificationEntries();
     }
-
 
     public void addScheduler( Backup sch )
     {
@@ -435,6 +456,7 @@ public class LogicControl
         }
         schedulerList.add( sch );
     }
+    
     public boolean abortScheduler( Schedule sched )
     {
         for (int i = 0; i < schedulerList.size(); i++)
@@ -488,12 +510,9 @@ public class LogicControl
             netServer.addServletHolder("client/*", guiServlet);
             netServer.addServletHolder("VAADIN/*", guiServlet);
 
-
-
             searchServlet = VaadinWysiwyg.createGuiServlet("de.dimm.vsm.vaadin.VSMSearchApplication");
             
             netServer.addServletHolder("search/*", searchServlet);
-
 
             netServer.start_server(Main.getServerPort(), false, "vsmkeystore2.jks", "123456");
         }
@@ -523,7 +542,6 @@ public class LogicControl
 
             netServer.addServletHolder("client/*", guiServlet);
             netServer.addServletHolder("VAADIN/*", guiServlet);
-
 
 
             searchServlet = VaadinWysiwyg.createGuiServlet("de.dimm.vsm.vaadin.VSMSearchApplication");

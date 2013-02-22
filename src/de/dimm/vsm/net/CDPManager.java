@@ -10,6 +10,7 @@ import de.dimm.vsm.Main;
 import de.dimm.vsm.WorkerParent;
 import de.dimm.vsm.backup.AgentApiEntry;
 import de.dimm.vsm.fsengine.GenericEntityManager;
+import de.dimm.vsm.net.IAgentIdleManager;
 import de.dimm.vsm.net.interfaces.AgentApi;
 import de.dimm.vsm.records.ClientVolume;
 import de.dimm.vsm.records.Excludes;
@@ -60,7 +61,7 @@ class CDPTicketEntry
  *
  * @author Administrator
  */
-public class CDPManager extends WorkerParent
+public class CDPManager extends WorkerParent implements IAgentIdleManager
 {
     
     final List<CDPTicketEntry> cdpEntries;
@@ -175,60 +176,85 @@ public class CDPManager extends WorkerParent
         setStatusTxt("");
     }
 
+    boolean isInPause;
+    int last_minute_checked = -1;
+    GregorianCalendar cal;
+
+    @Override
+    public int getCycleSecs() {
+        return 10;
+    }
+    
+    
+    @Override
+    public void startIdle()
+    {
+        isInPause = isPaused();  
+        cal = new GregorianCalendar();
+        last_minute_checked = -1;     
+    }
+    /**
+     *
+     */
+    @Override
+    public void stopIdle()
+    {
+        // STOP ON SHUTDOWN
+        stopAllStarted();  
+    }
+
+    // IS HANDLED INSIDE AgentIdleManager
     @Override
     public void run()
     {
-        int last_minute_checked = -1;
-        GregorianCalendar cal = new GregorianCalendar();
-        boolean isInPause = isPaused();
-
         while (!isShutdown())
         {
-            LogicControl.sleep(10*1000);
-            if (isShutdown())
-                break;
-
-            if (isInPause != isPaused())
-            {
-                if (isPaused())
-                {
-                    setStatusTxt(Main.Txt("Stoppe Client-Dienste"));
-                    stopAllStarted();
-                }
-                isInPause = isPaused();
-            }
+            LogicControl.sleep(1*1000);
+                       
+        }     
+        finished = true;
+    }
+    
+    @Override
+    public void doIdle()
+    {
+        if (isInPause != isPaused())
+        {
             if (isPaused())
             {
-                continue;
+                setStatusTxt(Main.Txt("Stoppe Client-Dienste"));
+                stopAllStarted();
             }
-
-            // START ALL PENDING ENTRIES
-            startAllStopped();
-
-           
-            cal.setTime(new Date());
-            int minute = cal.get(GregorianCalendar.MINUTE);
-            if (minute == last_minute_checked)
-            {
-                continue;
-            }
-            last_minute_checked = minute;
-            
-            // ONCE A MINUTE REREAD CLIENTVOL LIST
-            try
-            {
-                setStatusTxt(Main.Txt("Lese Clientvolumes"));
-                fillClientVolList();
-                setStatusTxt("");
-            }
-            catch (SQLException sQLException)
-            {
-                Log.err("ClientvolumeList nicht lesbar", sQLException);
-            }
+            isInPause = isPaused();
+        }
+        if (isPaused())
+        {
+            return;
         }
 
-        // STOP ON SHUTDOWN
-        stopAllStarted();
+        // START ALL PENDING ENTRIES
+        startAllStopped();
+
+
+        cal.setTime(new Date());
+        int minute = cal.get(GregorianCalendar.MINUTE);
+        if (minute == last_minute_checked)
+        {
+            return;
+        }
+        last_minute_checked = minute;
+
+        // ONCE A MINUTE REREAD CLIENTVOL LIST
+        try
+        {
+            setStatusTxt(Main.Txt("Lese Clientvolumes"));
+            fillClientVolList();
+            setStatusTxt("");
+        }
+        catch (SQLException sQLException)
+        {
+            Log.err("ClientvolumeList nicht lesbar", sQLException);
+        }        
     }
 
     @Override
