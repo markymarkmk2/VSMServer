@@ -25,6 +25,8 @@ import de.dimm.vsm.fsengine.GenericEntityManager;
 import de.dimm.vsm.fsengine.JDBCEntityManager;
 import de.dimm.vsm.fsengine.JDBCStoragePoolHandler;
 import de.dimm.vsm.jobs.InteractionEntry;
+import de.dimm.vsm.net.CdpEvent;
+import de.dimm.vsm.net.CdpTicket;
 import de.dimm.vsm.net.ScheduleStatusEntry;
 import de.dimm.vsm.records.ClientInfo;
 import de.dimm.vsm.records.ClientVolume;
@@ -68,8 +70,6 @@ import java.util.concurrent.FutureTask;
 
 
 
-
-
 /**
  *
  * @author Administrator
@@ -95,7 +95,6 @@ public class Backup
    // List<Schedule> schedules;
     Schedule sched;
     
-    //ClientContext context;
 
     
     public static boolean speed_test_no_db= false;
@@ -105,9 +104,7 @@ public class Backup
     private boolean finished = false;
     private BackupContext actualContext;
 
-
     private static boolean withBootstrap = true;
-
     
     public Backup(Schedule sched)
     {
@@ -120,6 +117,8 @@ public class Backup
         abort = false;
 
         withBootstrap = Main.get_bool_prop(GeneralPreferences.WITH_BOOTSTRAP, true);
+
+        
     }
 
     private void baNotify( String key, String extraText, VariableResolver vr )
@@ -180,6 +179,35 @@ public class Backup
         }
 
         return sb.toString();
+    }
+
+    public class BackupCDPTicket
+    {
+        List<CdpEvent> fileList;
+        CdpTicket ticket;
+
+        public BackupCDPTicket( List<CdpEvent> fileList, CdpTicket ticket )
+        {
+            this.fileList = fileList;
+            this.ticket = ticket;
+        }
+        public BackupCDPTicket( CdpEvent file, CdpTicket ticket )
+        {
+            this.fileList = new ArrayList<>();
+            fileList.add(file);
+            this.ticket = ticket;
+        }
+
+        public List<CdpEvent> getFileList()
+        {
+            return fileList;
+        }
+
+        public CdpTicket getTicket()
+        {
+            return ticket;
+        }
+
     }
 
     public class BackupJobInterface implements JobInterface
@@ -424,6 +452,27 @@ public class Backup
                     //jem.writeCacheStatistics(JDBCEntityManager.DEDUPBLOCK_CACHE);
                 }
             }
+        }
+
+        public boolean addCDPEvent( List<CdpEvent> fileList, CdpTicket ticket )
+        {
+            if (actualContext != null)
+            {
+                BackupCDPTicket cdpTicket = new BackupCDPTicket(fileList, ticket);
+                actualContext.addCDPTicket(cdpTicket);
+                return true;
+            }
+            return false;
+        }
+        public boolean addCDPEvent( CdpEvent file, CdpTicket ticket )
+        {
+            if (actualContext != null)
+            {
+                BackupCDPTicket cdpTicket = new BackupCDPTicket(file, ticket);
+                actualContext.addCDPTicket(cdpTicket);
+                return true;
+            }
+            return false;
         }
     }
 
@@ -1171,9 +1220,50 @@ public class Backup
                 unrealizeChildren( node );
                 context.poolhandler.em_detach(node);
             }
+
+            checkCDPTickets( context );
         }
         context.getIndexer().checkFlushAsync();
     }
+
+    static void checkCDPTickets(  GenericContext context ) throws PathResolveException, SQLException, PoolReadOnlyException, Throwable
+    {
+        if (context instanceof BackupContext)
+        {
+            BackupContext bc = (BackupContext)context;
+            BackupCDPTicket ticket = bc.getCDPTicket();
+            while( ticket != null)
+            {
+                handleCDPTicketBackup( context, ticket );
+                ticket = bc.getCDPTicket();
+            }
+        }
+    }
+
+    static void handleCDPTicketBackup( GenericContext context, BackupCDPTicket ticket ) throws PathResolveException, SQLException, PoolReadOnlyException, Throwable
+    {
+        ticket.getFileList();
+        for (CdpEvent ev : ticket.getFileList())
+        {
+            FileSystemElemNode node = null;
+            RemoteFSElem remoteFSElem = ev.getElem();
+
+            // DETECT PATH IN STORAGE
+            String abs_path = context.getRemoteElemAbsPath(remoteFSElem );
+
+            // RESOLVE PATH TO NODE IF POSSIBLE
+            node = context.poolhandler.resolve_elem_by_path( abs_path );
+         
+            // MAP NODE IN THIS CONTEXT
+            if (node != null)
+            {
+                node = context.poolhandler.em_find(FileSystemElemNode.class, node.getIdx());
+            }
+            backupRemoteFSElem(context, remoteFSElem, node, /* recursive*/ true, /*onlyNewer*/ false );
+        }
+
+    }
+
 
     static void unrealizeChildren(FileSystemElemNode node)
     {

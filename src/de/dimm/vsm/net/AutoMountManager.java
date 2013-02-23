@@ -142,10 +142,13 @@ public class AutoMountManager extends WorkerParent implements IAgentIdleManager
                     if (wr.getMountEntryKey() == null)
                         continue;
                     MountEntry me = mountEntriesMap.get( wr.getMountEntryKey() );
-                    if (me != null)
+                    if (me == null)
                         continue;
                     
-                    mountList.add( me );
+                    if (!mountList.contains( mountEntry))
+                    {
+                        mountList.add( me );
+                    }
                 } 
             }
             catch (Exception ex)

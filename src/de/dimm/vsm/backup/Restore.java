@@ -66,8 +66,7 @@ public class Restore
     }
     public Restore(StoragePoolHandler poolHandler, ArchiveJob job, int flags, StoragePoolQry qry, InetAddress targetIP, int targetPort, RemoteFSElem target) throws IOException
     {
-        long now = System.currentTimeMillis();
-        RemoteFSElem jobDir = new RemoteFSElem(target.getPath() + "/" + job.getName(), FileSystemElemNode.FT_DIR, now, now, now, 0, 0);
+        RemoteFSElem jobDir = RemoteFSElem.createDir(target.getPath() + "/" + job.getName());
 
         List<FileSystemElemNode> list = new ArrayList<FileSystemElemNode>();
         list.add(job.getDirectory());

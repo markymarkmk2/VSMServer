@@ -43,7 +43,7 @@ public class Main
 {
 
     static String source_str = "trunk";
-    static String version_str = "1.3.8";
+    static String version_str = "1.4.0";
         
     public static int writeThreads = 1;
     public static int maxOpenFiles = 1024;
@@ -294,7 +294,7 @@ public class Main
                 if (list.size() > 0)
                     serverIp = list.get(0);
             }
-            Log.info("ServerIP", serverIp.toString());
+            //Log.info("ServerIP", serverIp.toString());
         }
         catch ( Exception exc )
         {

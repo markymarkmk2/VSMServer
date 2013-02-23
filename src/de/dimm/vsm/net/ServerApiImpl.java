@@ -9,6 +9,7 @@ import de.dimm.vsm.LogicControl;
 import de.dimm.vsm.log.Log;
 import de.dimm.vsm.Main;
 import de.dimm.vsm.backup.AgentApiEntry;
+import de.dimm.vsm.backup.Backup.BackupJobInterface;
 import de.dimm.vsm.backup.BackupManager;
 import de.dimm.vsm.fsengine.GenericEntityManager;
 import de.dimm.vsm.jobs.JobInterface;
@@ -75,10 +76,18 @@ public class ServerApiImpl implements ServerApi
                 Log.warn("Ignoriere leeren CDP-Call",  file.toString());
                 return false;
             }
-            if (jm.isPoolBusy(ticket.getPoolIdx()))
+            if (jm.isPoolBusyCDP(ticket.getPoolIdx()))
             {
-                Log.debug("Stoppe CDP-Call da Pool aktiv ist");
+                Log.debug("Stoppe CDP-Call da Pool aktiv mit CDP ist");
                 return false;
+            }
+            if (jm.isPoolBusyBackup(ticket.getPoolIdx()))
+            {
+                Log.debug("Registriere CDP-Call bei aktivem Backup");
+                BackupJobInterface bi = jm.getPoolBusyBackup(ticket.getPoolIdx());
+                bi.addCDPEvent( file, ticket );
+
+                return true;
             }
             final StoragePool pool = Main.get_control().getStoragePool(ticket.getPoolIdx());
             GenericEntityManager em = Main.get_control().get_util_em(pool);
@@ -141,10 +150,18 @@ public class ServerApiImpl implements ServerApi
                 Log.warn("Ignoriere ungültigen CDP-Call, Ticket fehlt");
                 return false;
             }
-            if (jm.isPoolBusy(ticket.getPoolIdx()))
+            if (jm.isPoolBusyCDP(ticket.getPoolIdx()))
             {
                 Log.debug("Stoppe CDP-Call da Pool aktiv ist");
                 return false;
+            }
+            if (jm.isPoolBusyBackup(ticket.getPoolIdx()))
+            {
+                Log.debug("Registriere CDP-Call bei aktivem Backup");
+                BackupJobInterface bi = jm.getPoolBusyBackup(ticket.getPoolIdx());
+                bi.addCDPEvent( fileList, ticket );
+
+                return true;
             }
             for (int i = 0; i < fileList.size(); i++)
             {

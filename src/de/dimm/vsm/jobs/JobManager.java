@@ -393,7 +393,13 @@ public class JobManager extends WorkerParent
         }
         return false;
     }
-    public boolean isPoolBusy(long poolIdx)
+    public boolean isPoolBusyBackup(long poolIdx)
+    {
+        BackupJobInterface bi = getPoolBusyBackup(poolIdx);
+        return (bi != null);
+    }
+    
+    public BackupJobInterface getPoolBusyBackup(long poolIdx)
     {
         JobEntry[] jobs = getJobArray(null);
         for (int i = 0; i < jobs.length; i++)
@@ -407,10 +413,19 @@ public class JobManager extends WorkerParent
                     if (jobEntry.getJobStatus() != JOBSTATE.FINISHED_OK &&
                         jobEntry.getJobStatus() != JOBSTATE.FINISHED_ERROR)
                     {
-                        return true;
+                        return bi;
                     }
                 }
             }
+        }
+        return null;
+    }
+    public boolean isPoolBusyCDP(long poolIdx)
+    {
+        JobEntry[] jobs = getJobArray(null);
+        for (int i = 0; i < jobs.length; i++)
+        {
+            JobEntry jobEntry = jobs[i];
             if (jobEntry.getJob() instanceof BackupManager.CDPJobInterface)
             {
                 BackupManager.CDPJobInterface bi = (BackupManager.CDPJobInterface) jobEntry.getJob();
@@ -425,9 +440,6 @@ public class JobManager extends WorkerParent
             }
         }
         return false;
-
     }
-
- 
 
 }

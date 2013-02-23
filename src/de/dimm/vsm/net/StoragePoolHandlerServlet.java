@@ -89,9 +89,7 @@ public class StoragePoolHandlerServlet extends HessianServlet implements Storage
         StoragePoolHandler handler = poolContextManager.getHandlerbyWrapper(pool);
         if (isInsideMappingDir(handler, path))
         {
-            FileSystemElemNode dummy = FileSystemElemNode.createDirNode();
-            long now = handler.getPool().getRootDir().getAttributes().getCreationDateMs();
-            RemoteFSElem elem = new RemoteFSElem(path, FileSystemElemNode.FT_DIR, now, now, now, 0, 0);
+            RemoteFSElem elem = RemoteFSElem.createDir(path);
             return elem;
         }
         path = resolveMappingDir( handler, path);
@@ -276,9 +274,8 @@ public class StoragePoolHandlerServlet extends HessianServlet implements Storage
                     
                     if (containsDir(ret, newPath))
                         continue;
-                    
-                    long now = handler.getPool().getRootDir().getAttributes().getCreationDateMs();
-                    remoteNode = new RemoteFSElem(newPath, FileSystemElemNode.FT_DIR, now,now,now,0,0);
+                                        
+                    remoteNode = RemoteFSElem.createDir(newPath);
                 }
                 ret.add(remoteNode);                
             }
@@ -738,7 +735,7 @@ public class StoragePoolHandlerServlet extends HessianServlet implements Storage
         try
         {
             InetAddress adr = InetAddress.getByName(targetIP);
-            RemoteFSElem target = new RemoteFSElem(targetPath, FileSystemElemNode.FT_DIR, 0, 0, 0, 0, 0);
+            RemoteFSElem target = RemoteFSElem.createDir(targetPath);
             Restore rest = new Restore(handler, fseNodes, flags, qry, adr, targetPort, target);
 
 
@@ -767,7 +764,7 @@ public class StoragePoolHandlerServlet extends HessianServlet implements Storage
         try
         {
             InetAddress adr = InetAddress.getByName(targetIP);
-            RemoteFSElem target = new RemoteFSElem(targetPath, FileSystemElemNode.FT_DIR, 0, 0, 0, 0, 0);
+            RemoteFSElem target = RemoteFSElem.createDir(targetPath);
             Restore rest = new Restore(handler, job, rflags, qry, adr, targetPort, target);
 
 

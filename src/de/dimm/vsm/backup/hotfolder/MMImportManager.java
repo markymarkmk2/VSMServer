@@ -295,7 +295,7 @@ public class MMImportManager
         actualContext.setStatus( Main.Txt("Restauriere Job") + " " +  getJobText(ji) );
 
         long now = System.currentTimeMillis();
-        agentApi.getApi().create_dir( new RemoteFSElem(jobPath, FileSystemElemNode.FT_DIR, now, now, now, 0, 0) );
+        agentApi.getApi().create_dir( RemoteFSElem.createDir(jobPath) );
 
         String cmd = "reload_job " + (doWait?"WAIT":"") + " ID \"" + hotFolder.getMountPath().getPath() + "/" + ji.getName() + "\" KP:1 " + ji.getIdx();
 
@@ -409,8 +409,7 @@ public class MMImportManager
         actualContext.setStatus( Main.Txt("Importiere Job") + " " +  getJobText(ji) );
 
         String jobPath = hotFolder.getMountPath().getPath() + "/" + ji.getName();
-        long now = System.currentTimeMillis();
-        RemoteFSElem elem = new RemoteFSElem(jobPath, FileSystemElemNode.FT_DIR, now, now, now, 0, 0);
+        RemoteFSElem elem = RemoteFSElem.createDir(jobPath);
         
         ArchiveJobNameGenerator nameGen = new DirectoryArchiveJobNameGenerator(hotFolder, elem, agentApi, sp_handler);
         
