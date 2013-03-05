@@ -14,6 +14,7 @@ import de.dimm.vsm.records.ClientVolume;
 import de.dimm.vsm.records.Excludes;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  *
@@ -28,6 +29,7 @@ public class BackupContext extends GenericContext implements VariableResolver
     private ClientVolume clientVolume;
 
     final List<BackupCDPTicket> cdpList;
+    AtomicBoolean cdpMtx = new AtomicBoolean();
    
 
     public BackupContext(  AgentApiEntry apiEntry, StoragePoolHandler poolhandler, ClientInfo info, ClientVolume vol )
@@ -143,5 +145,15 @@ public class BackupContext extends GenericContext implements VariableResolver
         }
     }
 
+    public boolean getCDPMutex()
+    {
+        return cdpMtx.compareAndSet(false, true);
+    }
 
+    public void releaseCDPMutex()
+    {
+        cdpMtx.set(false);
+    }
 }
+
+

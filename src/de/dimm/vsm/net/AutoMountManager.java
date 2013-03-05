@@ -14,6 +14,7 @@ import de.dimm.vsm.net.interfaces.GuiServerApi;
 import de.dimm.vsm.records.MountEntry;
 import de.dimm.vsm.records.Role;
 import de.dimm.vsm.records.StoragePool;
+import java.io.IOException;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -169,7 +170,7 @@ public class AutoMountManager extends WorkerParent implements IAgentIdleManager
             mountList.remove( mountEntry );
         }
     }    
-    public StoragePoolWrapper mountEntry( User user, GuiServerApi guiServerApi, MountEntry mountEntry)
+    public StoragePoolWrapper mountEntry( User user, GuiServerApi guiServerApi, MountEntry mountEntry) throws IOException
     {
         StoragePoolHandlerContextManager contextMgr = Main.get_control().getPoolHandlerServlet().getContextManager();
         long timestamp = -1;

@@ -29,6 +29,9 @@ import java.util.List;
 
 class DDHandle
 {
+    public static final String RAF_RD_ONLY = "r";
+    public static final String RAF_RDWR = "rw";
+
     DedupHashBlock dhb;
     long pos;
     int len;
@@ -48,12 +51,25 @@ class DDHandle
         this.dhb = hb.getDedupBlock();
         data = null;
     }
+    public DDHandle()
+    {
+        pos = 0;
+        len = 0;
+        this.dhb = null;
+        data = null;
+    }
     void close() throws IOException
     {
         data = null;
     }
-
-    void open(AbstractStorageNode fs_node) throws  FileNotFoundException, IOException
+    void open(AbstractStorageNode fs_node, String rafMode) throws  FileNotFoundException, IOException
+    {
+        if (rafMode.equals(RAF_RDWR))
+            openWrite(  fs_node );
+        else
+            openRead(fs_node);
+    }
+    void openRead(AbstractStorageNode fs_node) throws  FileNotFoundException, IOException
     {
         StringBuilder sb = new StringBuilder();
         try
@@ -81,6 +97,14 @@ class DDHandle
             throw new IOException("Short read in open DDFS_FileHandle (" + rlen + "/" + len + ")");
         }
     }
+
+    void openWrite(AbstractStorageNode fs_node) throws  FileNotFoundException, IOException
+    {
+        dhb = new DedupHashBlock();
+        dhb.setStorageNode(fs_node);
+    }
+
+
 }
 /**
  *
@@ -98,7 +122,8 @@ public class DDFS_FileHandle implements FileHandle
     boolean isStream;
     RandomAccessFile raf;
     FileSystemElemAttributes actAttribute;
-    
+
+
 
     List<DDHandle> lastHandles;
 
@@ -353,8 +378,19 @@ public class DDFS_FileHandle implements FileHandle
         throw new PoolReadOnlyException("DD Filesystem is readonly");
     }
 
+
     // OPEN ALL NECESSARY BLOCKS FOR READ OPERATION, THIS CAN SPAN MORE THAN ONE DEDUP BLOCK (IF POS AND LEN CROSS BLOCK BOUNDARY OR IF LEN > BLOCKLEN OR BOTH)
     private void ensure_open(long pos, int len) throws IOException
+    {
+        ensure_open(pos, len, DDHandle.RAF_RD_ONLY);
+    }
+    private void ensure_open_write(long pos, int len) throws IOException
+    {
+        ensure_open(pos, len, "rw");
+    }
+
+    // OPEN ALL NECESSARY BLOCKS FOR READ OPERATION, THIS CAN SPAN MORE THAN ONE DEDUP BLOCK (IF POS AND LEN CROSS BLOCK BOUNDARY OR IF LEN > BLOCKLEN OR BOTH)
+    private void ensure_open(long pos, int len, String rafMode) throws IOException
     {
         if (create)
             throw new IOException("DD Filesystem is readonly");
@@ -429,7 +465,7 @@ public class DDFS_FileHandle implements FileHandle
 
                 if (pos + len > dDHandle.pos && dDHandle.pos + dDHandle.len > pos)
                 {
-                    dDHandle.open(fs_node);
+                    dDHandle.open(fs_node, rafMode);
                     lastHandles.add(dDHandle);
                 }
 
@@ -558,23 +594,30 @@ public class DDFS_FileHandle implements FileHandle
         }
 
     }
+    //TODO:
 
     @Override
     public void truncateFile( long size ) throws IOException, PoolReadOnlyException
     {
-        throw new PoolReadOnlyException("Cannot truncateFile in dedup FS");
+        if (sp_handler.isReadOnly())
+            throw new PoolReadOnlyException("Cannot truncateFile to dedup FS");
     }
 
     @Override
     public synchronized void writeFile( byte[] b,  int length, long offset ) throws IOException, PoolReadOnlyException
     {
-        throw new PoolReadOnlyException("Cannot write to dedup FS");
+        if (sp_handler.isReadOnly())
+            throw new PoolReadOnlyException("Cannot write to dedup FS");
+
     }
 
     @Override
     public boolean delete() throws PoolReadOnlyException
     {
-        throw new PoolReadOnlyException("Cannot delete in dedup FS");
+        if (sp_handler.isReadOnly())
+            throw new PoolReadOnlyException("Cannot delete in dedup FS");
+
+        return false;
     }
 
     @Override

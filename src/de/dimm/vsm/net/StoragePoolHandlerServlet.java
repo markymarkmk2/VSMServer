@@ -129,11 +129,23 @@ public class StoragePoolHandlerServlet extends HessianServlet implements Storage
         return 0;
     }
 
+    private static void checkCommit(  StoragePoolHandler handler ) throws IOException
+    {
+        try
+        {
+            handler.commit_transaction();
+        }
+        catch (SQLException sQLException)
+        {
+            throw new IOException("Das Anlegen des Verzeichnisses schlug fehl", sQLException);
+        }
+    }
     @Override
     public void mkdir( StoragePoolWrapper pool, String pathName ) throws IOException, PoolReadOnlyException, PathResolveException
     {
         StoragePoolHandler handler = poolContextManager.getHandlerbyWrapper(pool);
         handler.mkdir(pathName);
+        checkCommit( handler );
     }
 /*
     @Override
@@ -156,7 +168,10 @@ public class StoragePoolHandlerServlet extends HessianServlet implements Storage
     public boolean delete_fse_node( StoragePoolWrapper pool, String path ) throws PoolReadOnlyException, SQLException
     {
         StoragePoolHandler handler = poolContextManager.getHandlerbyWrapper(pool);
-        return handler.delete_fse_node(path);
+        boolean ret = handler.delete_fse_node(path);
+        handler.commit_transaction();
+
+        return ret;
     }
 /*
     @Override
@@ -171,6 +186,7 @@ public class StoragePoolHandlerServlet extends HessianServlet implements Storage
     {
         StoragePoolHandler handler = poolContextManager.getHandlerbyWrapper(pool);
         handler.move_fse_node(from, to);
+        handler.commit_transaction();
     }
 
     @Override
@@ -184,7 +200,9 @@ public class StoragePoolHandlerServlet extends HessianServlet implements Storage
     {        
         StoragePoolHandler handler = poolContextManager.getHandlerbyWrapper(pool);
 
-        return handler.open_fh(nodeIdx, create);
+        long ret = handler.open_fh(nodeIdx, create);
+        checkCommit( handler );
+        return ret;
     }
     
     public long open_stream( StoragePoolWrapper pool, long nodeIdx, boolean create ) throws IOException, PoolReadOnlyException, SQLException, PathResolveException
@@ -209,17 +227,24 @@ public class StoragePoolHandlerServlet extends HessianServlet implements Storage
         FileSystemElemNode e = handler.create_fse_node_complete ( fse_node.getPath(), 
                 fse_node.isDirectory() ? FileSystemElemNode.FT_DIR : FileSystemElemNode.FT_FILE);
 
-        return handler.open_fh(e, true);
+        long ret = handler.open_fh(e, true);
+        checkCommit( handler );
+        return ret;
         
     }
 
     @Override
     public long open_stream( StoragePoolWrapper pool, RemoteFSElem fse_node, boolean create ) throws IOException, PoolReadOnlyException, SQLException, PathResolveException
     {
+        long ret = 0;
         if (!create) {
-            return open_stream(pool, fse_node.getIdx(), create);
+            ret = open_stream(pool, fse_node.getIdx(), create);
         }
-        return create_stream( pool, fse_node);
+        else {
+            ret = create_stream( pool, fse_node);
+        }
+        return ret;
+
     }
     
     public long create_stream( StoragePoolWrapper pool,  RemoteFSElem fse_node) throws IOException, PoolReadOnlyException, SQLException, PathResolveException
@@ -228,13 +253,16 @@ public class StoragePoolHandlerServlet extends HessianServlet implements Storage
         FileSystemElemNode e = handler.create_fse_node_complete ( fse_node.getPath(), 
                 fse_node.isDirectory() ? FileSystemElemNode.FT_DIR : FileSystemElemNode.FT_FILE);
 
-        return handler.open_stream(e, true);        
+        long ret = handler.open_stream(e, true);
+        checkCommit( handler );
+        return ret;
+
     }
     
     public List<RemoteFSElem> mappedUserDir(StoragePoolHandler handler, RemoteFSElem node) {
         String path = node.getPath();
         List<User.VsmFsEntry> mapList = handler.getPoolQry().getUser().getFsMapper().getVsmList();
-        List<RemoteFSElem> ret = new ArrayList<RemoteFSElem>();
+        List<RemoteFSElem> ret = new ArrayList<>();
         try {
 
             for (int i = 0; i < mapList.size(); i++) {
@@ -343,7 +371,7 @@ public class StoragePoolHandlerServlet extends HessianServlet implements Storage
      private List<RemoteFSElem> get_unmapped_child_nodes( StoragePoolHandler handler, RemoteFSElem node ) throws SQLException
      {
         StoragePoolQry qry = handler.getPoolQry();
-        List<RemoteFSElem> ret = new ArrayList<RemoteFSElem>();
+        List<RemoteFSElem> ret = new ArrayList<>();
          FileSystemElemNode fseNode = handler.resolve_node_by_remote_elem(  node );
         if (fseNode == null)
             return ret;
@@ -363,8 +391,8 @@ public class StoragePoolHandlerServlet extends HessianServlet implements Storage
 
         UserManager umgr = Main.get_control().getUsermanager();
 
-        Map<String,FileSystemElemNode>blockedNodes = new HashMap<String, FileSystemElemNode>();
-        Map<String,RemoteFSElem>unBlockedNodes = new HashMap<String, RemoteFSElem>();
+        Map<String,FileSystemElemNode>blockedNodes = new HashMap<>();
+        Map<String,RemoteFSElem>unBlockedNodes = new HashMap<>();
 
         if (fseNode != null)
         {
@@ -514,6 +542,8 @@ public class StoragePoolHandlerServlet extends HessianServlet implements Storage
             handler.truncateFile(fileNo, size);
         else
             Log.err("Ungültiger Handler in Aufruf", "truncateFile");
+
+        handler.commit_transaction();
     }
 
     @Override
@@ -524,6 +554,8 @@ public class StoragePoolHandlerServlet extends HessianServlet implements Storage
             handler.close_fh(fileNo);
         else
             Log.err("Ungültiger Handler in Aufruf", "close_fh");
+
+        checkCommit( handler );
     }
 
     @Override
@@ -534,6 +566,8 @@ public class StoragePoolHandlerServlet extends HessianServlet implements Storage
             handler.writeFile(fileNo, b, length, offset);
         else
             Log.err("Ungültiger Handler in Aufruf", "writeFile");
+        
+        handler.commit_transaction();
     }
 /*
     @Override

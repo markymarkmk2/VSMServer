@@ -1231,11 +1231,21 @@ public class Backup
         if (context instanceof BackupContext)
         {
             BackupContext bc = (BackupContext)context;
-            BackupCDPTicket ticket = bc.getCDPTicket();
-            while( ticket != null)
+            if (bc.getCDPMutex())
             {
-                handleCDPTicketBackup( context, ticket );
-                ticket = bc.getCDPTicket();
+                try
+                {
+                    BackupCDPTicket ticket = bc.getCDPTicket();
+                    while( ticket != null && !context.isAbort())
+                    {
+                        handleCDPTicketBackup( context, ticket );
+                        ticket = bc.getCDPTicket();
+                    }
+                }
+                finally
+                {
+                    bc.releaseCDPMutex();
+                }
             }
         }
     }
@@ -2615,7 +2625,7 @@ public class Backup
         try
         {
             FileHandle fh = context.poolhandler.check_exist_dedupblock_handle(dhb);
-            if (!fh.exists())
+            if (fh == null || !fh.exists())
             {
                 // MABE BLOCK IS CREATED BUT NOT WRITTEN ALREADY
                 try
@@ -2626,9 +2636,10 @@ public class Backup
                 {
                 }
 
-                if (!fh.exists())
+                fh = context.poolhandler.check_exist_dedupblock_handle(dhb);
+                if (fh == null || !fh.exists())
                 {
-                    Log.err("Filesystemblock nicht gefunden für Hash", ": " + dhb.getHashvalue() + ": " + fh.toString());
+                    Log.err("Filesystemblock nicht gefunden für Hash", ": " + dhb.getHashvalue());
                     return false;
                 }
             }

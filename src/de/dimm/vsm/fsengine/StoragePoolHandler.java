@@ -984,7 +984,7 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
             return fileName;
 
         if (fileName.charAt(0) != '/')
-            throw new PathResolveException("Path is relative:" + fileName);
+            return fileName;
 
         // ROOT ?
         if (fileName.length() == 1)
@@ -1650,10 +1650,8 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
         return he;
     }
 
- 
     public FileHandle check_exist_dedupblock_handle( DedupHashBlock dhb ) throws PathResolveException, UnsupportedEncodingException, IOException
     {
-        
         List<AbstractStorageNode> s_nodes = get_primary_storage_nodes(/*forWrite*/ false);
         for (int i = 0; i < s_nodes.size(); i++)
         {
@@ -1662,15 +1660,16 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
             {
                 StorageNodeHandler snHandler = get_handler_for_node(s_node);
                 FileHandle ret = snHandler.create_file_handle(dhb, false);
-                if (ret.exists())
+                if (ret != null && ret.exists())
                 {
                     return ret;
                 }
             }
         }
         return null;
-
     }
+ 
+
 
     public FileHandle open_dedupblock_handle( DedupHashBlock dhb, boolean create ) throws PathResolveException, UnsupportedEncodingException, IOException
     {

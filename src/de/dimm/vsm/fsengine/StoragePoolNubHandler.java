@@ -277,6 +277,10 @@ public class StoragePoolNubHandler
         {
             jdbcConnectString += ";create=true";
         }
+        if (Main.isPerformanceDiagnostic())
+        {
+            jdbcConnectString += ";traceLevel=2";
+        }
 
         HashMap<String,String> map = new HashMap<String, String>();
 
@@ -407,6 +411,10 @@ public class StoragePoolNubHandler
         if (Main.getRebuildDB() && !jdbcConnect.contains("create=true"))
         {
             jdbcConnect += ";create=true";
+        }
+        if (Main.isPerformanceDiagnostic())
+        {
+            jdbcConnect += ";traceLevel=2";
         }
 
         

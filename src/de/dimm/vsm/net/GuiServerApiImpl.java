@@ -37,6 +37,7 @@ import de.dimm.vsm.tasks.TaskEntry;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.lang.reflect.UndeclaredThrowableException;
 import java.net.InetAddress;
 import java.sql.SQLException;
 import java.util.ArrayList;
@@ -76,28 +77,46 @@ public class GuiServerApiImpl implements GuiServerApi
 
     }
 
-    public void mountVolume( AgentApiEntry apiEntry, final StoragePoolWrapper poolWrapper, final String drive )
+    public void mountVolume( AgentApiEntry apiEntry, final StoragePoolWrapper poolWrapper, final String drive ) throws IOException
     {
         InetAddress adr = Main.getServerAddress();
 
+        try
+        {
+            Boolean ret = apiEntry.getApi().mountVSMFS(adr, Main.getServerPort(), poolWrapper/*, timestamp, subPath, user*/, drive);
 
-        Boolean ret = apiEntry.getApi().mountVSMFS(adr, Main.getServerPort(), poolWrapper/*, timestamp, subPath, user*/, drive);
+            poolWrapper.setPhysicallyMounted(ret);
 
-        poolWrapper.setPhysicallyMounted(ret);
-
-        Log.debug("Mount finished " + ret.toString());       
+            Log.debug("Mount finished " + ret.toString());
+        }
+        catch (Exception exc)
+        {
+            String txt =  exc.getMessage();
+            if (exc instanceof UndeclaredThrowableException) 
+            {
+                UndeclaredThrowableException ute = (UndeclaredThrowableException)exc;
+                txt = ute.getUndeclaredThrowable().getMessage();
+            }
+            Log.err(Main.Txt("Mount schlug fehl"), drive, exc);
+            throw new IOException( Main.Txt("Mount schlug fehl") + ": " + drive + ": " + txt);
+        }
     }
 
     @Override
-    public StoragePoolWrapper mountVolume( final String agentIp, final int agentPort, final StoragePoolWrapper poolWrapper, final String drive )
+    public StoragePoolWrapper mountVolume( final String agentIp, final int agentPort, final StoragePoolWrapper poolWrapper, final String drive ) throws IOException
     {
         AgentApiEntry apiEntry = null;
         try
         {
+            apiEntry = LogicControl.getApiEntry(agentIp, agentPort);
+            if (!apiEntry.isOnline())
+            {
+                throw new IOException( Main.Txt("Mount schlug fehl, Agent ist nicht erreichbar") + ": " + agentPort + ":" + agentIp);
+            }
+
             StoragePoolHandlerContextManager contextMgr = control.getPoolHandlerServlet().getContextManager();
             contextMgr.updateContext( poolWrapper, agentIp, agentPort, drive );
 
-            apiEntry = LogicControl.getApiEntry(agentIp, agentPort);
 
             InetAddress adr = Main.getServerAddress();
             mountVolume( apiEntry, poolWrapper, drive );
@@ -107,6 +126,7 @@ public class GuiServerApiImpl implements GuiServerApi
         catch (Exception exc)
         {
             Log.err(Main.Txt("Mount schlug fehl"), drive, exc);
+            throw new IOException( Main.Txt("Mount schlug fehl") + ": " + drive + ": " + exc.getMessage());
         }
         finally
         {
@@ -118,7 +138,6 @@ public class GuiServerApiImpl implements GuiServerApi
             {
             }
         }
-        return null;
     }
 
     @Override
@@ -134,6 +153,10 @@ public class GuiServerApiImpl implements GuiServerApi
         try
         {
             apiEntry = LogicControl.getApiEntry(agentIp, agentPort);
+            if (!apiEntry.isOnline())
+            {
+                throw new IOException( Main.Txt("Mount schlug fehl, Agent ist nicht erreichbar") + ": " + agentPort + ":" + agentIp);
+            }
             
             StoragePoolHandlerContextManager contextMgr = control.getPoolHandlerServlet().getContextManager();
 
@@ -261,7 +284,7 @@ public class GuiServerApiImpl implements GuiServerApi
         AgentApiEntry apiEntry = null;
         try
         {
-            apiEntry = LogicControl.getApiEntry(agentIp, agentPort);
+            apiEntry = LogicControl.getApiEntry(agentIp, agentPort, /*withMsg*/ false);
 
             InetAddress adr = Main.getServerAddress();
 
@@ -828,7 +851,7 @@ public class GuiServerApiImpl implements GuiServerApi
     }
 
     @Override
-    public StoragePoolWrapper mountEntry( User user, MountEntry mountEntry )
+    public StoragePoolWrapper mountEntry( User user, MountEntry mountEntry ) throws IOException
     {
         return control.getAutoMountManager().mountEntry( user, this, mountEntry );
     }
