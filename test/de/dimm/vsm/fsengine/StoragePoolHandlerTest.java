@@ -31,20 +31,16 @@ import org.junit.BeforeClass;
 import org.junit.Test;
 import static org.junit.Assert.*;
 
-
 class TestStoragePoolNubHandler extends StoragePoolNubHandler
 {
-
-
 
     @Override
     protected String getIndexPath( StoragePoolNub nub )
     {
         return StoragePoolHandlerTest.jdbcConnectString + "/Index";
     }
-
-
 }
+
 /**
  *
  * @author Administrator
@@ -67,6 +63,25 @@ public class StoragePoolHandlerTest
         return nubHandler;
     }
 
+    public static StoragePoolHandler createInternalPoolHandler()
+    {
+        JDBCStoragePoolHandler ret = null;
+        try
+        {
+            User user = User.createSystemInternal();
+            JDBCConnectionFactory conn = nubHandler.getConnectionFactory(pool);
+            JDBCEntityManager em = new JDBCEntityManager(pool.getIdx(), conn);
+            System.out.println("Open DB Connections: " + nubHandler.getActiveConnections(pool));
+            ret = new JDBCStoragePoolHandler(em, user, pool, /*rdonly*/ false);
+
+        }
+        catch (SQLException sQLException)
+        {
+            fail("Cannot open Connection:" + sQLException.getMessage());
+        }
+        return ret;
+    }
+
     public StoragePoolHandlerTest()
     {
     }
@@ -75,29 +90,34 @@ public class StoragePoolHandlerTest
     {
         return sp_handler;
     }
-    
+
     public static boolean isWin()
     {
-        String osName = System.getProperty("os.name");   
+        String osName = System.getProperty("os.name");
         return (osName.startsWith("Win"));
     }
+
     public static boolean isMac()
     {
-        String osName = System.getProperty("os.name");   
+        String osName = System.getProperty("os.name");
         return (osName.startsWith("Mac") || osName.startsWith("Dar"));
     }
-
     static String jdbcConnectString = "untitTest";
-    static boolean rebuild =true;
+    static boolean rebuild = true;
+
     public static boolean init()
     {
         // em = LogicControl.get_util_em();
 
         fs_node = AbstractStorageNode.createFSNode();
         if (isWin())
+        {
             fs_node.setMountPoint("z:\\unittest\\testnode");
+        }
         if (isMac())
+        {
             fs_node.setMountPoint("/Users/mw/Documents/VSM/unittest/testnode");
+        }
         fs_node.setNodeMode(AbstractStorageNode.NM_ONLINE);
         fs_node.setName("UnitTestNode1");
 
@@ -105,7 +125,7 @@ public class StoragePoolHandlerTest
 
         StoragePoolNub nub = new StoragePoolNub();
         nub.setIdx(0);
-        
+
         nub.setJdbcConnectString(jdbcConnectString);
 
         nubHandler = new TestStoragePoolNubHandler();
@@ -113,10 +133,12 @@ public class StoragePoolHandlerTest
         try
         {
             pool = nubHandler.mountPoolDatabase(nub, jdbcConnectString, rebuild);
-            
+
             // REBUILD ONLY ONCE, THIS SPEEDS UP TEST
             if (rebuild)
+            {
                 rebuild = false;
+            }
         }
         catch (Exception exception)
         {
@@ -133,26 +155,9 @@ public class StoragePoolHandlerTest
             }
         }
 
-
         try
         {
-            User user = User.createSystemInternal();
-
-            try
-            {
-                JDBCConnectionFactory conn = nubHandler.getConnectionFactory(pool);
-                JDBCEntityManager em = new JDBCEntityManager(pool.getIdx(), conn);
-                System.out.println("Open DB Connections: " + nubHandler.getActiveConnections(pool) );                
-                sp_handler = new JDBCStoragePoolHandler( em, user, pool, /*rdonly*/ false );
-
-            }
-            catch (SQLException sQLException)
-            {
-                fail("Cannot open Connection:" +  sQLException.getMessage());
-            }
-
-            //sp_handler = StoragePoolHandlerFactory.createStoragePoolHandler(pool, user, /*rdonly*/ false);
-
+            sp_handler = createInternalPoolHandler();
             sp_handler.check_open_transaction();
             pool.setName("UnitTestPool1");
             sp_handler.em_merge(pool);
@@ -176,16 +181,18 @@ public class StoragePoolHandlerTest
             }
             catch (Exception e)
             {
-                fail("Cannot load / persist SNode" );
+                fail("Cannot load / persist SNode");
             }
             if (pool.getStorageNodes().isEmpty(sp_handler.getEm()))
+            {
                 pool.getStorageNodes().add(sp_handler.getEm(), fs_node);
+            }
 
-           
+
 
             //root_node = pool.getRootDir();
             sp_handler.add_storage_node_handlers();
-                     
+
 
             sp_handler.commit_transaction();
             sp_handler.check_open_transaction();
@@ -346,7 +353,7 @@ public class StoragePoolHandlerTest
         }
         catch (SQLException ex)
         {
-            fail( ex.getMessage());
+            fail(ex.getMessage());
         }
 
     }
@@ -408,7 +415,7 @@ public class StoragePoolHandlerTest
     {
         total_n++;
         if (total_n % 1000 == 0)
-        {            
+        {
             System.out.println("read " + name + " " + total_n + " dirs");
             if (_sp_handler instanceof JDBCStoragePoolHandler)
             {
@@ -459,7 +466,9 @@ public class StoragePoolHandlerTest
         if (total_n % 1000 == 0)
         {
             if (total_n > 10000)
+            {
                 return;
+            }
             System.out.println("read " + name + " " + total_n + " dirs");
         }
 
@@ -497,7 +506,7 @@ public class StoragePoolHandlerTest
     }
     StoragePoolHandler _sp_handler;
 
-   // @Test
+    // @Test
     public void memTestData()
     {
 
@@ -651,7 +660,7 @@ public class StoragePoolHandlerTest
         }
         catch (SQLException ex)
         {
-            fail( ex.getMessage() );
+            fail(ex.getMessage());
         }
     }
 
@@ -693,8 +702,6 @@ public class StoragePoolHandlerTest
         // TODO review the generated test code and remove the default call to fail.
         assertEquals("Path resolve", "/UnitTestPool1/Dir/File", sb.toString());
     }
-
-   
 
     /**
      * Test of remove_fse_node method, of class StoragePoolHandler.
@@ -738,7 +745,7 @@ public class StoragePoolHandlerTest
         }
         catch (SQLException ex)
         {
-            fail( ex.getMessage() );
+            fail(ex.getMessage());
         }
     }
 
@@ -843,7 +850,7 @@ public class StoragePoolHandlerTest
         FileSystemElemNode node = instance.resolve_node(path);
         FileHandle result = instance.open_file_handle(node, /*create*/ true);
 
-        assertTrue( result instanceof FileHandle);
+        assertTrue(result instanceof FileHandle);
 
         FileHandle ffh = (FileHandle) result;
 
@@ -868,18 +875,18 @@ public class StoragePoolHandlerTest
 
         ffh.close();
 
-       
+
 
     }
 
-       /**
+    /**
      * Test of getTotalBlocks method, of class StoragePoolHandler.
      */
     @Test
     public void testSwitchNodeTempOffline()
     {
-       StoragePoolHandler instance = sp_handler;
-       
+        StoragePoolHandler instance = sp_handler;
+
         AbstractStorageNode node = instance.get_primary_dedup_node_for_write();
         String orig = node.getMountPoint();
         assertTrue("is Online", node.isOnline());
@@ -892,7 +899,6 @@ public class StoragePoolHandlerTest
         assertTrue("No space", space != 0);
         assertTrue("is Online", node.isOnline());
     }
-    
 
     @Test
     public void removeTestData()
@@ -902,7 +908,7 @@ public class StoragePoolHandlerTest
             // REMOVE OLD STUFF
 
             sp_handler.commit_transaction();
-            
+
             FileSystemElemNode node = sp_handler.resolve_elem_by_path("/Dir/File");
             if (node != null)
             {
