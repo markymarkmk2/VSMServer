@@ -133,6 +133,12 @@ public class StoragePoolHandlerContextManager extends WorkerParent
                 StoragePoolQry qry = new StoragePoolQry(user, rdonly, timestamp, showDeleted);
                 StoragePoolWrapper w = new StoragePoolWrapper(newIdx, pool.getIdx(), qry, true);
                 StoragePoolHandler handler = StoragePoolHandlerFactory.createStoragePoolHandler(pool, qry);
+                if (handler.isInsideMappingDir( subPath ))
+                {
+                    subPath = handler.resolveMappingDir(subPath);
+                }
+                // ALL FOLLOWING REQUESTS ARE IN REAL VSM-NAMESPACE
+                qry.setUseMappingFilter(false);
                 FileSystemElemNode node = handler.resolve_node( subPath );
                 handler.setPathResolver( new NodePathResolver(node, handler));
                 handler.em_refresh(node);
@@ -158,6 +164,12 @@ public class StoragePoolHandlerContextManager extends WorkerParent
                 StoragePoolQry qry = new StoragePoolQry(user, true, ts, false);
                 StoragePoolWrapper w = new StoragePoolWrapper(newIdx, pool.getIdx(), qry, true);
                 StoragePoolHandler handler = StoragePoolHandlerFactory.createStoragePoolHandler( pool, qry);
+                if (handler.isInsideMappingDir( subPath ))
+                {
+                    subPath = handler.resolveMappingDir(subPath);
+                }
+                // ALL FOLLOWING REQUESTS ARE IN REAL VSM-NAMESPACE
+                qry.setUseMappingFilter(false);
 
                 handler.em_refresh(pool.getRootDir());
 

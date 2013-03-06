@@ -87,12 +87,12 @@ public class StoragePoolHandlerServlet extends HessianServlet implements Storage
     public RemoteFSElem resolve_node( StoragePoolWrapper pool, String path ) throws SQLException
     {
         StoragePoolHandler handler = poolContextManager.getHandlerbyWrapper(pool);
-        if (isInsideMappingDir(handler, path))
+        if (handler.isInsideMappingDir( path))
         {
             RemoteFSElem elem = RemoteFSElem.createDir(path);
             return elem;
         }
-        path = resolveMappingDir( handler, path);
+        path = handler.resolveMappingDir(  path);
             
         FileSystemElemNode e = handler.resolve_node(path);
         if (e == null)
@@ -268,44 +268,59 @@ public class StoragePoolHandlerServlet extends HessianServlet implements Storage
             for (int i = 0; i < mapList.size(); i++) {
                 User.VsmFsEntry vsmFsEntry = mapList.get(i);
                 // INSIDE THIS MAPPING ENTRY?
-                if (!vsmFsEntry.getuPath().startsWith(path))
+                if (!vsmFsEntry.getuPath().startsWith(path) && !path.startsWith(vsmFsEntry.getuPath()) )
                     continue;
-                
-                String restPath = vsmFsEntry.getuPath().substring(path.length());
-                if (restPath.startsWith("/") && restPath.length() > 1)
-                    restPath = restPath.substring(1);
-                
-                RemoteFSElem remoteNode;
-                String[] paths = restPath.split("/");
-                
-                if (paths.length == 0 || (paths.length == 1 && paths[0].isEmpty()))
+
+                if (path.length() <= vsmFsEntry.getuPath().length())
                 {
-                    FileSystemElemNode fseNode = handler.resolve_elem_by_path(  vsmFsEntry.getvPath() );
-                    if (fseNode == null)
-                        continue;
-                    
-                    // THIS IS THE NEWEST ENTRY FOR THIS FILE
-                    FileSystemElemAttributes attr = handler.getActualFSAttributes(fseNode, handler.getPoolQry() );
-                    remoteNode = genRemoteFSElemfromNode(fseNode, attr);
-                    return get_unmapped_child_nodes(handler, remoteNode);
+                    String restPath = vsmFsEntry.getuPath().substring(path.length());
+                    if (restPath.startsWith("/") && restPath.length() > 1)
+                        restPath = restPath.substring(1);
+                    String[] paths = restPath.split("/");
+
+                    if (paths.length == 0 || (paths.length == 1 && paths[0].isEmpty()))
+                    {
+                        FileSystemElemNode fseNode = handler.resolve_elem_by_path(  vsmFsEntry.getvPath() );
+                        if (fseNode == null)
+                            continue;
+
+                        // THIS IS THE NEWEST ENTRY FOR THIS FILE
+                        FileSystemElemAttributes attr = handler.getActualFSAttributes(fseNode, handler.getPoolQry() );
+                        RemoteFSElem remoteNode = genRemoteFSElemfromNode(fseNode, attr);
+                        return get_unmapped_child_nodes(handler, remoteNode);
+                    }
+                    else
+                    {
+                        String dirName = paths[0];
+                        if (dirName.isEmpty() && paths.length > 1)
+                            dirName = paths[1];
+
+                        String newPath = path;
+                        if (!newPath.endsWith("/"))
+                            newPath += "/";
+                        newPath += dirName;
+
+                        if (containsDir(ret, dirName))
+                            continue;
+
+                        RemoteFSElem remoteNode = RemoteFSElem.createDir(dirName);
+                        ret.add(remoteNode);
+    //                    remoteNode = RemoteFSElem.createDir(newPath);
+                    }
                 }
                 else
-                {                    
-                    String dirName = paths[0];
-                    if (dirName.isEmpty() && paths.length > 1)
-                        dirName = paths[1];
-                    
-                    String newPath = path;
-                    if (!newPath.endsWith("/"))
-                        newPath += "/";
-                    newPath += dirName;
-                    
-                    if (containsDir(ret, newPath))
+                {
+                    String restPath = path.substring( vsmFsEntry.getuPath().length() );
+                    String newFullPath =  vsmFsEntry.getvPath() + restPath;
+                    FileSystemElemNode fseNode = handler.resolve_elem_by_path( newFullPath );
+                    if (fseNode == null)
                         continue;
-                                        
-                    remoteNode = RemoteFSElem.createDir(newPath);
+
+                    // THIS IS THE NEWEST ENTRY FOR THIS FILE
+                    FileSystemElemAttributes attr = handler.getActualFSAttributes(fseNode, handler.getPoolQry() );
+                    RemoteFSElem remoteNode = genRemoteFSElemfromNode(fseNode, attr);
+                    return get_unmapped_child_nodes(handler, remoteNode);
                 }
-                ret.add(remoteNode);                
             }
             return ret;
         } catch (SQLException sQLException) {
@@ -313,33 +328,7 @@ public class StoragePoolHandlerServlet extends HessianServlet implements Storage
         }
         return ret;
     }
-    public boolean isInsideMappingDir(StoragePoolHandler handler, String path) {
-        
-        List<User.VsmFsEntry> mapList = handler.getPoolQry().getUser().getFsMapper().getVsmList();
-        
-            for (int i = 0; i < mapList.size(); i++) {
-                User.VsmFsEntry vsmFsEntry = mapList.get(i);
-                if (vsmFsEntry.getuPath().startsWith(path))
-                    return true;
-            }
-            return false;
-        }
-
-   public String resolveMappingDir(StoragePoolHandler handler, String path) {
-        if (!handler.getPoolQry().isUseMappingFilter())
-            return path;
-        
-        List<User.VsmFsEntry> mapList = handler.getPoolQry().getUser().getFsMapper().getVsmList();
-        
-            for (int i = 0; i < mapList.size(); i++) {
-                User.VsmFsEntry vsmFsEntry = mapList.get(i);
-                if (path.startsWith( vsmFsEntry.getuPath())) {
-                    String restpath = path.substring(vsmFsEntry.getuPath().length());
-                    return vsmFsEntry.getvPath() + "/" + restpath;
-                }
-            }
-            return path;
-        }
+   
 
 
 
@@ -360,7 +349,7 @@ public class StoragePoolHandlerServlet extends HessianServlet implements Storage
         
         if (qry.isUseMappingFilter()) 
         {
-            if (isInsideMappingDir( handler, node.getPath()))
+            if (handler.isInsideMappingDir( node.getPath()))
             {
                 return mappedUserDir( handler, node );
             }

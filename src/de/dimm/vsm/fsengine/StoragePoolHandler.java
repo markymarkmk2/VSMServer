@@ -2433,4 +2433,35 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
         return ajfl;
     }
 
+    public boolean isInsideMappingDir(String path)
+    {
+
+        List<User.VsmFsEntry> mapList = getPoolQry().getUser().getFsMapper().getVsmList();
+
+            for (int i = 0; i < mapList.size(); i++) {
+                User.VsmFsEntry vsmFsEntry = mapList.get(i);
+                if (vsmFsEntry.getuPath().startsWith(path) || path.startsWith( vsmFsEntry.getuPath()))
+                    return true;
+            }
+            return false;
+        }
+
+
+   public String resolveMappingDir( String path) {
+        if (!getPoolQry().isUseMappingFilter())
+            return path;
+
+        List<User.VsmFsEntry> mapList = getPoolQry().getUser().getFsMapper().getVsmList();
+
+            for (int i = 0; i < mapList.size(); i++) {
+                User.VsmFsEntry vsmFsEntry = mapList.get(i);
+                if (path.startsWith( vsmFsEntry.getuPath())) {
+                    String restpath = path.substring(vsmFsEntry.getuPath().length());
+                    return vsmFsEntry.getvPath() + restpath;
+                }                
+            }
+            return path;
+        }
+  
+
 }
