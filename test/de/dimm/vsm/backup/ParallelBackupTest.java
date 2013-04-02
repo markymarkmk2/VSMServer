@@ -5,23 +5,19 @@
 
 package de.dimm.vsm.backup;
 
+import org.junit.Ignore;
 import de.dimm.vsm.Exceptions.PoolReadOnlyException;
 import de.dimm.vsm.LogicControl;
-import de.dimm.vsm.fsengine.ArrayLazyList;
 import de.dimm.vsm.fsengine.StoragePoolHandler;
 import de.dimm.vsm.fsengine.StoragePoolHandlerTest;
 import de.dimm.vsm.net.RemoteFSElem;
-import de.dimm.vsm.net.StoragePoolQry;
-import de.dimm.vsm.net.interfaces.GuiServerApi;
 import de.dimm.vsm.records.ClientInfo;
 import de.dimm.vsm.records.ClientVolume;
 import de.dimm.vsm.records.Excludes;
 import de.dimm.vsm.records.FileSystemElemNode;
 import java.io.File;
-import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.sql.SQLException;
-import java.util.List;
 import org.junit.After;
 import org.junit.AfterClass;
 import org.junit.Before;
@@ -130,6 +126,7 @@ public class ParallelBackupTest {
      * Test of restore_elem method, of class Restore.
      */
     @Test
+    @Ignore
     public void testRestore_elem() throws SQLException, Throwable
     {
         System.out.println("Backup_elem");
