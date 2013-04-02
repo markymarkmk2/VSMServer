@@ -22,6 +22,7 @@ import de.dimm.vsm.Utilities.ZipUtilities;
 import de.dimm.vsm.auth.User;
 import de.dimm.vsm.fsengine.ArrayLazyList;
 import de.dimm.vsm.fsengine.GenericEntityManager;
+import de.dimm.vsm.fsengine.HashCache;
 import de.dimm.vsm.fsengine.JDBCEntityManager;
 import de.dimm.vsm.fsengine.JDBCStoragePoolHandler;
 import de.dimm.vsm.jobs.InteractionEntry;
@@ -137,6 +138,13 @@ public class Backup
     }
 
     String preStartStatus;
+
+    public static boolean isWithBootstrap()
+    {
+        return withBootstrap;
+    }
+
+
 
     private String createNokResultText( List<BackupVolumeResult> list, int totalVolumesTried )
     {
@@ -1868,7 +1876,7 @@ public class Backup
                 throw new ClientAccessFileException("Cannot open remote file handle " + remoteFSElem.toString());
 
             // OPEN LOCAL FILE HANDLE
-            handle = context.poolhandler.open_xa_handle(node, /*create*/ true);
+            handle = context.poolhandler.open_xa_handle(node, remoteFSElem.getStreaminfo(), /*create*/ true);
 
 
             // COPY DATA
@@ -2573,17 +2581,31 @@ public class Backup
     
     static DedupHashBlock check_for_existing_block( GenericContext context, String remote_hash, boolean checkDHBExistance ) throws PathResolveException, IOException
     {
+        DedupHashBlock ret = check_for_existing_block(context.poolhandler, context.stat, context.hashCache, remote_hash );
+        if (ret == null)
+            return null;
+
+        if (checkDHBExistance)
+        {
+            if (!checkDHBExistance(context, ret ))
+                return null;
+        }
+        return ret;
+    }
+
+    public static DedupHashBlock check_for_existing_block( StoragePoolHandler poolhandler, StatCounter stat, HashCache hashCache, String remote_hash ) throws PathResolveException, IOException
+    {
         DedupHashBlock dhb = null;
 
         // READ FROM CACHE
-        if (context.hashCache.isInited())
+        if (hashCache.isInited())
         {
-            long idx = context.hashCache.getDhbIdx(remote_hash);
+            long idx = hashCache.getDhbIdx(remote_hash);
             if (idx > 0)
             {
                 try
                 {
-                    dhb = context.poolhandler.em_find(DedupHashBlock.class, idx);
+                    dhb = poolhandler.em_find(DedupHashBlock.class, idx);
                 }
                 catch (SQLException sQLException)
                 {
@@ -2592,51 +2614,40 @@ public class Backup
                 if (dhb == null)
                 {
                     Log.err("Kann HashBlock aus Cache nicht finden");
-                    dhb = context.poolhandler.findHashBlock(remote_hash );
+                    dhb = poolhandler.findHashBlock(remote_hash );
                 }
-                context.stat.addDhbCacheHit();
+                stat.addDhbCacheHit();
             }
             else
             {
-                context.stat.addDhbCacheMiss();
+                stat.addDhbCacheMiss();
             }
         }
         else
         {
-            dhb = context.poolhandler.findHashBlock(remote_hash );
+            dhb = poolhandler.findHashBlock(remote_hash );
         }
 
-
-        // TAKE FIRST HIT AND RETURN
-        //
-        if (dhb == null)
-            return null;
-
-        if (checkDHBExistance)
-        {
-            if (!checkDHBExistance(context, dhb ))
-                return null;
-        }
         return dhb;
     }
 
-    static boolean checkDHBExistance(GenericContext context,  DedupHashBlock dhb )
+    static boolean checkDHBExistance(IBackupHelper context,  DedupHashBlock dhb )
     {
         try
         {
-            FileHandle fh = context.poolhandler.check_exist_dedupblock_handle(dhb);
+            FileHandle fh = context.getPoolHandler().check_exist_dedupblock_handle(dhb);
             if (fh == null || !fh.exists())
             {
                 // MABE BLOCK IS CREATED BUT NOT WRITTEN ALREADY
                 try
                 {
-                    context.getWriteRunner().flush();
+                    context.flushWriteRunner();
                 }
                 catch (InterruptedException ex)
                 {
                 }
 
-                fh = context.poolhandler.check_exist_dedupblock_handle(dhb);
+                fh = context.getPoolHandler().check_exist_dedupblock_handle(dhb);
                 if (fh == null || !fh.exists())
                 {
                     Log.err("Filesystemblock nicht gefunden für Hash", ": " + dhb.getHashvalue());
@@ -2652,20 +2663,21 @@ public class Backup
         return true;
     }
 
-    private static void transfer_block_and_update_db( GenericContext context, FileSystemElemNode node, RemoteFSElemWrapper remote_handle, String remote_hash,  int streamInfo, long offset, int read_len, boolean isXa, long ts ) throws PoolReadOnlyException, SQLException, IOException
+    public static DedupHashBlock createDedupHashBlock(IBackupHelper context, FileSystemElemNode node, String remote_hash,  int streamInfo, long offset, int read_len, boolean isXa, long ts ) throws PoolReadOnlyException, SQLException, IOException
     {
-        // CREATE NEW DEDUP BLOCK ENTRY
+        final StatCounter stat = context.getStat();
+        final HashCache hashCache = context.getHashCache();
         DedupHashBlock dhb = null;
         try
         {
-            dhb = context.poolhandler.create_dedup_hashblock( node, remote_hash, read_len );
+            dhb = context.getPoolHandler().create_dedup_hashblock( node, remote_hash, read_len );
         }
         catch( java.sql.SQLIntegrityConstraintViolationException exc)
         {
             // WE CANNOT INSERT BECAUSE THIS BLOCK EXISTS ALREADY IN DB
             // 2 REASONS: BLOCK IS MISSING IN FS OR CACHE IS NOT UP TO DATE
 
-            dhb = context.poolhandler.findHashBlock(remote_hash );
+            dhb = context.getPoolHandler().findHashBlock(remote_hash );
             if (dhb != null)
             {
                 if (!checkDHBExistance( context, dhb))
@@ -2676,7 +2688,7 @@ public class Backup
                 else
                 {
                     // DOUBLE CHECK
-                    long idx = context.hashCache.getDhbIdx(remote_hash);
+                    long idx = hashCache.getDhbIdx(remote_hash);
                     if (idx <= 0)
                         Log.warn("Hashblock fehlt im Cache, Cache wird aktualisiert", dhb.toString());
                     else
@@ -2684,15 +2696,23 @@ public class Backup
 
 
                     // OKAY, WE FOUND EARLIER BLOCK, REGISTER HASHBLOCK FOR THIS FILE AND LEAVE
-                    HashBlock hb = context.poolhandler.create_hashentry(node, remote_hash, dhb, offset, read_len, /*reorganize*/ false, ts);
-                    node.getHashBlocks().addIfRealized(hb);
-
-                    if (context.hashCache.isInited())
+                    if (!isXa)
                     {
-                        context.hashCache.addDhb(remote_hash, dhb.getIdx());
-                        context.stat.setDhbCacheSize( context.hashCache.size() );
+                        HashBlock hb = context.getPoolHandler().create_hashentry(node, remote_hash, dhb, offset, read_len, /*reorganize*/ false, ts);
+                        node.getHashBlocks().addIfRealized(hb);
                     }
-                    return;
+                    else
+                    {
+                        XANode hb = context.getPoolHandler().create_xa_hashentry(node, remote_hash, streamInfo, dhb, offset, read_len, /*reorganize*/ false, ts);
+                        node.getXaNodes().addIfRealized(hb);
+                    }
+
+                    if (hashCache.isInited())
+                    {
+                        hashCache.addDhb(remote_hash, dhb.getIdx());
+                        stat.setDhbCacheSize( hashCache.size() );
+                    }
+                    return null;
                 }
             }
             else
@@ -2700,6 +2720,19 @@ public class Backup
                 // CANNOT HANDLE HERE -> SEND UPWARDS
                 throw exc;
             }
+        }   
+        return dhb;
+    }
+
+    private static void transfer_block_and_update_db( GenericContext context, FileSystemElemNode node, RemoteFSElemWrapper remote_handle, String remote_hash,  int streamInfo, long offset, int read_len, boolean isXa, long ts ) throws PoolReadOnlyException, SQLException, IOException
+    {
+        // CREATE NEW DEDUP BLOCK ENTRY
+        DedupHashBlock dhb = createDedupHashBlock(context, node, remote_hash, streamInfo, offset, read_len, isXa, ts);
+        
+        // Wenn festgestellt wird, das neuer Block nicht notwendig ist, dann raus
+        if (dhb == null)
+        {
+            return;
         }
 
         

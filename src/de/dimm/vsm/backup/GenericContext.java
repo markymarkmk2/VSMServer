@@ -30,7 +30,7 @@ import java.util.concurrent.Executors;
  *
  * @author Administrator
  */
-public abstract class GenericContext
+public abstract class GenericContext implements IBackupHelper
 {
     protected AgentApiEntry apiEntry;
     protected StoragePoolHandler poolhandler;
@@ -105,6 +105,23 @@ public abstract class GenericContext
     public void setHashCache( HashCache hashCache )
     {
         this.hashCache = hashCache;
+    }
+ @Override
+    public HashCache getHashCache()
+    {
+        return hashCache;
+    }
+
+    @Override
+    public void flushWriteRunner() throws InterruptedException
+    {
+        getWriteRunner().flush();
+    }
+
+    @Override
+    public StoragePoolHandler getPoolHandler()
+    {
+        return poolhandler;
     }
 
     

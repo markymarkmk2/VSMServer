@@ -676,7 +676,7 @@ public class Restore
                 if (remote_handle == null)
                     throw new IOException( "Cannot open remote stream handle for write:" + remoteFSElem.getPath());
 
-                handle = actualContext.poolhandler.open_xa_handle(node, /*create*/ false);
+                handle = actualContext.poolhandler.open_xa_handle(node, remoteFSElem.getStreaminfo(), /*create*/ false);
 
                 List<XANode> xablocks = actualContext.poolhandler.createQuery("select T1 from XANode T1 where T1.fileNode_idx=" + node.getIdx(), XANode.class);
 

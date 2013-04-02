@@ -193,22 +193,41 @@ public class CloneStorageNodeHandler extends StorageNodeHandler
 
 
     @Override
-    public FileHandle create_DDFS_handle( StoragePoolHandler aThis, FileSystemElemNode node, boolean create, boolean b ) throws PathResolveException, IOException, SQLException
+    public FileHandle create_DDFS_handle( StoragePoolHandler aThis, FileSystemElemNode node, boolean create ) throws PathResolveException, IOException, SQLException
     {
         if (storageNode.isFS())
         {
-            FileHandle ret1 = DDFS_FileHandle.create_fs_handle(storageNode, aThis, node, create, /*isStream*/ b );
+            FileHandle ret1 = DDFS_FileHandle.create_fs_handle(storageNode, aThis, node, create);
             MultiFileHandle mfh = new MultiFileHandle();
             mfh.add(ret1);
             for (int i = 0; i < cloneStorageNodes.size(); i++)
             {
-                FileHandle ret2 = DDFS_FileHandle.create_fs_handle(cloneStorageNodes.get(i),aThis, node, create, b );
+                FileHandle ret2 = DDFS_FileHandle.create_fs_handle(cloneStorageNodes.get(i),aThis, node, create );
                 mfh.add(ret2);
             }
             return mfh;
         }
         throw new UnsupportedOperationException("Not yet implemented");
     }
+
+    @Override
+    public FileHandle create_DDFS_StreamHandle( StoragePoolHandler aThis, FileSystemElemNode node, int streamInfo, boolean create ) throws PathResolveException, IOException, SQLException
+    {
+        if (storageNode.isFS())
+        {
+            FileHandle ret1 = DDFS_FileHandle.create_fs_stream_handle(storageNode, aThis, node, streamInfo, create);
+            MultiFileHandle mfh = new MultiFileHandle();
+            mfh.add(ret1);
+            for (int i = 0; i < cloneStorageNodes.size(); i++)
+            {
+                FileHandle ret2 = DDFS_FileHandle.create_fs_stream_handle(cloneStorageNodes.get(i),aThis, node, streamInfo, create );
+                mfh.add(ret2);
+            }
+            return mfh;
+        }
+        throw new UnsupportedOperationException("Not yet implemented");
+    }
+
 
 
 }

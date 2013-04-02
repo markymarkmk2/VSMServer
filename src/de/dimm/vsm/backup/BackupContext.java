@@ -7,6 +7,7 @@ package de.dimm.vsm.backup;
 
 import de.dimm.vsm.Utilities.VariableResolver;
 import de.dimm.vsm.backup.Backup.BackupCDPTicket;
+import de.dimm.vsm.fsengine.HashCache;
 import de.dimm.vsm.fsengine.StoragePoolHandler;
 import de.dimm.vsm.net.RemoteFSElem;
 import de.dimm.vsm.records.ClientInfo;
@@ -48,6 +49,8 @@ public class BackupContext extends GenericContext implements VariableResolver
             return actClientInfo.getExclList();
         return null;
     }
+
+   
 
  
     @Override

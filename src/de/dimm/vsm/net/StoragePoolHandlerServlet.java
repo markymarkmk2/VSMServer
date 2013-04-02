@@ -205,11 +205,11 @@ public class StoragePoolHandlerServlet extends HessianServlet implements Storage
         return ret;
     }
     
-    public long open_stream( StoragePoolWrapper pool, long nodeIdx, boolean create ) throws IOException, PoolReadOnlyException, SQLException, PathResolveException
+    public long open_stream( StoragePoolWrapper pool, long nodeIdx, int streamInfo, boolean create ) throws IOException, PoolReadOnlyException, SQLException, PathResolveException
     {
         StoragePoolHandler handler = poolContextManager.getHandlerbyWrapper(pool);
 
-        return handler.open_stream(nodeIdx, create);
+        return handler.open_stream(nodeIdx, streamInfo, create);
     }
 
     @Override
@@ -238,7 +238,7 @@ public class StoragePoolHandlerServlet extends HessianServlet implements Storage
     {
         long ret = 0;
         if (!create) {
-            ret = open_stream(pool, fse_node.getIdx(), create);
+            ret = open_stream(pool, fse_node.getIdx(), fse_node.getStreaminfo(), create);
         }
         else {
             ret = create_stream( pool, fse_node);
@@ -253,7 +253,7 @@ public class StoragePoolHandlerServlet extends HessianServlet implements Storage
         FileSystemElemNode e = handler.create_fse_node_complete ( fse_node.getPath(), 
                 fse_node.isDirectory() ? FileSystemElemNode.FT_DIR : FileSystemElemNode.FT_FILE);
 
-        long ret = handler.open_stream(e, true);
+        long ret = handler.open_stream(e, fse_node.getStreaminfo(), true);
         checkCommit( handler );
         return ret;
 
@@ -528,11 +528,13 @@ public class StoragePoolHandlerServlet extends HessianServlet implements Storage
     {
         StoragePoolHandler handler = poolContextManager.getHandlerbyWrapper(pool);
         if (handler != null)
+        {
             handler.truncateFile(fileNo, size);
+            handler.commit_transaction();
+        }
         else
             Log.err("Ungültiger Handler in Aufruf", "truncateFile");
 
-        handler.commit_transaction();
     }
 
     @Override
@@ -540,11 +542,13 @@ public class StoragePoolHandlerServlet extends HessianServlet implements Storage
     {
         StoragePoolHandler handler = poolContextManager.getHandlerbyWrapper(pool);
         if (handler != null)
+        {
             handler.close_fh(fileNo);
+            checkCommit( handler );
+        }
         else
             Log.err("Ungültiger Handler in Aufruf", "close_fh");
 
-        checkCommit( handler );
     }
 
     @Override
@@ -552,11 +556,14 @@ public class StoragePoolHandlerServlet extends HessianServlet implements Storage
     {
         StoragePoolHandler handler = poolContextManager.getHandlerbyWrapper(pool);
         if (handler != null)
+        {
             handler.writeFile(fileNo, b, length, offset);
+            handler.commit_transaction();
+        }
         else
             Log.err("Ungültiger Handler in Aufruf", "writeFile");
         
-        handler.commit_transaction();
+        
     }
 /*
     @Override

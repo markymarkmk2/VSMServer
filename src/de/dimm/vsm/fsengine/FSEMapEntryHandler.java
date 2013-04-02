@@ -64,12 +64,12 @@ public class FSEMapEntryHandler
         Log.err( "open_fh: open failed " + node.getName() );
         return -1;
     }
-    public long open_stream( FileSystemElemNode node, boolean create ) throws IOException, PathResolveException, UnsupportedEncodingException, SQLException
+    public long open_stream( FileSystemElemNode node, int streamInfo, boolean create ) throws IOException, PathResolveException, UnsupportedEncodingException, SQLException
     {
         long newFileNo = newFilehandleIdx++;
         synchronized(openFileHandleMap)
         {
-            FileHandle fh = poolHandler.open_xa_handle(node, create);
+            FileHandle fh = poolHandler.open_xa_handle(node, streamInfo, create);
             openFileHandleMap.put(newFileNo, new FSEMapEntry(node, fh) );
         }
         //Log.debug( "open_fh: opening " + node.getName() + " -> " + newFileNo );

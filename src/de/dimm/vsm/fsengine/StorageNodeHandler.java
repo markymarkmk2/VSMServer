@@ -443,11 +443,16 @@ public class StorageNodeHandler
        return storage_pool_handler.isReadOnly();
     }
 
-    public FileHandle create_DDFS_handle( StoragePoolHandler aThis, FileSystemElemNode node, boolean create, boolean b ) throws PathResolveException, IOException, SQLException
+    public FileHandle create_DDFS_handle( StoragePoolHandler aThis, FileSystemElemNode node, boolean create ) throws PathResolveException, IOException, SQLException
     {
-        return DDFS_FileHandle.create_fs_handle(this.storageNode, aThis, node, create, /*isStream*/ b );
+        return DDFS_FileHandle.create_fs_handle(this.storageNode, aThis, node, create );
     }
-    
+
+    public FileHandle create_DDFS_StreamHandle( StoragePoolHandler aThis, FileSystemElemNode node, int streamInfo, boolean create ) throws PathResolveException, IOException, SQLException
+    {
+        return DDFS_FileHandle.create_fs_stream_handle(this.storageNode, aThis, node, streamInfo, create );
+    }
+
 /*
     void update_filesize( FileSystemElemNode node, long size ) throws PoolReadOnlyException, SQLException, DBConnException
     {

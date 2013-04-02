@@ -1233,13 +1233,13 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
     }
 
 
-    public long open_stream( long idx, boolean create ) throws IOException, PoolReadOnlyException, SQLException, PathResolveException
+    public long open_stream( long idx, int streamInfo, boolean create ) throws IOException, PoolReadOnlyException, SQLException, PathResolveException
     {
         // FILE HANDLE IDX IS NOT NODE-IDX
 
         FileSystemElemNode node = resolve_fse_node_from_db(idx);
 
-        long fileNo = open_stream( node, create );
+        long fileNo = open_stream( node, streamInfo, create );
 
         return fileNo;
     }
@@ -1253,12 +1253,12 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
         return fseMapHandler.open_fh(node, create);
     }
 
-    public long open_stream( FileSystemElemNode node, boolean create ) throws IOException, PoolReadOnlyException, PathResolveException, UnsupportedEncodingException, SQLException
+    public long open_stream( FileSystemElemNode node, int streamInfo, boolean create ) throws IOException, PoolReadOnlyException, PathResolveException, UnsupportedEncodingException, SQLException
     {
         if (create && isReadOnly())
             throw new PoolReadOnlyException(pool);
 
-        return fseMapHandler.open_stream(node, create);
+        return fseMapHandler.open_stream(node, streamInfo, create);
     }
 
     public void close_fh( long idx ) throws IOException
@@ -1296,7 +1296,7 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
                 if (getPool().isLandingZone())
                     fs_ret = snHandler.create_file_handle(node, create );
                 else
-                    fs_ret = snHandler.create_DDFS_handle( this, node, create, /*isStream*/ false );
+                    fs_ret = snHandler.create_DDFS_handle( this, node, create );
 
                 // IF WE HAVE MORE THAN ONE HANDLE
                 if (ret != null)
@@ -2107,7 +2107,7 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
     }
 
 
-    public FileHandle open_xa_handle( FileSystemElemNode node, boolean create ) throws PathResolveException, UnsupportedEncodingException, IOException, SQLException
+    public FileHandle open_xa_handle( FileSystemElemNode node, int streamInfo, boolean create ) throws PathResolveException, UnsupportedEncodingException, IOException, SQLException
     {
         List<AbstractStorageNode> s_nodes = resolve_storage_nodes( node );
         FileHandle ret = null;
@@ -2124,7 +2124,7 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
                 if (getPool().isLandingZone())
                     fs_ret = sn_handler.create_xa_node_handle( node, create );
                 else
-                    fs_ret = sn_handler.create_DDFS_handle( this, node, create, /*isStream*/ true );
+                    fs_ret = sn_handler.create_DDFS_StreamHandle( this, node, streamInfo,  create );
 
 
                 // IF WE HAVE MORE THAN ONE HANDLE
