@@ -85,7 +85,7 @@ public class StoragePoolHandlerContextManager extends WorkerParent
             {
                 long newIdx = handlerMap.size();
                 StoragePoolQry qry = new StoragePoolQry(user, rdonly, -1, showDeleted);
-                StoragePoolWrapper w = new StoragePoolWrapper(newIdx, pool.getIdx(), qry, true);
+                StoragePoolWrapper w = new StoragePoolWrapper(newIdx, pool.getIdx(), agentIp, port, qry, true);
                 StoragePoolHandler handler = StoragePoolHandlerFactory.createStoragePoolHandler(pool, qry);
 
                 StoragePoolHandlerContext context = new StoragePoolHandlerContext(handler, drive, agentIp, port);
@@ -107,7 +107,7 @@ public class StoragePoolHandlerContextManager extends WorkerParent
             {
                 long newIdx = handlerMap.size();
                 StoragePoolQry qry = new StoragePoolQry(user, rdonly, timestamp, showDeleted);
-                StoragePoolWrapper w = new StoragePoolWrapper(newIdx, pool.getIdx(), qry, true);
+                StoragePoolWrapper w = new StoragePoolWrapper(newIdx, pool.getIdx(), agentIp, port, qry, true);
                 StoragePoolHandler handler = StoragePoolHandlerFactory.createStoragePoolHandler(pool, qry);
                 handler.setPathResolver( new NodePathResolver(node, handler));
                 handler.em_refresh(node);
@@ -131,7 +131,7 @@ public class StoragePoolHandlerContextManager extends WorkerParent
             {
                 long newIdx = handlerMap.size();
                 StoragePoolQry qry = new StoragePoolQry(user, rdonly, timestamp, showDeleted);
-                StoragePoolWrapper w = new StoragePoolWrapper(newIdx, pool.getIdx(), qry, true);
+                StoragePoolWrapper w = new StoragePoolWrapper(newIdx, pool.getIdx(), agentIp, port, qry, true);
                 StoragePoolHandler handler = StoragePoolHandlerFactory.createStoragePoolHandler(pool, qry);
                 if (handler.isInsideMappingDir( subPath ))
                 {
@@ -162,7 +162,7 @@ public class StoragePoolHandlerContextManager extends WorkerParent
             {
                 long newIdx = handlerMap.size();
                 StoragePoolQry qry = new StoragePoolQry(user, true, ts, false);
-                StoragePoolWrapper w = new StoragePoolWrapper(newIdx, pool.getIdx(), qry, true);
+                StoragePoolWrapper w = new StoragePoolWrapper(newIdx, pool.getIdx(), agentIp, port, qry, true);
                 StoragePoolHandler handler = StoragePoolHandlerFactory.createStoragePoolHandler( pool, qry);
                 if (handler.isInsideMappingDir( subPath ))
                 {
@@ -195,7 +195,7 @@ public class StoragePoolHandlerContextManager extends WorkerParent
                 StoragePoolQry qry = handler.getPoolQry();
                 StoragePool pool = handler.getPool();
                 handler.em_refresh(pool.getRootDir());
-                StoragePoolWrapper w = new StoragePoolWrapper(newIdx, pool.getIdx(), qry, false);
+                StoragePoolWrapper w = new StoragePoolWrapper(newIdx, pool.getIdx(), agentIp, port, qry, false);
 
 
                 StoragePoolHandlerContext context = new StoragePoolHandlerContext(handler, drive, agentIp, port);

@@ -693,6 +693,14 @@ public class DDFS_FileHandle implements FileHandle
         File fh;
         boolean dirty;
 
+        @Override
+        public String toString()
+        {
+            return "DHB: " + dhb + " Len: " + len + " dirty: " + Boolean.toString(dirty);
+        }
+
+
+
         public DDHandle( HashBlock hb )
         {
             pos = hb.getBlockOffset();

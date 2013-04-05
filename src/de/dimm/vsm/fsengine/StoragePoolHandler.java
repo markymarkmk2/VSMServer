@@ -1949,6 +1949,8 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
         {
             fh.writeFile(b, length, offset);
         }
+        else
+            throw new IOException("Cannot retrieve FileHandle for fileNo " + fileNo);
 //        FileSystemElemNode fseNode = getNodeByFileNo( fileNo );
 
         // TODO: DETECT NEW SIZE AFTER WRITE

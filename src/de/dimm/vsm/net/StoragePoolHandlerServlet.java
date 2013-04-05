@@ -76,14 +76,6 @@ public class StoragePoolHandlerServlet extends HessianServlet implements Storage
   
 
     @Override
-    public RemoteFSElem create_fse_node( StoragePoolWrapper pool, String fileName, String type ) throws IOException, PoolReadOnlyException, PathResolveException
-    {
-        StoragePoolHandler handler = poolContextManager.getHandlerbyWrapper(pool);
-        FileSystemElemNode e = handler.create_fse_node_complete(fileName, type);
-        return genRemoteFSElemfromNode(e, e.getAttributes());
-    }
-
-    @Override
     public RemoteFSElem resolve_node( StoragePoolWrapper pool, String path ) throws SQLException
     {
         StoragePoolHandler handler = poolContextManager.getHandlerbyWrapper(pool);
@@ -196,11 +188,11 @@ public class StoragePoolHandlerServlet extends HessianServlet implements Storage
     }
 
 
-    public long open_fh( StoragePoolWrapper pool, long nodeIdx, boolean create ) throws IOException, PoolReadOnlyException, SQLException, PathResolveException
+    public long open_fh( StoragePoolWrapper pool, long nodeIdx ) throws IOException, PoolReadOnlyException, SQLException, PathResolveException
     {        
         StoragePoolHandler handler = poolContextManager.getHandlerbyWrapper(pool);
 
-        long ret = handler.open_fh(nodeIdx, create);
+        long ret = handler.open_fh(nodeIdx, false);
         checkCommit( handler );
         return ret;
     }
@@ -212,48 +204,40 @@ public class StoragePoolHandlerServlet extends HessianServlet implements Storage
         return handler.open_stream(nodeIdx, streamInfo, create);
     }
 
-    @Override
-    public long open_fh( StoragePoolWrapper pool, RemoteFSElem fse_node, boolean create ) throws IOException, PoolReadOnlyException, SQLException, PathResolveException
+    private FileSystemElemNode create_fs_elem_node( StoragePoolHandler handler, String fileName, String type ) throws IOException, PoolReadOnlyException, PathResolveException
     {
-        if (!create) {
-            return open_fh(pool, fse_node.getIdx(), false);
-        }
-        return create_fh( pool, fse_node);
+        FileSystemElemNode e = handler.create_fse_node_complete(fileName, type);
+        return e;
+    }
+
+
+    @Override
+    public RemoteFSElem create_fse_node( StoragePoolWrapper pool, String fileName, String type ) throws IOException, PoolReadOnlyException, PathResolveException
+    {
+        StoragePoolHandler handler = poolContextManager.getHandlerbyWrapper(pool);
+        String path = pool.resolveRelPath(fileName);
+        FileSystemElemNode e = create_fs_elem_node(handler, path, type);
+        return genRemoteFSElemfromNode(e, e.getAttributes());
     }
     
-    public long create_fh( StoragePoolWrapper pool,  RemoteFSElem fse_node) throws IOException, PoolReadOnlyException, SQLException, PathResolveException
+    public long create_fh( StoragePoolWrapper pool, String vsmPath, String type) throws IOException, PoolReadOnlyException, SQLException, PathResolveException
     {        
         StoragePoolHandler handler = poolContextManager.getHandlerbyWrapper(pool);
-        FileSystemElemNode e = handler.create_fse_node_complete ( fse_node.getPath(), 
-                fse_node.isDirectory() ? FileSystemElemNode.FT_DIR : FileSystemElemNode.FT_FILE);
-
+        String path = pool.resolveRelPath(vsmPath);
+        FileSystemElemNode e = create_fs_elem_node(handler, path, type);
         long ret = handler.open_fh(e, true);
         checkCommit( handler );
-        return ret;
-        
+        return ret;        
     }
 
-    @Override
-    public long open_stream( StoragePoolWrapper pool, RemoteFSElem fse_node, boolean create ) throws IOException, PoolReadOnlyException, SQLException, PathResolveException
-    {
-        long ret = 0;
-        if (!create) {
-            ret = open_stream(pool, fse_node.getIdx(), fse_node.getStreaminfo(), create);
-        }
-        else {
-            ret = create_stream( pool, fse_node);
-        }
-        return ret;
 
-    }
     
-    public long create_stream( StoragePoolWrapper pool,  RemoteFSElem fse_node) throws IOException, PoolReadOnlyException, SQLException, PathResolveException
+    public long create_stream( StoragePoolWrapper pool,  String vsmPath, String type, int streamInfo) throws IOException, PoolReadOnlyException, SQLException, PathResolveException
     {        
         StoragePoolHandler handler = poolContextManager.getHandlerbyWrapper(pool);
-        FileSystemElemNode e = handler.create_fse_node_complete ( fse_node.getPath(), 
-                fse_node.isDirectory() ? FileSystemElemNode.FT_DIR : FileSystemElemNode.FT_FILE);
+        FileSystemElemNode e = handler.create_fse_node_complete ( vsmPath, type);
 
-        long ret = handler.open_stream(e, fse_node.getStreaminfo(), true);
+        long ret = handler.open_stream(e, streamInfo, true);
         checkCommit( handler );
         return ret;
 

@@ -121,7 +121,7 @@ public class DDFS_WR_FileHandle extends DDFS_FileHandle implements IBackupHelper
         DDHandle lh = getLastHandle();
         if (lh != null)
         {
-            if (lh.len == blockSize)
+            if (lh.len == blockSize && !lh.isDirty())
             {
                 // WE DONT NEED TO TOUCH THIS ONE
                 lh = null;
@@ -144,6 +144,10 @@ public class DDFS_WR_FileHandle extends DDFS_FileHandle implements IBackupHelper
         if (idx > Integer.MAX_VALUE)
             throw new IllegalArgumentException("Datei " + getFsNode().getName() + " ist zu lang: " + offset);
 
+        // Auf Blockgrenze?
+        if (idx == handleList.size())
+            return null;
+
         return handleList.get((int)idx);
     }
 
@@ -151,6 +155,7 @@ public class DDFS_WR_FileHandle extends DDFS_FileHandle implements IBackupHelper
     @Override
     public synchronized void writeFile( byte[] b,  int length, long offset ) throws IOException, PoolReadOnlyException
     {
+        Log.debug("writeFile", "Writing " + length + "  byte at offset " + offset );
         // Eventuell offene Blöcke schreiben
         checkForFlush( false );
 
@@ -165,6 +170,8 @@ public class DDFS_WR_FileHandle extends DDFS_FileHandle implements IBackupHelper
         {
             offsetInBlock = (int)(offset - actBlock.pos);
         }
+        
+        // Haben wir einen Block gefunden, in dem weitergeschrieben werden soll ?
         if (actBlock != null)
         {
             // Ist Block groß genug ?
@@ -178,8 +185,13 @@ public class DDFS_WR_FileHandle extends DDFS_FileHandle implements IBackupHelper
                         newBlockSize = blockSize;
 
                     byte[] data = actBlock.data;
-                    actBlock.data = new byte[newBlockSize];
-                    System.arraycopy(data, 0, actBlock.data, 0, data.length);
+
+                    // Falls das kein kompletter Block ist, dann Block auf volle Länge setzen
+                    if (data.length != blockSize)
+                    {
+                        actBlock.data = new byte[blockSize];
+                        System.arraycopy(data, 0, actBlock.data, 0, data.length);
+                    }
                     actBlock.len = newBlockSize;
                 }
             }
@@ -205,8 +217,13 @@ public class DDFS_WR_FileHandle extends DDFS_FileHandle implements IBackupHelper
                 if (lastBlock.len != blockSize )
                 {
                     byte[] data = actBlock.data;
-                    lastBlock.data = new byte[blockSize];
-                    System.arraycopy(data, 0, lastBlock.data, 0, data.length);
+
+                    // Falls das kein kompletter Block ist, dann Block auf volle Länge setzen
+                    if (lastBlock.data.length != blockSize)
+                    {
+                        lastBlock.data = new byte[blockSize];
+                        System.arraycopy(data, 0, lastBlock.data, 0, data.length);
+                    }
                     lastBlock.len = blockSize;
                     lastBlock.setDirty(true);
                 }
@@ -308,6 +325,8 @@ public class DDFS_WR_FileHandle extends DDFS_FileHandle implements IBackupHelper
         // Erster schreibender Zugriff, dann alles notwendige anlegen
         if (newAttr == null)
         {
+            Log.debug("checkForFlush", "Creating new attribute for " + getNode());
+
             digest = new fr.cryptohash.SHA1();
             newAttr = getNode().getAttributes();
             newAttr.setTs(System.currentTimeMillis());
@@ -315,7 +334,7 @@ public class DDFS_WR_FileHandle extends DDFS_FileHandle implements IBackupHelper
             long diffSinceLastUpdate = System.currentTimeMillis() - newAttr.getTs();
             if (diffSinceLastUpdate/1000 > MIN_FILECHANGE_THRESHOLD_S)
             {
-                newAttr = new FileSystemElemAttributes(getNode().getAttributes());
+                newAttr = new FileSystemElemAttributes(newAttr);
                 createNewAttribute = true;
             }
             hashCache = LogicControl.getStorageNubHandler().getHashCache(getSpHandler().getPool());
@@ -328,9 +347,7 @@ public class DDFS_WR_FileHandle extends DDFS_FileHandle implements IBackupHelper
         }
 
         try
-        {
-            DDHandle lastBlock = getLastValidBlock();
-
+        {            
             long newLen = 0;
             for (int i = 0; i < handleList.size(); i++)
             {
@@ -340,6 +357,13 @@ public class DDFS_WR_FileHandle extends DDFS_FileHandle implements IBackupHelper
                 // Ist beschrieben worden ?
                 if (!handleList.get(i).isDirty())
                     continue;
+
+                if (handle.data == null)
+                {
+                    throw new IOException("Missing data in Block " + handle);
+                }
+
+                Log.debug("checkForFlush", "Flushing " + handle);
 
                 
                 byte[] hash = digest.digest(handle.data);
@@ -361,7 +385,7 @@ public class DDFS_WR_FileHandle extends DDFS_FileHandle implements IBackupHelper
                     if (dhb != null)
                     {
                         FileHandle fHandle = getSpHandler().open_dedupblock_handle(dhb, /*create*/ true);
-                        fHandle.writeFile(handle.data, handle.data.length, /*offset*/ 0);
+                        fHandle.writeFile(handle.data, handle.len, /*offset*/ 0);
 
                         updateHashBlock( isStream(), hashValue, dhb, handle.pos, handle.len, actAttribute.getTs() );
                         stat.addTransferBlock();
@@ -393,7 +417,7 @@ public class DDFS_WR_FileHandle extends DDFS_FileHandle implements IBackupHelper
             throw new IOException( exc.getMessage(), exc);
         }
     }
-    void createNewFseAttribute(FileSystemElemNode fsenode, FileSystemElemAttributes newAttributes, long len) throws SQLException
+    void updateFseAttribute(FileSystemElemNode fsenode, FileSystemElemAttributes newAttributes, long len) throws SQLException
     {
         
         if (isStream())
@@ -407,7 +431,7 @@ public class DDFS_WR_FileHandle extends DDFS_FileHandle implements IBackupHelper
 
     }
 
-    void updateFseAttribute(FileSystemElemNode fsenode, FileSystemElemAttributes newAttributes, long len) throws SQLException
+    void createNewFseAttribute(FileSystemElemNode fsenode, FileSystemElemAttributes newAttributes, long len) throws SQLException
     {
         long ts = newAttributes.getTs();
         newAttributes.setAccessDateMs( ts);
