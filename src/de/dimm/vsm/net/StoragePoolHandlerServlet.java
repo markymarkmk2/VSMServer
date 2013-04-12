@@ -139,13 +139,6 @@ public class StoragePoolHandlerServlet extends HessianServlet implements Storage
         handler.mkdir(pathName);
         checkCommit( handler );
     }
-/*
-    @Override
-    public FileHandle open_file_handle( StoragePoolWrapper pool, String path, boolean create ) throws IOException
-    {
-        StoragePoolHandler handler = getHandler(pool);
-        return handler.open_file_handle(path, create);
-    }*/
 
     @Override
     public String getName(StoragePoolWrapper pool)
@@ -188,20 +181,22 @@ public class StoragePoolHandlerServlet extends HessianServlet implements Storage
     }
 
 
-    public long open_fh( StoragePoolWrapper pool, long nodeIdx ) throws IOException, PoolReadOnlyException, SQLException, PathResolveException
-    {        
-        StoragePoolHandler handler = poolContextManager.getHandlerbyWrapper(pool);
-
-        long ret = handler.open_fh(nodeIdx, false);
-        checkCommit( handler );
-        return ret;
-    }
-    
-    public long open_stream( StoragePoolWrapper pool, long nodeIdx, int streamInfo, boolean create ) throws IOException, PoolReadOnlyException, SQLException, PathResolveException
+    @Override
+    public long open_fh( StoragePoolWrapper pool, long nodeIdx, boolean forWrite  ) throws IOException, PoolReadOnlyException, SQLException, PathResolveException
     {
         StoragePoolHandler handler = poolContextManager.getHandlerbyWrapper(pool);
 
-        return handler.open_stream(nodeIdx, streamInfo, create);
+        long ret = handler.open_fh(nodeIdx, forWrite);
+        checkCommit( handler );
+        return ret;
+    }
+
+    @Override
+    public long open_stream( StoragePoolWrapper pool, long nodeIdx, boolean forWrite   ) throws IOException, PoolReadOnlyException, SQLException, PathResolveException
+    {
+        StoragePoolHandler handler = poolContextManager.getHandlerbyWrapper(pool);
+
+        return handler.open_stream(nodeIdx, 0, forWrite);
     }
 
     private FileSystemElemNode create_fs_elem_node( StoragePoolHandler handler, String fileName, String type ) throws IOException, PoolReadOnlyException, PathResolveException
@@ -255,7 +250,11 @@ public class StoragePoolHandlerServlet extends HessianServlet implements Storage
                 if (!vsmFsEntry.getuPath().startsWith(path) && !path.startsWith(vsmFsEntry.getuPath()) )
                     continue;
 
-                if (path.length() <= vsmFsEntry.getuPath().length())
+                boolean matchesSubPath = path.equals(vsmFsEntry.getuPath());
+                matchesSubPath |= path.length() < vsmFsEntry.getuPath().length() && vsmFsEntry.getuPath().charAt(path.length()) == '/';
+                boolean isRoot = path.equals("/");
+
+                if (matchesSubPath || isRoot)
                 {
                     String restPath = vsmFsEntry.getuPath().substring(path.length());
                     if (restPath.startsWith("/") && restPath.length() > 1)

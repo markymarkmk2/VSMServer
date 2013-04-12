@@ -1,3 +1,18 @@
+Veränderungen in V1.4.4
+UPD: Schreibender Zugriff für FS-Mounts in Vorbereitung
+
+Veränderungen in V1.4.3
+UPD: Automounter, Programmierung von Mounts in StoragePool
+UPD: Neues Design der Filesystem-Ansicht / Bedienung FS-Mounts
+FIX: Seltene Deadlocks bei gleichzeitigem Zugriff von mehreren Sicherungen auf einen Cache (seit 1.3.8)
+
+Veränderungen in V1.4.2
+FIX: UserPath-Sicht in Filesystem-View korrigiert
+UPD: UserPath-Sicht in FS-Mounts aktiviert
+
+Veränderungen in V1.4.0
+UPD: CDP-Zugriffe werden in laufende Backups integriert
+
 Veränderungen in V1.3.8
 UPD: Checks für StoragePool
 UPD: Checks für StorageNode

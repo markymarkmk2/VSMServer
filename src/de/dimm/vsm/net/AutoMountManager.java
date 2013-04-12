@@ -9,12 +9,14 @@ import de.dimm.vsm.LogicControl;
 import de.dimm.vsm.Main;
 import de.dimm.vsm.WorkerParent;
 import de.dimm.vsm.auth.User;
+import de.dimm.vsm.backup.AgentApiEntry;
 import de.dimm.vsm.fsengine.GenericEntityManager;
 import de.dimm.vsm.net.interfaces.GuiServerApi;
 import de.dimm.vsm.records.MountEntry;
 import de.dimm.vsm.records.Role;
 import de.dimm.vsm.records.StoragePool;
 import java.io.IOException;
+import java.net.UnknownHostException;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -97,6 +99,34 @@ public class AutoMountManager extends WorkerParent implements IAgentIdleManager
         em.commit_transaction();
     }
 
+    boolean isOnline( String agentIp, int agentPort )
+    {
+        boolean ret = false;
+        AgentApiEntry apiEntry = null;
+        try
+        {
+            apiEntry = LogicControl.getApiEntry(agentIp, agentPort, /*withMsg*/ false);
+            ret = apiEntry.isOnline();
+        }
+        catch (UnknownHostException unknownHostException)
+        {
+        }
+        finally
+        {
+            if (apiEntry != null)
+            {
+                try
+                {
+                    apiEntry.close();
+                }
+                catch (IOException iOException)
+                {
+                }
+            }
+        }
+        return ret;
+    }
+
     void mountAllUnMounted()
     {
         List<MountEntry> mountEntries = getMountEntryList();
@@ -110,47 +140,59 @@ public class AutoMountManager extends WorkerParent implements IAgentIdleManager
         {
             try
             {
-                User user = getUser( mountEntry );
-                if (user == null)
-                    throw new Exception(Main.Txt( "User kann nicht aufgelöst werden") + ": " + mountEntry.getUsername() );
-                
-                Role role = user.getRole();
-                GuiServerApiImpl guiServerApi = new GuiServerApiImpl( System.currentTimeMillis(), role, user );
-                StoragePool pool = mountEntry.getPool();
-
-                StoragePoolHandlerContextManager contextMgr = Main.get_control().getPoolHandlerServlet().getContextManager();
-                StoragePoolWrapper wrapper = guiServerApi.getMounted( mountEntry.getIp(), mountEntry.getPort(), pool );
-
-                if (wrapper == null)
+                if (isOnline( mountEntry.getIp(), mountEntry.getPort()))
                 {
-                    if ( mountEntry.isAutoMount() && !mountEntry.isDisabled())
+                    User user = getUser( mountEntry );
+                    if (user == null)
+                        throw new Exception(Main.Txt( "User kann nicht aufgelöst werden") + ": " + mountEntry.getUsername() );
+
+                    Role role = user.getRole();
+                    GuiServerApiImpl guiServerApi = new GuiServerApiImpl( System.currentTimeMillis(), role, user );
+                    StoragePool pool = mountEntry.getPool();
+
+                    StoragePoolHandlerContextManager contextMgr = Main.get_control().getPoolHandlerServlet().getContextManager();
+                    StoragePoolWrapper wrapper = guiServerApi.getMounted( mountEntry.getIp(), mountEntry.getPort(), pool );
+
+                    if (wrapper == null)
                     {
-                        mountEntry( user, guiServerApi, mountEntry);
-                    }                        
+                        if ( mountEntry.isAutoMount() && !mountEntry.isDisabled())
+                        {
+                            mountEntry( user, guiServerApi, mountEntry);
+                        }
+                    }
+                    else
+                    {
+                        if ( mountEntry.isDisabled())
+                        {
+                            Log.debug( "AutoMountManager", Main.Txt("Mountentrag ist disabled, wird entfernt") + ": " + mountEntry.toString() );
+                            unMountEntry( guiServerApi, mountEntry);
+                        }
+                    }
+                
+                    // ADD ALL FOUND MAPPED VALUES
+                    List<StoragePoolWrapper> actWrappers = contextMgr.getPoolWrappers( mountEntry.getIp(), mountEntry.getPort(), pool );
+                    for (StoragePoolWrapper wr : actWrappers)
+                    {
+                        if (wr.getMountEntryKey() == null)
+                            continue;
+                        MountEntry me = mountEntriesMap.get( wr.getMountEntryKey() );
+                        if (me == null)
+                            continue;
+
+                        if (!mountList.contains( mountEntry))
+                        {
+                            mountList.add( me );
+                        }
+                    }
                 }
                 else
                 {
-                    if ( mountEntry.isDisabled()) 
+                    if (mountList.contains(mountEntry))
                     {
-                        unMountEntry( guiServerApi, mountEntry);                        
-                    }  
-                }
-                
-                // ADD ALL FOUND MAPPED VALUES
-                List<StoragePoolWrapper> actWrappers = contextMgr.getPoolWrappers( mountEntry.getIp(), mountEntry.getPort(), pool );
-                for (StoragePoolWrapper wr : actWrappers)
-                {
-                    if (wr.getMountEntryKey() == null)
-                        continue;
-                    MountEntry me = mountEntriesMap.get( wr.getMountEntryKey() );
-                    if (me == null)
-                        continue;
-                    
-                    if (!mountList.contains( mountEntry))
-                    {
-                        mountList.add( me );
+                        Log.debug( "AutoMountManager", Main.Txt("Mountentrag ist offline, wird entfernt") + ": " + mountEntry.toString() );
+                        mountList.remove( mountEntry );
                     }
-                } 
+                }
             }
             catch (Exception ex)
             {
@@ -181,6 +223,8 @@ public class AutoMountManager extends WorkerParent implements IAgentIdleManager
         wrapper.setCloseOnUnmount( true );
         guiServerApi.mountVolume( mountEntry.getIp(), mountEntry.getPort(), wrapper, mountEntry.getMountPath().getPath() );
         wrapper.setMountEntryKey( mountEntry.getKey() );
+
+        Log.debug( "AutoMountManager", Main.Txt("Mounteintrag wird gemountet") + ": " + mountEntry.toString() );
 
         if (!mountList.contains( mountEntry))
         {

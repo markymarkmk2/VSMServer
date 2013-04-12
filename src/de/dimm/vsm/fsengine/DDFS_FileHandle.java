@@ -503,7 +503,8 @@ public class DDFS_FileHandle implements FileHandle
 
                 if (pos + len > dDHandle.pos && dDHandle.pos + dDHandle.len > pos)
                 {
-                    dDHandle.open(fsNode, rafMode);
+                    AbstractStorageNode snode = getStorageNodeForBlock( dDHandle);
+                    dDHandle.open(snode, rafMode);
                     lastHandles.add(dDHandle);
                 }
 
@@ -523,6 +524,34 @@ public class DDFS_FileHandle implements FileHandle
                 raf = new RandomAccessFile(fh, "r");
             }
         }
+    }
+    AbstractStorageNode getStorageNodeForBlock(DDHandle ddh)
+    {
+        // LOOK FOR FIRST EXISTING NODE
+        List<AbstractStorageNode> s_nodes = spHandler.get_primary_storage_nodes(/*forWrite*/ false);
+        for (int i = 0; i < s_nodes.size(); i++)
+        {
+            AbstractStorageNode s_node = s_nodes.get(i);
+            if (s_node.isFS())
+            {
+                StorageNodeHandler snHandler = spHandler.get_handler_for_node(s_node);
+                try
+                {
+                    FileHandle lfh = snHandler.create_file_handle(ddh.dhb, false);
+                    if (lfh.exists())
+                    {
+                        return s_node;
+                    }
+                }
+                catch (PathResolveException pathResolveException)
+                {
+                }
+                catch (UnsupportedEncodingException unsupportedEncodingException)
+                {
+                }
+            }
+        }
+        return null;
     }
 
     @Override
@@ -544,9 +573,9 @@ public class DDFS_FileHandle implements FileHandle
 
         List<DDHandle> handles = getHandles(offset, length);
 
-        if (handles == null)
+        if (handles == null && length > 0 || offset > 0)
         {
-            return 0;
+            throw new IOException("Read error (-1)");
         }
 
         int byteRead = 0;

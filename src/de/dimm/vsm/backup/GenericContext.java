@@ -151,6 +151,7 @@ public abstract class GenericContext implements IBackupHelper
     public void setAbort( boolean abort )
     {
         this.abort = abort;
+        this.state = JOBSTATE.ABORTING;
     }
 
     public boolean isAbort()

@@ -1029,6 +1029,24 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
 
         FileSystemElemNode parent = resolve_parent_dir_node(fileName);
 
+        if (parent != null)
+        {
+            // Check for existing
+            try
+            {
+                node = resolve_node(fileName);
+                if (node != null)
+                {
+                    return node;
+
+                }
+            }
+            catch (SQLException exc)
+            {
+                 Log.err("Cannot create_fse_node_complete", exc);
+            }
+        }
+
         String name = get_name_from_path( fileName );
 
         Date now = new Date();
@@ -1297,7 +1315,7 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
                     fs_ret = snHandler.create_file_handle(node, create );
                 else
                     fs_ret = snHandler.create_DDFS_handle( this, node, create );
-
+                
                 // IF WE HAVE MORE THAN ONE HANDLE
                 if (ret != null)
                 {
@@ -1439,6 +1457,7 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
     private List<AbstractStorageNode> resolve_storage_nodes( FileSystemElemNode node )
     {
 
+//        return get_primary_storage_nodes(false);
         List<PoolNodeFileLink> list = get_pool_node_file_links(node);
         if (list.isEmpty())
         {

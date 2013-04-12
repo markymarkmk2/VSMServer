@@ -187,14 +187,24 @@ public class StatCounter {
             dirsTransferedPerSec = ((statTransferedDirs - lastStatTransferedDirs)*1000) / diff;
 
             speedPerSec = bytePerSec / (1000*1000);
+            if (speedPerSec == 0)
+                speedPerSec = byteTransferedPerSec / (1000*1000);
+
             speedDim = "MB/s";
-            if (speedPerSec < filesPerSec + dirsPerSec) {
+            if (speedPerSec < filesPerSec + dirsPerSec)
+            {
                 speedPerSec = filesPerSec + dirsPerSec;
                 speedDim = "f/s";
             }
             double blocksPerSec = (statCheckedBlocks - lastStatCheckedBlocks)*1000.0 / diff;
             blocksPerSec += (statTransferedBlocks - lastStatTransferedBlocks)*1000.0 / diff;
             blocksPerSec += (statDedupBlocks - lastStatDedupBlocks)*1000.0 / diff;
+
+            if (speedPerSec == 0)
+            {
+                speedPerSec = blocksPerSec;
+                speedDim = "blk/s";
+            }
             //speedPerSec += blocksPerSec*blocksize;
 
             SizeStr bps_str = new SizeStr(bytePerSec);
