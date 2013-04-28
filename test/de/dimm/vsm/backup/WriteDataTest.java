@@ -154,7 +154,7 @@ public class WriteDataTest {
             ((JDBCEntityManager)pool_handler.getEm()).getCache(JDBCEntityManager.OBJECT_CACHE).getCache().removeAll();
             FileSystemElemNode node = pool_handler.resolve_node(absPath);
             assertNotNull("Node nicht in DB", node);
-            long fh = servlet.open_fh(wrapper, node.getIdx());
+            long fh = servlet.open_fh(wrapper, node.getIdx(), false);
             byte[] data = servlet.read(wrapper, fh, 1024, 0);
             servlet.close_fh(wrapper, fh);
 
