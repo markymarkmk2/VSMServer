@@ -448,7 +448,7 @@ public class DDFS_WR_FileHandle extends DDFS_FileHandle implements IBackupHelper
     }
     void updateFseAttribute(FileSystemElemNode fsenode, FileSystemElemAttributes newAttributes, long len) throws SQLException
     {
-        todo: Beim Write und anschließendem Lesen sind nicht alle Hashblöcke in hbList from Node
+//        todo: Beim Write und anschließendem Lesen sind nicht alle Hashblöcke in hbList from Node
         if (isStream())
             fsenode.getAttributes().setStreamSize(len);
         else
