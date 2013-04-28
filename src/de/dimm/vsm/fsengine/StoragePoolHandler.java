@@ -525,9 +525,9 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
 
 
     // PROBABLY INEFFICIENT
-    public FileSystemElemNode resolve_parent_dir_node( String dir_path )
+    public FileSystemElemNode resolve_parent_dir_node( String rel_dir_path )
     {
-        return pathResolver.resolve_parent_dir_node( dir_path);
+        return pathResolver.resolve_parent_dir_node( rel_dir_path);
     }
 
     // CREATES A DIRECTORY-NODE INCLUDING ALL NECESSARY PARENTDIRECTORIES FOR A PATH
@@ -1117,7 +1117,7 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
 
         FileSystemElemNode node = null;
 
-        FileSystemElemNode parent = resolve_parent_dir_node(abs_path);
+        FileSystemElemNode parent = resolve_parent_dir_node( abs_path);
         if (parent == null)
         {
             parent = create_parent_dir_node(abs_path);
@@ -1200,12 +1200,10 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
 
             em_persist(attr);
 
-//            node.getHistory().add( attr );
-//            em_merge(node);
-
+            node.getHistory().addIfRealized(attr);
+            em_merge(node);
             check_commit_transaction();
-
-
+            
             write_bootstrap_data( node );
             return;
         }
@@ -1856,13 +1854,14 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
         if (isReadOnly())
             throw new PoolReadOnlyException(pool);
 
-
-        fseNode.getAttributes().setCreationDateMs(ctoJavaTime);
-        fseNode.getAttributes().setAccessDateMs(atoJavaTime);
-        fseNode.getAttributes().setModificationDateMs(mtoJavaTime);
+        if (ctoJavaTime != 0)
+            fseNode.getAttributes().setCreationDateMs(ctoJavaTime);
+        if (atoJavaTime != 0)
+            fseNode.getAttributes().setAccessDateMs(atoJavaTime);
+        if (mtoJavaTime != 0)
+            fseNode.getAttributes().setModificationDateMs(mtoJavaTime);
 
         fseNode.setAttributes(em_merge( fseNode.getAttributes()));
-
     }
 
 

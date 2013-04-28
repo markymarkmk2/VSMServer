@@ -33,6 +33,7 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import org.apache.log4j.Logger;
 
 
 /**
@@ -42,6 +43,7 @@ import java.util.Map;
 public class StoragePoolHandlerServlet extends HessianServlet implements StoragePoolHandlerInterface
 {
     public static final String version = "1.0.0";
+    Logger LOG = Logger.getLogger(StoragePoolHandlerServlet.class);
     
 
     SearchContextManager searchContextManager;
@@ -210,8 +212,9 @@ public class StoragePoolHandlerServlet extends HessianServlet implements Storage
     public RemoteFSElem create_fse_node( StoragePoolWrapper pool, String fileName, String type ) throws IOException, PoolReadOnlyException, PathResolveException
     {
         StoragePoolHandler handler = poolContextManager.getHandlerbyWrapper(pool);
-        String path = pool.resolveRelPath(fileName);
+        String path = fileName; //pool.resolveRelPath(fileName);
         FileSystemElemNode e = create_fs_elem_node(handler, path, type);
+        LOG.debug("Created node " + e);
         return genRemoteFSElemfromNode(e, e.getAttributes());
     }
     
@@ -220,6 +223,7 @@ public class StoragePoolHandlerServlet extends HessianServlet implements Storage
         StoragePoolHandler handler = poolContextManager.getHandlerbyWrapper(pool);
         String path = pool.resolveRelPath(vsmPath);
         FileSystemElemNode e = create_fs_elem_node(handler, path, type);
+        LOG.debug("Created node " + e);
         long ret = handler.open_fh(e, true);
         checkCommit( handler );
         return ret;        
@@ -834,6 +838,20 @@ public class StoragePoolHandlerServlet extends HessianServlet implements Storage
                 return true;
         }
          return false;
+    }
+
+    @Override
+    public void set_ms_filetimes( StoragePoolWrapper wrapper, RemoteFSElem node, long ctime, long atime, long mtime ) throws IOException, SQLException, PoolReadOnlyException
+    {
+        StoragePoolHandler handler = getPoolHandlerByWrapper( wrapper );
+        FileSystemElemNode fseNode = handler.resolve_node_by_remote_elem( node);
+        if (fseNode == null)
+            throw new IOException("Node not found");
+
+        handler.check_open_transaction();
+        handler.set_ms_times(fseNode, ctime, atime, mtime);
+        handler.commit_transaction();
+
     }
 
 }

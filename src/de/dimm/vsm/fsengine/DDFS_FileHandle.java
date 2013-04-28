@@ -278,13 +278,17 @@ public class DDFS_FileHandle implements FileHandle
     protected FileSystemElemAttributes getActAttribute( long ts )
     {
         List<FileSystemElemAttributes> attrList = node.getHistory().getList(spHandler.getEm());
+        if (attrList.isEmpty())
+        {
+            return null;
+        }
         if (attrList.size() == 1)
         {
             return attrList.get(0);
         }
 
         // DETECT CORRECT ATTRIBUTE
-        // SORT IN BLOCKOFFSET ORDER, NEWER BLOCKS FIRST
+        // Sort Newest first
         java.util.Collections.sort(attrList, new Comparator<FileSystemElemAttributes>()
         {
 
@@ -301,6 +305,12 @@ public class DDFS_FileHandle implements FileHandle
         });
         int lastValidIdx = -1;
 
+        // We want newest -> First entry in List
+        if (ts == -1)
+        {
+            return attrList.get(0);
+        }
+        
         for (int i = 0; i < attrList.size(); i++)
         {
             FileSystemElemAttributes fileSystemElemAttributes = attrList.get(i);
@@ -569,14 +579,16 @@ public class DDFS_FileHandle implements FileHandle
             System.out.println("DD Read: " + offset + " " + length);
         }
 
+
         ensure_open(offset, length);
 
         List<DDHandle> handles = getHandles(offset, length);
 
-        if (handles == null && length > 0 || offset > 0)
+        if ((handles == null || handles.isEmpty()) && length > 0)
         {
             throw new IOException("Read error (-1)");
         }
+        
 
         int byteRead = 0;
         int arrayOffset = 0;
@@ -721,6 +733,7 @@ public class DDFS_FileHandle implements FileHandle
         byte[] data;
         File fh;
         boolean dirty;
+        boolean unread;
 
         @Override
         public String toString()
@@ -736,6 +749,7 @@ public class DDFS_FileHandle implements FileHandle
             len = hb.getBlockLen();
             this.dhb = hb.getDedupBlock();
             data = null;
+            unread = true;
         }
 
         public DDHandle( XANode hb )
@@ -744,6 +758,7 @@ public class DDFS_FileHandle implements FileHandle
             len = hb.getBlockLen();
             this.dhb = hb.getDedupBlock();
             data = null;
+            unread = true;
         }
         public DDHandle( long pos, int len, byte[] data )
         {
@@ -760,6 +775,19 @@ public class DDFS_FileHandle implements FileHandle
         public boolean isDirty()
         {
             return dirty;
+        }
+
+        public boolean isUnread()
+        {
+            return unread;
+        }
+        
+        public void checkIsRead(AbstractStorageNode fs_node) throws FileNotFoundException, IOException
+        {
+            if (isUnread()){
+                openRead(fs_node);
+                unread = false;
+            }
         }
 
      
@@ -815,5 +843,17 @@ public class DDFS_FileHandle implements FileHandle
             dhb = new DedupHashBlock();
             dhb.setStorageNode(fs_node);
         }
+        void openRead( FileHandle fHandle ) throws FileNotFoundException, IOException
+        {
+            data = new byte[len];
+            int rlen = fHandle.read(data, len, pos);
+            
+            if (rlen != len)
+            {
+                throw new IOException("Short read in open DDFS_FileHandle (" + rlen + "/" + len + ")");
+            }
+            unread = false;
+        }                
+
     }
 }

@@ -221,8 +221,9 @@ public class AutoMountManager extends WorkerParent implements IAgentIdleManager
 
         StoragePoolWrapper wrapper = contextMgr.createPoolWrapper( mountEntry.getIp(), mountEntry.getPort(), mountEntry.getPool(), timestamp, rdOnly, showDeleted, mountEntry.getSubPath(), user, mountEntry.getMountPath().getPath() );
         wrapper.setCloseOnUnmount( true );
+        wrapper.setMountEntry( mountEntry );
         guiServerApi.mountVolume( mountEntry.getIp(), mountEntry.getPort(), wrapper, mountEntry.getMountPath().getPath() );
-        wrapper.setMountEntryKey( mountEntry.getKey() );
+       
 
         Log.debug( "AutoMountManager", Main.Txt("Mounteintrag wird gemountet") + ": " + mountEntry.toString() );
 

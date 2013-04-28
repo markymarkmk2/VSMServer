@@ -26,6 +26,8 @@ import de.dimm.vsm.records.XANode;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.sql.SQLException;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 
 /**
@@ -151,9 +153,25 @@ public class DDFS_WR_FileHandle extends DDFS_FileHandle implements IBackupHelper
         return handleList.get((int)idx);
     }
 
+    private void checkBlockRead(DDHandle actBlock) throws UnsupportedEncodingException, IOException
+    {
+        if (actBlock.isUnread())
+        {
+            try
+            {
+                FileHandle fHandle = getSpHandler().open_dedupblock_handle(actBlock.dhb, /*create*/ false);
+                actBlock.openRead(fHandle);
+                fHandle.close();
+            }
+            catch (PathResolveException ex)
+            {
+                throw new IOException("Fehler bei update DDHandle", ex);
+            }
+        }        
+    }
 
     @Override
-    public synchronized void writeFile( byte[] b,  int length, long offset ) throws IOException, PoolReadOnlyException
+    public synchronized void writeFile( byte[] b,  int length, long offset ) throws IOException, PoolReadOnlyException, UnsupportedEncodingException
     {
         Log.debug("writeFile", "Writing " + length + "  byte at offset " + offset );
         // Eventuell offene Blöcke schreiben
@@ -174,6 +192,7 @@ public class DDFS_WR_FileHandle extends DDFS_FileHandle implements IBackupHelper
         // Haben wir einen Block gefunden, in dem weitergeschrieben werden soll ?
         if (actBlock != null)
         {
+            checkBlockRead(actBlock);
             // Ist Block groß genug ?
             if (writeDataLen + offsetInBlock  > actBlock.len)
             {
@@ -187,7 +206,7 @@ public class DDFS_WR_FileHandle extends DDFS_FileHandle implements IBackupHelper
                     byte[] data = actBlock.data;
 
                     // Falls das kein kompletter Block ist, dann Block auf volle Länge setzen
-                    if (data.length != blockSize)
+                    if (data != null && data.length != blockSize)
                     {
                         actBlock.data = new byte[blockSize];
                         System.arraycopy(data, 0, actBlock.data, 0, data.length);
@@ -216,7 +235,8 @@ public class DDFS_WR_FileHandle extends DDFS_FileHandle implements IBackupHelper
             {
                 if (lastBlock.len != blockSize )
                 {
-                    byte[] data = actBlock.data;
+                    checkBlockRead(lastBlock);
+                    byte[] data = lastBlock.data;
 
                     // Falls das kein kompletter Block ist, dann Block auf volle Länge setzen
                     if (lastBlock.data.length != blockSize)
@@ -329,14 +349,19 @@ public class DDFS_WR_FileHandle extends DDFS_FileHandle implements IBackupHelper
 
             digest = new fr.cryptohash.SHA1();
             newAttr = getNode().getAttributes();
-            newAttr.setTs(System.currentTimeMillis());
-            // Neuer TS
+            long actTs = System.currentTimeMillis();
+            // Nur bei Änderungen, die länger als MIN_FILECHANGE_THRESHOLD_S existieren, wird ein neues Attribut vergeben
             long diffSinceLastUpdate = System.currentTimeMillis() - newAttr.getTs();
             if (diffSinceLastUpdate/1000 > MIN_FILECHANGE_THRESHOLD_S)
             {
                 newAttr = new FileSystemElemAttributes(newAttr);
                 createNewAttribute = true;
+                 // Neuer TS
+                newAttr.setTs(actTs);
             }
+            // M-Time setzen, nicht gelöscht
+            newAttr.setDeleted(false);
+            newAttr.setModificationDateMs(actTs);
             hashCache = LogicControl.getStorageNubHandler().getHashCache(getSpHandler().getPool());
             indexer = LogicControl.getStorageNubHandler().getIndexer(getSpHandler().getPool());
             if (!indexer.isOpen())
@@ -378,6 +403,7 @@ public class DDFS_WR_FileHandle extends DDFS_FileHandle implements IBackupHelper
                     // UPDATE BOOTSTRAP
                     getSpHandler().write_bootstrap_data(dhb, hb);
                     stat.addDedupBlock(dhb);
+                    Log.debug("Found DHB " + dhb.toString());
                 }
                 else
                 {
@@ -390,6 +416,7 @@ public class DDFS_WR_FileHandle extends DDFS_FileHandle implements IBackupHelper
                         updateHashBlock( isStream(), hashValue, dhb, handle.pos, handle.len, actAttribute.getTs() );
                         stat.addTransferBlock();
                         stat.addTransferLen( handle.len );
+                        Log.debug("Added DHB " + dhb.toString());
                     }
                     else
                     {
@@ -401,10 +428,12 @@ public class DDFS_WR_FileHandle extends DDFS_FileHandle implements IBackupHelper
 
             if (createNewAttribute)
             {
+                Log.debug("Creating attribute: " + newAttr);
                 createNewFseAttribute( node, newAttr,  newLen );
             }
             else
             {
+                Log.debug("Updating attribute: " + newAttr);
                 updateFseAttribute( node, newAttr,  newLen );
             }
             getSpHandler().write_bootstrap_data(newAttr);
@@ -419,7 +448,7 @@ public class DDFS_WR_FileHandle extends DDFS_FileHandle implements IBackupHelper
     }
     void updateFseAttribute(FileSystemElemNode fsenode, FileSystemElemAttributes newAttributes, long len) throws SQLException
     {
-        
+        todo: Beim Write und anschließendem Lesen sind nicht alle Hashblöcke in hbList from Node
         if (isStream())
             fsenode.getAttributes().setStreamSize(len);
         else
@@ -428,7 +457,6 @@ public class DDFS_WR_FileHandle extends DDFS_FileHandle implements IBackupHelper
         getSpHandler().check_open_transaction();
         getSpHandler().em_merge(fsenode.getAttributes());
         getSpHandler().check_commit_transaction();
-
     }
 
     void createNewFseAttribute(FileSystemElemNode fsenode, FileSystemElemAttributes newAttributes, long len) throws SQLException
@@ -446,7 +474,7 @@ public class DDFS_WR_FileHandle extends DDFS_FileHandle implements IBackupHelper
 
         getSpHandler().check_open_transaction();
 
-        getSpHandler().em_persist(newAttributes);
+        getSpHandler().em_persist(newAttributes);        
         getSpHandler().em_merge(fsenode);
         getSpHandler().check_commit_transaction();
     }
