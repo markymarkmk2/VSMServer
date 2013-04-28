@@ -1065,7 +1065,7 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
         node.getAttributes().setCreationDateMs( now.getTime());
         node.getAttributes().setModificationDateMs( now.getTime());
         node.getAttributes().setTs(  System.currentTimeMillis());
-
+        node.getAttributes().setPosixMode( 0644);
 
 
         node.setTyp(type);
