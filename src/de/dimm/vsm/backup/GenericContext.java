@@ -97,9 +97,12 @@ public abstract class GenericContext implements IBackupHelper
 
          hashCache = LogicControl.getStorageNubHandler().getHashCache(poolhandler.getPool());
 
-         errList = new ArrayList<RemoteFSElem>();
+         errList = new ArrayList<>();
 
-         Log.debug("Opened " + openCounter + " Contexts");
+         if (openCounter > 20) 
+         {
+             Log.warn("Opened " + openCounter + " Contexts");
+         }
     }
 
     public void setHashCache( HashCache hashCache )
@@ -221,7 +224,10 @@ public abstract class GenericContext implements IBackupHelper
         }
 
         openCounter--;
-        Log.debug("Closed Context");
+        if (openCounter >= 20) 
+        {
+            Log.debug("Closed Context");
+        }
 
     }
 

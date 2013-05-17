@@ -53,12 +53,12 @@ public class PoolMapper
     {
         abort = false;
         try
-        {
-            Connection conn = em.getConnection();
+        {            
             calcStats(em.getConnection());
         }
         catch (SQLException sQLException)
         {
+            Log.err( sQLException.getMessage());
         }
     }
 
@@ -178,6 +178,7 @@ public class PoolMapper
                 }
                 catch (SQLException sQLException)
                 {
+                    Log.err( sQLException.getMessage());
                 }
             }
         }

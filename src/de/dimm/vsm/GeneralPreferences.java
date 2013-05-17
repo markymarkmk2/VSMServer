@@ -89,6 +89,7 @@ public class GeneralPreferences extends Preferences
     public static final String USE_NO_CACHE = "UseNoCache";
     public static final String MIN_FREE_NODE_SPACE_GB = "MinFreeNodeSpaceGB";
     public static final String FIX_DUPL_NAMES = "FixDuplNames";
+    public static final String BLOCK_DUPL_DIRS = "BlockDuplDir";
 
 
 
@@ -154,6 +155,7 @@ public class GeneralPreferences extends Preferences
         prop_names.add( USE_NO_CACHE );
         prop_names.add( MIN_FREE_NODE_SPACE_GB );
         prop_names.add( FIX_DUPL_NAMES );
+        prop_names.add( BLOCK_DUPL_DIRS );
 
 
 

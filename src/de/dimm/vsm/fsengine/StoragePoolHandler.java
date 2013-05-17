@@ -1551,6 +1551,14 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
             BootstrapHandle fh = sn_handler.create_bootstrap_handle(node);
 
             list.add(fh);
+
+            // ADD ALL ATTRIBUTE NODES
+            List<FileSystemElemAttributes> attrList = node.getHistory(getEm());
+            for (FileSystemElemAttributes attr : attrList)
+            {
+                fh = sn_handler.create_bootstrap_handle(attr);
+                list.add(fh);
+            }
         }
 
         return list.toArray(new BootstrapHandle[0]);

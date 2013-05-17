@@ -4,6 +4,9 @@
  */
 package de.dimm.vsm.fsengine;
 
+import de.dimm.vsm.GeneralPreferences;
+import de.dimm.vsm.Main;
+import de.dimm.vsm.log.Log;
 import de.dimm.vsm.records.DedupHashBlock;
 import de.dimm.vsm.records.StoragePool;
 import java.io.IOException;
@@ -11,6 +14,7 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -23,6 +27,7 @@ public class DBHashCache extends HashCache
 
     JDBCEntityManager em;
     PreparedStatement ps = null;
+    ArrayList<String> urlUnsafeHashes = new ArrayList<String>();
 
     public DBHashCache( JDBCEntityManager em, StoragePool pool )
     {
@@ -30,6 +35,7 @@ public class DBHashCache extends HashCache
         this.em = em;
 
     }
+
 
     @Override
     public void fill( String hash, long id )
@@ -39,6 +45,66 @@ public class DBHashCache extends HashCache
     @Override
     public boolean init( Connection conn ) throws IOException
     {
+        if (!Main.get_bool_prop(GeneralPreferences.HASH_URL_FORMAT_FIX, false))
+            return true;
+
+        urlUnsafeHashes.clear();
+        Statement st  = null;
+        try
+        {
+            st = conn.createStatement();
+            ResultSet rs = st.executeQuery("select idx, hashvalue  from DedupHashBlock");
+
+            while (rs.next())
+            {
+                long idx = rs.getLong(1);
+                String hash = rs.getString(2);
+
+                boolean found = false;
+                char lastCh = hash.charAt( hash.length() - 1 );
+
+                // DETECT PADDED HASHES
+                if (lastCh == '=')
+                    found = true;
+
+                if (!found)
+                {
+                    for (int i = 0; i < hash.length(); i++)
+                    {
+                        char ch = hash.charAt(i);
+                        if (ch == '/' || ch == '+')
+                        {
+                            found = true;
+                            break;
+                        }
+                    }
+                }
+                if (found)
+                {
+                    urlUnsafeHashes.add(hash);
+                }
+
+            }
+        }
+        catch (SQLException sQLException)
+        {
+            Log.err("HashMap kann nicht angelegt werden", pool.getName(), sQLException);
+            return false;
+        }
+        finally
+        {
+            if (st != null)
+            {
+                try
+                {
+                    st.close();
+                }
+                catch (SQLException sQLException)
+                {
+                }
+            }
+        }
+
         // Do nothing
         return true;
     }
@@ -96,9 +162,7 @@ public class DBHashCache extends HashCache
     @Override
     public List<String> getUrlUnsafeHashes()
     {
-        ArrayList<String> ret = new ArrayList<String>();
-
-        return ret;
+        return urlUnsafeHashes;
     }
 
     @Override

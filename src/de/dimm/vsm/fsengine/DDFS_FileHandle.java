@@ -578,6 +578,9 @@ public class DDFS_FileHandle implements FileHandle
         {
             System.out.println("DD Read: " + offset + " " + length);
         }
+        // SKIP EMPTY READS
+        if (length == 0)
+            return 0;
 
 
         ensure_open(offset, length);

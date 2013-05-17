@@ -16,11 +16,12 @@ import de.dimm.vsm.net.interfaces.GuiServerApi;
 import de.dimm.vsm.records.AccountConnector;
 import de.dimm.vsm.records.Role;
 import de.dimm.vsm.records.RoleOption;
-import java.util.ArrayList;
 import java.util.Date;
 import java.util.GregorianCalendar;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import javax.naming.NamingException;
 
 /**
@@ -265,7 +266,7 @@ public class LoginManager extends WorkerParent implements GuiLoginApi
                     if (auth.open_user_context(userName, pwd))
                     {
 
-                        List<String> groupsThisUser = new ArrayList<String>();
+                        Set<String> groupsThisUser = new HashSet<String>();
 
                         User user = auth.createUser(role, userName);
                         try
@@ -305,7 +306,7 @@ public class LoginManager extends WorkerParent implements GuiLoginApi
                             auth.close_user_context();
                         }
 
-                        user.setGroups(groupsThisUser, null);
+                        user.setGroups(groupsThisUser);
 
                         Log.debug(Main.Txt("Benutzer") + " " + userName + " " + Main.Txt("wird angemeldet"), role.getName());
 

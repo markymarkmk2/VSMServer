@@ -43,7 +43,7 @@ public class Main
 {
 
     static String source_str = "trunk";
-    static String version_str = "1.4.4";
+    static String version_str = "1.4.6";
         
     public static int writeThreads = 1;
     public static int maxOpenFiles = 1024;

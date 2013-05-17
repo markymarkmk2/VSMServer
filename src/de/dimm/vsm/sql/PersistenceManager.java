@@ -5,11 +5,6 @@
 
 package de.dimm.vsm.sql;
 
-import de.dimm.vsm.Exceptions.DBConnException;
-import de.dimm.vsm.LogicControl;
-import de.dimm.vsm.records.FileSystemElemNode;
-import java.sql.SQLException;
-
 /**
  *
  * @author Administrator

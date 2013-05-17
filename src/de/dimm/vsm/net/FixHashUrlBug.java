@@ -13,6 +13,7 @@ import de.dimm.vsm.auth.User;
 import de.dimm.vsm.fsengine.HashCache;
 import de.dimm.vsm.fsengine.FS_FileHandle;
 import de.dimm.vsm.fsengine.GenericEntityManager;
+import de.dimm.vsm.fsengine.JDBCEntityManager;
 import de.dimm.vsm.fsengine.StoragePoolHandler;
 import de.dimm.vsm.fsengine.StoragePoolHandlerFactory;
 import de.dimm.vsm.log.Log;
@@ -25,6 +26,8 @@ import fr.cryptohash.Digest;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -36,6 +39,7 @@ import java.util.List;
  */
 public class FixHashUrlBug
 {
+    static boolean skipFSCheck = false;
 
     public static void fix( LogicControl control )
     {
@@ -67,7 +71,18 @@ public class FixHashUrlBug
         sp.add_storage_node_handlers();
 
         GenericEntityManager gem = control.get_util_em(storagePool);
+        JDBCEntityManager jem = (JDBCEntityManager)gem;
+        File abortFile = new File("abortFixUrl.txt");
 
+        Statement st = null;
+        try
+        {
+            st = jem.createStatement();
+        }
+        catch (SQLException sQLException)
+        {
+            throw new IOException("DB-Error", sQLException);
+        }
         for (int i = 0; i < unsafeHashes.size(); i++)
         {
             System.out.println("Fixing Hash " + i + " of " + unsafeHashes.size() + " (" + (100*(i+1))/unsafeHashes.size() + "% done)");
@@ -102,6 +117,13 @@ public class FixHashUrlBug
                 {
                     AbstractStorageNode snode = snodes.get(j);
                     FS_FileHandle fsfh = (FS_FileHandle) FS_FileHandle.create_dedup_handle(snode, dhb, false);
+                    if (skipFSCheck)
+                    {
+                        foundOnFs = true;
+                        doMove = true;
+                        continue;
+                    }
+
                     if (fsfh.get_fh().exists())
                     {
                         foundOnFs = true;
@@ -130,7 +152,6 @@ public class FixHashUrlBug
                             Log.debug("Checking duplicate HashEntries");
                             if (fsfh.get_fh().length() != newFsfh.get_fh().length())
                                 throw new IOException( "Invalid len" );
-
 
 
                             Digest digest = new fr.cryptohash.SHA1();
@@ -213,10 +234,10 @@ public class FixHashUrlBug
                     if (dhbList.size() == 0)
                     {
                         // NO NEW HASH ENTRY EXISTS, WE UPDATE OLD HASHBLOCK AND CORRECT THE HASHENTRIES
-                        gem.nativeUpdate("update DedupHashBlock set hashvalue='" + newHash + "' where idx=" + dhb.getIdx() );
+                        jem.nativeUpdate(st, "update DedupHashBlock set hashvalue='" + newHash + "' where idx=" + dhb.getIdx() );
 
-                        gem.nativeUpdate("update HashBlock set hashvalue='" + newHash + "' where dedupBlock_idx=" + dhb.getIdx() );
-                        gem.nativeUpdate("update XANode set hashvalue='" + newHash + "' where dedupBlock_idx=" + dhb.getIdx() );
+                        jem.nativeUpdate(st, "update HashBlock set hashvalue='" + newHash + "' where dedupBlock_idx=" + dhb.getIdx() );
+                        jem.nativeUpdate(st, "update XANode set hashvalue='" + newHash + "' where dedupBlock_idx=" + dhb.getIdx() );
                     }
                     else
                     {
@@ -224,11 +245,11 @@ public class FixHashUrlBug
                         DedupHashBlock newDhb = dhbList.get(0);
 
                         // UPDATE REFERENCES ON OLD DHB TO NEW DHB
-                        gem.nativeUpdate("update HashBlock set hashvalue='" + newHash + "',dedupBlock_idx=" + newDhb.getIdx() + " where dedupBlock_idx=" + dhb.getIdx() );
-                        gem.nativeUpdate("update XANode set hashvalue='" + newHash + "',dedupBlock_idx=" + newDhb.getIdx() + " where dedupBlock_idx=" + dhb.getIdx() );
+                        jem.nativeUpdate(st, "update HashBlock set hashvalue='" + newHash + "',dedupBlock_idx=" + newDhb.getIdx() + " where dedupBlock_idx=" + dhb.getIdx() );
+                        jem.nativeUpdate(st, "update XANode set hashvalue='" + newHash + "',dedupBlock_idx=" + newDhb.getIdx() + " where dedupBlock_idx=" + dhb.getIdx() );
 
                         // FINALLY REMOVE OLD DHB
-                        gem.nativeUpdate("delete from DedupHashBlock where idx=" + dhb.getIdx() );
+                        jem.nativeUpdate(st, "delete from DedupHashBlock where idx=" + dhb.getIdx() );
                     }
 
 
@@ -245,15 +266,14 @@ public class FixHashUrlBug
                     DedupHashBlock newDhb = dhbList.get(0);
 
                     // UPDATE REFERENCES ON OLD DHB TO NEW DHB
-                    gem.nativeUpdate("update HashBlock set hashvalue='" + newHash + "',dedupBlock_idx=" + newDhb.getIdx() + " where dedupBlock_idx=" + dhb.getIdx() );
-                    gem.nativeUpdate("update XANode set hashvalue='" + newHash + "',dedupBlock_idx=" + newDhb.getIdx() + " where dedupBlock_idx=" + dhb.getIdx() );
+                    jem.nativeUpdate(st, "update HashBlock set hashvalue='" + newHash + "',dedupBlock_idx=" + newDhb.getIdx() + " where dedupBlock_idx=" + dhb.getIdx() );
+                    jem.nativeUpdate(st, "update XANode set hashvalue='" + newHash + "',dedupBlock_idx=" + newDhb.getIdx() + " where dedupBlock_idx=" + dhb.getIdx() );
 
                     // FINALLY REMOVE OLD DHB
-                    gem.nativeUpdate("delete from DedupHashBlock where idx=" + dhb.getIdx() );
-
+                    jem.nativeUpdate(st, "delete from DedupHashBlock where idx=" + dhb.getIdx() );
                 }
 
-                gem.commit_transaction();
+                gem.check_commit_transaction();
                 
                 for (int j = 0; j < delList.size(); j++)
                 {
@@ -270,15 +290,35 @@ public class FixHashUrlBug
                         _f.delete();
                     }
                 }
-
             }
             catch (Exception exc)
             {
+                try
+                {
+                    gem.commit_transaction();
+                }
+                catch (SQLException _exc)
+                {
+                     Log.err( _exc.getMessage(), _exc );
+                }
                 Log.err( exc.getMessage(), exc );
 
-                gem.rollback_transaction();
                 break;
             }
+            if (abortFile.exists())
+            {
+                Log.err( "Abbruch durch Benutzer" );
+                break;
+            }
+        }
+        try
+        {
+            gem.commit_transaction();
+            st.close();
+        }
+        catch (SQLException _exc)
+        {
+             Log.err( _exc.getMessage(), _exc );
         }
     }
 

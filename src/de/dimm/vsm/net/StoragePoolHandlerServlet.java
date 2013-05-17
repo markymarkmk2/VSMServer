@@ -9,6 +9,7 @@ import com.caucho.hessian.server.HessianServlet;
 import de.dimm.vsm.Exceptions.DBConnException;
 import de.dimm.vsm.Exceptions.PathResolveException;
 import de.dimm.vsm.Exceptions.PoolReadOnlyException;
+import de.dimm.vsm.GeneralPreferences;
 import de.dimm.vsm.log.Log;
 import de.dimm.vsm.Main;
 import de.dimm.vsm.auth.User;
@@ -368,7 +369,9 @@ public class StoragePoolHandlerServlet extends HessianServlet implements Storage
         UserManager umgr = Main.get_control().getUsermanager();
 
         Map<String,FileSystemElemNode>blockedNodes = new HashMap<>();
-        Map<String,RemoteFSElem>unBlockedNodes = new HashMap<>();
+        Map<String,RemoteFSElem>foundNodes = new HashMap<>();
+
+        boolean blockDuplDirs = Main.get_bool_prop(GeneralPreferences.BLOCK_DUPL_DIRS);
 
         if (fseNode != null)
         {
@@ -399,8 +402,25 @@ public class StoragePoolHandlerServlet extends HessianServlet implements Storage
                 if (attr.isDeleted() && !qry.isShowDeleted())
                     continue;
 
-                ret.add( genRemoteFSElemfromNode( fileSystemElemNode, attr) );
-//                unBlockedNodes.put(fileSystemElemNode.getName(), genRemoteFSElemfromNode( fileSystemElemNode, attr));
+                RemoteFSElem elem = genRemoteFSElemfromNode( fileSystemElemNode, attr);
+                RemoteFSElem existElem = foundNodes.get(fileSystemElemNode.getName());
+
+                // Check Dupl
+                if (blockDuplDirs && existElem != null)
+                {
+                    // Found older dupl -> skip
+                    if (elem.getAttrIdx() < existElem.getAttrIdx())
+                    {
+                        continue;
+                    }
+                    else
+                    {
+                        // Found newer node -> replace older node
+                        ret.remove(existElem);
+                    }
+                }
+                ret.add( elem );
+                foundNodes.put(fileSystemElemNode.getName(), elem);
             }
         }
 

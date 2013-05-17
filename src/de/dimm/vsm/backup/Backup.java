@@ -1408,6 +1408,11 @@ public class Backup
             return true;
 
         FileSystemElemAttributes node = fsenode.getAttributes();
+        if (node == null)
+        {
+            Log.err(Main.Txt("Node " + fsenode.getIdx() + " hat kein Attribut"));
+            return true;
+        }
         if (remoteFSElem.getMtimeMs() != node.getModificationDateMs())
             return true;
 
@@ -1426,6 +1431,11 @@ public class Backup
             return false;
 
         FileSystemElemAttributes node = fsenode.getAttributes();
+        if (node == null)
+        {
+            Log.err(Main.Txt("Node " + fsenode.getIdx() + " hat kein Attribut"));
+            return true;
+        }
 
         if (remoteFSElem.getDataSize() != node.getFsize())
             return true;
@@ -2354,6 +2364,10 @@ public class Backup
                 context.stat.addTransferBlock();
                 context.stat.addTransferLen( read_len );
 
+                if (context.isAbort())
+                {
+                    throw new Exception("Backup wurde abgebrochen");
+                }
 
             }
             return true;
@@ -2509,6 +2523,11 @@ public class Backup
 
                 context.stat.addTransferBlock();
                 context.stat.addTransferLen( read_len );
+
+                if (context.isAbort())
+                {
+                    throw new Exception("Backup wurde abgebrochen");
+                }
             }
             return true;
 

@@ -48,8 +48,9 @@ public class StoragePoolHandlerFactory
         }
         catch (SQLException sQLException)
         {
-            Log.err("Kann DB-Verbindung nicht öffnen", pool.toString(), sQLException);
-            throw new IOException(Main.Txt("Kann DB-Verbindung nicht öffnen"), sQLException);
+            String msg = Main.Txt("Kann DB-Verbindung nicht öffnen");
+            Log.err(msg, pool.toString(), sQLException);
+            throw new IOException( msg, sQLException);
         }
     }
 

@@ -476,10 +476,24 @@ public class RetentionManager extends WorkerParent
             }
 
             List<FileSystemElemAttributes> history = fse.getHistory().getList(em);
+            // Sort Newest first
+            java.util.Collections.sort(history, new Comparator<FileSystemElemAttributes>()
+            {
 
-            // BUILD LIST OF ALL ATTRIBUTES TO KEEP
-            List<FileSystemElemAttributes> keepList = new ArrayList<FileSystemElemAttributes>();
-            List<FileSystemElemAttributes> removeList = new ArrayList<FileSystemElemAttributes>();
+                @Override
+                public int compare( FileSystemElemAttributes o1, FileSystemElemAttributes o2 )
+                {
+                    if (o1.getTs() != o2.getTs())
+                    {
+                        return (o1.getTs() - o2.getTs() > 0) ? 1 : -1;
+                    }
+
+                    return (o2.getIdx() - o1.getIdx() > 0) ? -1 : 1;
+                }
+            });
+                // BUILD LIST OF ALL ATTRIBUTES TO KEEP
+            List<FileSystemElemAttributes> keepList = new ArrayList<>();
+            List<FileSystemElemAttributes> removeList = new ArrayList<>();
 
 
             // REMEMBER THE NEWEST ATTRIBUTE-ENTRY, THIS IS SET WITH fse.setAttribute()

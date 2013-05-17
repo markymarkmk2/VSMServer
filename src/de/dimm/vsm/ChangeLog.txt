@@ -1,3 +1,10 @@
+Veränderungen in V1.4.6
+FIX: Kein Abbruch bei Nodes ohne Attribute
+FIX: Parameter "BlockDuplDir" erlaubt ausblenden von fehlerhaften doppelten Dir-Einträgen
+
+Veränderungen in V1.4.5
+UPD: ACL bei verschachtelten Gruppen
+
 Veränderungen in V1.4.4
 UPD: Schreibender Zugriff für FS-Mounts in Vorbereitung
 
