@@ -259,18 +259,22 @@ public class FixHashUrlBug
                     // WE HAVE TWO DIFFERENT DHB ENTRIES WITH IDENTICAL CONTENT,
                     // WE HAVE TO REMOVE THE OLD ONE (FILE WAS DELETED ALREADY) UND UPDATE DATABASE TO NEW DHB
                     dhbList = gem.createQuery("select T1 from DedupHashBlock T1 where T1.hashvalue='" + newHash + "'", DedupHashBlock.class);
-                    if (dhbList.size() != 1)
+                    if (dhbList.size() == 1)
                     {
-                        throw new IOException("Wrong DHB-Size for new hash " + newHash + ": " + dhbList.size());
+                        DedupHashBlock newDhb = dhbList.get(0);
+
+                        // UPDATE REFERENCES ON OLD DHB TO NEW DHB
+                        jem.nativeUpdate(st, "update HashBlock set hashvalue='" + newHash + "',dedupBlock_idx=" + newDhb.getIdx() + " where dedupBlock_idx=" + dhb.getIdx() );
+                        jem.nativeUpdate(st, "update XANode set hashvalue='" + newHash + "',dedupBlock_idx=" + newDhb.getIdx() + " where dedupBlock_idx=" + dhb.getIdx() );
+
+                        // FINALLY REMOVE OLD DHB
+                        jem.nativeUpdate(st, "delete from DedupHashBlock where idx=" + dhb.getIdx() );
                     }
-                    DedupHashBlock newDhb = dhbList.get(0);
-
-                    // UPDATE REFERENCES ON OLD DHB TO NEW DHB
-                    jem.nativeUpdate(st, "update HashBlock set hashvalue='" + newHash + "',dedupBlock_idx=" + newDhb.getIdx() + " where dedupBlock_idx=" + dhb.getIdx() );
-                    jem.nativeUpdate(st, "update XANode set hashvalue='" + newHash + "',dedupBlock_idx=" + newDhb.getIdx() + " where dedupBlock_idx=" + dhb.getIdx() );
-
-                    // FINALLY REMOVE OLD DHB
-                    jem.nativeUpdate(st, "delete from DedupHashBlock where idx=" + dhb.getIdx() );
+                    else
+                    {
+                        Log.err("Wrong DHB-Size for deleting a single hash " + newHash + ": " + dhbList.size());
+                        continue;
+                    }
                 }
 
                 gem.check_commit_transaction();
