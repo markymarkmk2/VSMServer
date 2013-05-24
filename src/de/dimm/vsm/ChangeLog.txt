@@ -1,3 +1,6 @@
+Veränderungen in V1.4.7
+FIX: User beim Mapping von manuell gemounteten Volumes
+
 Veränderungen in V1.4.6
 FIX: Kein Abbruch bei Nodes ohne Attribute
 FIX: Parameter "BlockDuplDir" erlaubt ausblenden von fehlerhaften doppelten Dir-Einträgen
