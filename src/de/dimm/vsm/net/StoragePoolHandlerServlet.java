@@ -94,6 +94,9 @@ public class StoragePoolHandlerServlet extends HessianServlet implements Storage
             return null;
         
         FileSystemElemAttributes attr = handler.getActualFSAttributes(e, pool.getQry() );
+        if (attr.isDeleted() && !pool.getQry().isShowDeleted())
+            return null;
+        
         return genRemoteFSElemfromNode(e, attr);
     }
 
@@ -614,13 +617,15 @@ public class StoragePoolHandlerServlet extends HessianServlet implements Storage
     @Override
     public String get_xattribute( StoragePoolWrapper pool, RemoteFSElem fseNode, String name ) throws SQLException
     {
-        StoragePoolHandler handler = poolContextManager.getHandlerbyWrapper(pool);
-        if (fseNode.getIdx() > 0)
-        {
-            FileSystemElemNode elem = handler.resolve_fse_node_from_db( fseNode.getIdx() );
-            if (elem != null)
-                return elem.getAttributes().getAclInfoData();
-        }
+        Log.err("Noch nicht implementiert", "set_last_modified");
+
+//        StoragePoolHandler handler = poolContextManager.getHandlerbyWrapper(pool);
+//        if (fseNode.getIdx() > 0)
+//        {
+//            FileSystemElemNode elem = handler.resolve_fse_node_from_db( fseNode.getIdx() );
+//            if (elem != null)
+//                return elem.listXattributes()elem.getAttributes().getAclInfoData();
+//        }
         return null;
     }
 

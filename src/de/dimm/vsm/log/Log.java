@@ -152,7 +152,7 @@ public class Log implements DBLogger
                             + MessageLog.getErrLevelName(log.getErrLevel()) + " "
                             + msg;
 
-                    System.out.println(msg);
+                    System.err.println(msg);
                 }
 
             }

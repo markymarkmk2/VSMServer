@@ -226,8 +226,11 @@ public class StoragePoolHandlerContextManager extends WorkerParent
         synchronized (handlerMap)
         {
             StoragePoolHandlerContext context = handlerMap.get(pool);
-            if (context != null)
+            if (context != null) 
+            {
+                context.touch();
                 return context.handler;
+            }
         }
         return null;
     }
@@ -235,9 +238,12 @@ public class StoragePoolHandlerContextManager extends WorkerParent
     {
         synchronized (handlerMap)
         {
-        StoragePoolHandlerContext context = handlerMap.get(pool);
-        if (context != null)
-            return context.agentIp;
+            StoragePoolHandlerContext context = handlerMap.get(pool);
+            if (context != null)
+            {
+                context.touch();
+                return context.agentIp;
+            }
         }
         return null;
     }
@@ -245,10 +251,12 @@ public class StoragePoolHandlerContextManager extends WorkerParent
     {
         synchronized (handlerMap)
         {
-        StoragePoolHandlerContext context = handlerMap.get(pool);
-        if (context != null)
-            return context.port;
-
+            StoragePoolHandlerContext context = handlerMap.get(pool);
+            if (context != null)
+            {
+                context.touch();
+                return context.port;
+            }
         }
         return -1;
     }
@@ -257,9 +265,12 @@ public class StoragePoolHandlerContextManager extends WorkerParent
     {
         synchronized (handlerMap)
         {
-        StoragePoolHandlerContext context = handlerMap.get(pool);
-        if (context != null)
-            return context.drive;
+            StoragePoolHandlerContext context = handlerMap.get(pool);
+            if (context != null)
+            {
+                context.touch();
+                return context.drive;
+            }
         }
         return null;
     }

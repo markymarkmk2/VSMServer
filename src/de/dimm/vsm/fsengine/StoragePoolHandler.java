@@ -1037,8 +1037,11 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
                 node = resolve_node(fileName);
                 if (node != null)
                 {
+                    if (node.getAttributes().isDeleted())
+                    {
+                        undelete_attributes( node, System.currentTimeMillis());                        
+                    }
                     return node;
-
                 }
             }
             catch (SQLException exc)
@@ -1051,21 +1054,24 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
 
         Date now = new Date();
 
+        int posixMode = 0666;
         // CREATE AND FILL NODE
         if (FileSystemElemNode.isFile(type))
         {
             node = FileSystemElemNode.createFileNode();
+            posixMode |= 0100000;
         }
         if (FileSystemElemNode.isDirectory(type))
         {
             node = FileSystemElemNode.createDirNode();
+            posixMode |= 0040000;
         }
         node.getAttributes().setName(name);
         node.getAttributes().setAccessDateMs( now.getTime());
         node.getAttributes().setCreationDateMs( now.getTime());
         node.getAttributes().setModificationDateMs( now.getTime());
         node.getAttributes().setTs(  System.currentTimeMillis());
-        node.getAttributes().setPosixMode( 0644);
+        node.getAttributes().setPosixMode( posixMode );
 
 
         node.setTyp(type);
@@ -2132,6 +2138,32 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
 
         check_commit_transaction();
 
+    }
+    public void undelete_attributes( FileSystemElemNode fsenode, long actTimestamp) throws PoolReadOnlyException, SQLException
+    {
+        if (isReadOnly())
+            throw new PoolReadOnlyException(pool);
+
+        
+        // CREATE NEW ATTRIBUTES
+        FileSystemElemAttributes newAttributes = new FileSystemElemAttributes(fsenode.getAttributes());
+
+        newAttributes.setTs( actTimestamp );
+        newAttributes.setDeleted(false);
+        
+
+        // ADD TO HISTORY BUT AVOID LOADING AN UNLOADED LAZY LIST
+        fsenode.getHistory().addIfRealized(newAttributes);
+
+        // SET AS NEW ACTUAL ATTR
+        fsenode.setAttributes(newAttributes);
+
+        check_open_transaction();
+
+        em_persist(newAttributes);
+        em_merge(fsenode);
+
+        check_commit_transaction();
     }
 
 
