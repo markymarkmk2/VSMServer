@@ -10,13 +10,11 @@ import de.dimm.vsm.backup.Restore;
 import de.dimm.vsm.log.LogManager;
 import de.dimm.vsm.net.interfaces.FileHandle;
 import de.dimm.vsm.records.AbstractStorageNode;
-import de.dimm.vsm.records.DedupHashBlock;
 import de.dimm.vsm.records.FileSystemElemAttributes;
 import de.dimm.vsm.records.FileSystemElemNode;
 import de.dimm.vsm.records.HashBlock;
 import de.dimm.vsm.records.XANode;
 import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.io.UnsupportedEncodingException;
@@ -43,7 +41,9 @@ public class DDFS_FileHandle implements FileHandle
     protected FileSystemElemAttributes actAttribute;
 
     protected List<DDHandle> handleList;
-    protected List<DDHandle> lastHandles;
+    private List<DDHandle> lastHandles;
+    
+    long origlen;
 
     protected DDFS_FileHandle( AbstractStorageNode fs_node, StoragePoolHandler sp_handler, boolean isDirectory, boolean create, boolean isStream )
     {
@@ -95,7 +95,7 @@ public class DDFS_FileHandle implements FileHandle
 
 
 
-    List<DDHandle> buildHashBlockList( FileSystemElemAttributes attrs ) throws IOException
+    protected List<DDHandle> buildHashBlockList( FileSystemElemAttributes attrs ) throws IOException
     {
         List<HashBlock> hbList = node.getHashBlocks().getList(spHandler.getEm());
 
@@ -354,6 +354,8 @@ public class DDFS_FileHandle implements FileHandle
 
 
         fh = new File(fsNode.getMountPoint() + sb.toString());
+        
+        origlen = (stream) ? node.getAttributes().getStreamSize() : node.getAttributes().getFsize();
     }
     protected DDHandle getLastHandle()
     {
@@ -431,7 +433,11 @@ public class DDFS_FileHandle implements FileHandle
         {
             throw new IOException("DD Filesystem is readonly");
         }
+        _ensure_open(pos, len, rafMode);
+    }
 
+    protected void _ensure_open( long pos, int len, String rafMode ) throws IOException
+    {
         if (directory)
         {
             throw new IOException("ensure_open Node " + fh.getName() + " -> " + fh.getAbsolutePath() + " fails, is a directory");
@@ -445,6 +451,7 @@ public class DDFS_FileHandle implements FileHandle
             {
                 lastHandles.remove(dDHandle);
                 dDHandle.close();
+                i--;
             }
         }
 
@@ -481,6 +488,7 @@ public class DDFS_FileHandle implements FileHandle
             {
                 lastHandles.remove(dDHandle);
                 dDHandle.close();
+                i--;
             }
         }
 
@@ -624,6 +632,11 @@ public class DDFS_FileHandle implements FileHandle
 //                dDHandle.raf.seek(fileOffset);
 //                dDHandle.raf.read(b, arrayOffset, realLen);
 
+                if (dDHandle.data == null)
+                {
+                    System.err.println(" Have to reload Handle " + dDHandle.toString() );
+                    dDHandle.data = new byte[dDHandle.len];
+                }
                 System.arraycopy(dDHandle.data, fileOffset, b, arrayOffset, realLen);
 
                 // ADD THE LENGTH TO OFFSETS
@@ -726,137 +739,5 @@ public class DDFS_FileHandle implements FileHandle
         return false;
     }
 
-    protected class DDHandle
-    {
-        public static final String RAF_RD_ONLY = "r";
-        public static final String RAF_RDWR = "rw";
-        DedupHashBlock dhb;
-        long pos;
-        int len;
-        byte[] data;
-        File fh;
-        boolean dirty;
-        boolean unread;
 
-        @Override
-        public String toString()
-        {
-            return "DHB: " + dhb + " Len: " + len + " dirty: " + Boolean.toString(dirty);
-        }
-
-
-
-        public DDHandle( HashBlock hb )
-        {
-            pos = hb.getBlockOffset();
-            len = hb.getBlockLen();
-            this.dhb = hb.getDedupBlock();
-            data = null;
-            unread = true;
-        }
-
-        public DDHandle( XANode hb )
-        {
-            pos = hb.getBlockOffset();
-            len = hb.getBlockLen();
-            this.dhb = hb.getDedupBlock();
-            data = null;
-            unread = true;
-        }
-        public DDHandle( long pos, int len, byte[] data )
-        {
-            this.pos = pos;
-            this.len = len;
-            this.data = data;
-        }
-
-        public void setDirty( boolean dirty )
-        {
-            this.dirty = dirty;
-        }
-
-        public boolean isDirty()
-        {
-            return dirty;
-        }
-
-        public boolean isUnread()
-        {
-            return unread;
-        }
-        
-        public void checkIsRead(AbstractStorageNode fs_node) throws FileNotFoundException, IOException
-        {
-            if (isUnread()){
-                openRead(fs_node);
-                unread = false;
-            }
-        }
-
-     
-
-        void close() throws IOException
-        {
-            data = null;
-        }
-
-        void open( AbstractStorageNode fs_node, String rafMode ) throws FileNotFoundException, IOException
-        {
-            if (rafMode.equals(RAF_RDWR))
-            {
-                openWrite(fs_node);
-            }
-            else
-            {
-                openRead(fs_node);
-            }
-        }
-
-        void openRead( AbstractStorageNode fs_node ) throws FileNotFoundException, IOException
-        {
-            StringBuilder sb = new StringBuilder();
-            try
-            {
-                StorageNodeHandler.build_node_path(dhb, sb);
-            }
-            catch (PathResolveException pathResolveException)
-            {
-                throw new IOException("Cannot open DDFS", pathResolveException);
-            }
-            catch (UnsupportedEncodingException unsupportedEncodingException)
-            {
-                throw new IOException("Cannot open DDFS", unsupportedEncodingException);
-            }
-
-            fh = new File(fs_node.getMountPoint() + sb.toString());
-            RandomAccessFile raf = new RandomAccessFile(fh, "r");
-
-            data = new byte[len];
-            int rlen = raf.read(data);
-            raf.close();
-
-            if (rlen != len)
-            {
-                throw new IOException("Short read in open DDFS_FileHandle (" + rlen + "/" + len + ")");
-            }
-        }
-
-        void openWrite( AbstractStorageNode fs_node ) throws FileNotFoundException, IOException
-        {
-            dhb = new DedupHashBlock();
-            dhb.setStorageNode(fs_node);
-        }
-        void openRead( FileHandle fHandle ) throws FileNotFoundException, IOException
-        {
-            data = new byte[len];
-            int rlen = fHandle.read(data, len, pos);
-            
-            if (rlen != len)
-            {
-                throw new IOException("Short read in open DDFS_FileHandle (" + rlen + "/" + len + ")");
-            }
-            unread = false;
-        }                
-
-    }
 }

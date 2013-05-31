@@ -38,7 +38,6 @@ public class UserDirMapper
         List<RemoteFSElem> ret = new ArrayList<>();
         try
         {
-
             for (int i = 0; i < mapList.size(); i++)
             {
                 User.VsmFsEntry vsmFsEntry = mapList.get(i);
@@ -150,7 +149,7 @@ public class UserDirMapper
         try
         {
             // IF WE HAVE ACTUAL FILESYSTEM THEN RELOAD NODE EVERY TIME
-            if (qry.getSnapShotTs() <= 0)
+            if (qry.getSnapShotTs() <= 0 && !Main.get_bool_prop(GeneralPreferences.CACHE_ON_WRITE_FS, false))
             {
                 handler.em_refresh(fseNode);
             }

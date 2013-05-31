@@ -193,6 +193,7 @@ public class LoginManager extends WorkerParent implements GuiLoginApi
 
 
             GuiServerApiImpl guiServerApi = new GuiServerApiImpl(System.currentTimeMillis(), null, user);
+            Main.get_control().getUsermanager().addUser(userName, user);
 
             return guiServerApi;
         }
@@ -220,6 +221,7 @@ public class LoginManager extends WorkerParent implements GuiLoginApi
                 Log.err(Main.Txt("Fehler beim Setzen der Rolle für Benutzer") + " " + userName + " " +  e.getMessage());
             }
             GuiServerApiImpl guiServerApi = new GuiServerApiImpl(System.currentTimeMillis(), null, user);
+            Main.get_control().getUsermanager().addUser(userName, user);
 
             return guiServerApi;
         }
@@ -233,6 +235,7 @@ public class LoginManager extends WorkerParent implements GuiLoginApi
             Role role = new Role();
             //role.getRoleOptions().add( new RoleOption(0, role, RoleOption.RL_ALLOW_VIEW_PARAM, 0));
             user.setRole(role);
+            Main.get_control().getUsermanager().addUser(userName, user);
 
             GuiServerApiImpl guiServerApi = new GuiServerApiImpl(System.currentTimeMillis(), null, user);
 

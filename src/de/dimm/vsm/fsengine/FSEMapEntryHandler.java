@@ -6,6 +6,8 @@
 package de.dimm.vsm.fsengine;
 
 import de.dimm.vsm.Exceptions.PathResolveException;
+import de.dimm.vsm.GeneralPreferences;
+import de.dimm.vsm.Main;
 import de.dimm.vsm.log.Log;
 import de.dimm.vsm.net.interfaces.FileHandle;
 import de.dimm.vsm.records.FileSystemElemNode;
@@ -13,6 +15,7 @@ import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.sql.SQLException;
 import java.util.HashMap;
+
 
 /**
  *
@@ -30,10 +33,18 @@ class FSEMapEntry
         this.fh = fh;
     }
 
+    @Override
+    public String toString()
+    {
+        return node.toString() + ": " + fh.toString();
+    }
+    
+
 }
 
 public class FSEMapEntryHandler
-{
+{   
+    
     StoragePoolHandler poolHandler;
 
     // MAYBE THIS HAS TO BE PUT TO SOMEWHERE CENTRAL, INCLUDING LOCKING ETC
@@ -79,6 +90,7 @@ public class FSEMapEntryHandler
     public void close_fh( long fileNo ) throws IOException
     {
         FileHandle fh = getFhByFileNo( fileNo );
+        FileSystemElemNode node = getNodeByFileNo( fileNo );
 
 
         if (fh != null)
@@ -87,6 +99,10 @@ public class FSEMapEntryHandler
 
             fh.close();
             removeByFileNo( fileNo );
+            if (!Main.get_bool_prop(GeneralPreferences.CACHE_ON_WRITE_FS, false) && node != null && node.getParent() != null)
+            {               
+                node.getParent().getChildren().unRealize();                
+            }
         }
         else
             Log.debug( "close_fh: Cannot resolve fh " + fileNo );

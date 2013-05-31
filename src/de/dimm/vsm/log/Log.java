@@ -148,11 +148,11 @@ public class Log implements DBLogger
                         VSMFSLogger.getLog().debug(msg);
                     }
 
-                    msg = MessageLog.getDateString(log.getCreation()) + " "
+                   /* msg = MessageLog.getDateString(log.getCreation()) + " "
                             + MessageLog.getErrLevelName(log.getErrLevel()) + " "
                             + msg;
 
-                    System.err.println(msg);
+                    System.err.println(msg);*/
                 }
 
             }

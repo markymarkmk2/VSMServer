@@ -863,6 +863,8 @@ public class LogicControl
     }
     
     public UserManager getUsermanager()
+
+
     {
         return userManager;
     }

@@ -1083,7 +1083,8 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
         else
         {
             node.setPool(parent.getPool());
-            parent.getChildren().addIfRealized(node);
+            // Add new Childs to parent, maybe we have live filesystem
+            parent.getChildren(getEm()).add(node);
         }
 
 
