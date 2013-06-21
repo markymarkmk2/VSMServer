@@ -8,10 +8,11 @@ package de.dimm.vsm.fsengine;
 import de.dimm.vsm.records.DedupHashBlock;
 import de.dimm.vsm.records.StoragePool;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  *
@@ -19,12 +20,12 @@ import java.util.Set;
  */
 public class JavaHashCache extends HashCache
 {
-    HashMap<String,Long> hashMap;
+    Map<String,Long> hashMap;
 
     public JavaHashCache( StoragePool pool)
     {
         super(pool);
-        hashMap = new HashMap<String, Long>();
+        hashMap = new ConcurrentHashMap<>();
     }
 
 
@@ -35,7 +36,6 @@ public class JavaHashCache extends HashCache
     }
     
     
-
     @Override
     public long getDhbIdx( String hash )
     {
