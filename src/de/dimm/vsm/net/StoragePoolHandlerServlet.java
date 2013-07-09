@@ -157,6 +157,15 @@ public class StoragePoolHandlerServlet extends HessianServlet implements Storage
 
         return ret;
     }
+    @Override
+    public boolean delete_fse_node( StoragePoolWrapper pool, long idx ) throws PoolReadOnlyException, SQLException
+    {
+        StoragePoolHandler handler = poolContextManager.getHandlerbyWrapper(pool);
+        boolean ret = handler.delete_fse_node(idx);
+        handler.commit_transaction();
+
+        return ret;
+    }
 /*
     @Override
     public List<FileSystemElemNode> get_child_nodes( StoragePoolWrapper pool, FSENodeInterface fse )
@@ -235,6 +244,7 @@ public class StoragePoolHandlerServlet extends HessianServlet implements Storage
         StoragePoolHandler handler = poolContextManager.getHandlerbyWrapper(pool);
         FileSystemElemNode e = handler.create_fse_node_complete ( vsmPath, type);
 
+        LOG.debug("Created stream " + e);
         long ret = handler.open_stream(e, streamInfo, true);
         checkCommit( handler );
         return ret;
@@ -263,6 +273,7 @@ public class StoragePoolHandlerServlet extends HessianServlet implements Storage
                 return UserDirMapper.mappedUserDir( handler, node );
             }
         }
+        LOG.debug("get_child_nodes " + node.toString());
         return UserDirMapper.get_unmapped_child_nodes(handler, node);
      }
     
@@ -278,7 +289,16 @@ public class StoragePoolHandlerServlet extends HessianServlet implements Storage
     public boolean exists( StoragePoolWrapper pool, RemoteFSElem fseNode )
     {
         StoragePoolHandler handler = poolContextManager.getHandlerbyWrapper(pool);
+        LOG.debug("exists " + fseNode.toString());
         return handler.exists(fseNode.getIdx());
+    }
+
+    @Override
+    public boolean isReadOnly( StoragePoolWrapper pool, long fileNo  ) throws IOException, SQLException
+    {
+        StoragePoolHandler handler = poolContextManager.getHandlerbyWrapper(pool);
+        LOG.debug("isReadOnly " + fileNo);
+        return handler.isReadOnly(fileNo);
     }
 
     @Override
@@ -292,6 +312,7 @@ public class StoragePoolHandlerServlet extends HessianServlet implements Storage
     public byte[] read( StoragePoolWrapper pool, long fileNo, int length, long offset ) throws IOException
     {
         StoragePoolHandler handler = poolContextManager.getHandlerbyWrapper(pool);
+        Log.debug("read len " + length + " offs " + offset, Long.toString(fileNo));
         byte b[] = new byte[length];
         int rlen =  handler.read(fileNo, b, length, offset);
         if (rlen < 0)
@@ -312,6 +333,7 @@ public class StoragePoolHandlerServlet extends HessianServlet implements Storage
     {
         StoragePoolHandler handler = poolContextManager.getHandlerbyWrapper(pool);
         int length = data.length;
+        Log.debug("read len " + length + " offs " + offset, Long.toString(fileNo));
         int rlen = handler.read(fileNo, data, length, offset);
         if (rlen < 0)
         {
@@ -325,6 +347,7 @@ public class StoragePoolHandlerServlet extends HessianServlet implements Storage
     public void create( StoragePoolWrapper pool, long fileNo ) throws IOException, PoolReadOnlyException
     {
         StoragePoolHandler handler = poolContextManager.getHandlerbyWrapper(pool);
+        Log.debug("create", Long.toString(fileNo));
         if (handler != null)
             handler.create(fileNo);
         else
@@ -334,6 +357,7 @@ public class StoragePoolHandlerServlet extends HessianServlet implements Storage
     public long length( StoragePoolWrapper pool, long fileNo )
     {
         StoragePoolHandler handler = poolContextManager.getHandlerbyWrapper(pool);
+        Log.debug("length", Long.toString(fileNo));
         if (handler != null)
             return handler.getLength(fileNo);
         else
@@ -347,6 +371,7 @@ public class StoragePoolHandlerServlet extends HessianServlet implements Storage
         StoragePoolHandler handler = poolContextManager.getHandlerbyWrapper(pool);
         if (handler != null)
         {
+            Log.debug("truncateFile to " + size, Long.toString(fileNo));
             handler.truncateFile(fileNo, size);
             handler.commit_transaction();
         }
@@ -375,6 +400,7 @@ public class StoragePoolHandlerServlet extends HessianServlet implements Storage
         StoragePoolHandler handler = poolContextManager.getHandlerbyWrapper(pool);
         if (handler != null)
         {
+            Log.debug("write len " + length + " offs " + offset, Long.toString(fileNo));
             handler.writeFile(fileNo, b, length, offset);
             handler.commit_transaction();
         }
@@ -489,6 +515,8 @@ public class StoragePoolHandlerServlet extends HessianServlet implements Storage
         if (fseNode == null)
             return false;
         
+        Log.debug("removeFSElem", fseNode.toString());
+        
         boolean ret = handler.remove_fse_node(fseNode, true);
         if (!ret)
             return false;
@@ -516,6 +544,7 @@ public class StoragePoolHandlerServlet extends HessianServlet implements Storage
         if (fseNode == null)
             return false;
 
+        Log.debug("undeleteFSElem", fseNode.toString());
         
         try
         {
@@ -540,6 +569,7 @@ public class StoragePoolHandlerServlet extends HessianServlet implements Storage
         if (fseNode == null)
             return false;
 
+        Log.debug("deleteFSElem", fseNode.toString());
 
         try
         {

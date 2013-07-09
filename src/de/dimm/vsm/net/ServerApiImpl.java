@@ -17,11 +17,13 @@ import de.dimm.vsm.jobs.JobManager;
 import de.dimm.vsm.net.interfaces.ServerApi;
 import de.dimm.vsm.records.ClientInfo;
 import de.dimm.vsm.records.ClientVolume;
+import de.dimm.vsm.records.MountEntry;
 import de.dimm.vsm.records.Schedule;
 import de.dimm.vsm.records.StoragePool;
 import java.io.IOException;
 import java.util.List;
 import java.util.Properties;
+import org.apache.commons.lang.StringUtils;
 
 /**
  *
@@ -216,6 +218,95 @@ public class ServerApiImpl implements ServerApi
                 }
             }
         }
+        return true;
+    }
+    
+
+    @Override
+    public boolean vfs_call( List<RemoteFSElem> elems, StoragePoolWrapper ticket )
+    {
+        BackupManager bm = Main.get_control().getBackupManager();
+        JobManager jm = Main.get_control().getJobManager();
+        AgentApiEntry api = null;
+        JobInterface job = null;
+        try
+        {
+            Log.debug("VFS-Call");
+            if ( elems.isEmpty())
+            {
+                Log.warn("Ignoriere leeren VFS-Call");
+                return false;
+            }
+            long poolIdx = ticket.getPoolIdx();
+            
+            if (jm.isPoolBusyBackup(poolIdx))
+            {
+                Log.debug("Registriere VFS-Call bei aktivem Backup");
+                BackupJobInterface bi = jm.getPoolBusyBackup(ticket.getPoolIdx());
+                bi.addVfsEvent( elems, ticket );
+                return true;
+            }
+            final StoragePool pool = Main.get_control().getStoragePool(ticket.getPoolIdx());            
+            MountEntry mountEntry = Main.get_control().getAutoMountManager().getMountEntry(ticket);
+            if (mountEntry == null)
+            {
+                Log.err("Fehlende Mountentry bei VFS-call");                
+                return false;
+            }
+
+            // DO NOT ALLOW MULTPLE PARALLEL CDP JOBS FOR ONE POOL
+            synchronized(pool)
+            {
+
+
+                api = LogicControl.getApiEntry(mountEntry.getIp(), mountEntry.getPort(), false);
+                if (api == null || !api.isOnline())
+                    throw new IOException(Main.Txt("Agent kann nicht kontaktiert werden") + ": " + mountEntry.toString() );
+
+                job = bm.createVfsJob(api, mountEntry, elems);
+
+                if (isTicketSync(ticket))
+                {
+                    job.setJobState(JobInterface.JOBSTATE.MANUAL_START);
+
+                    // CREATE AND RUN JOB MANUALLY
+                    Main.get_control().getJobManager().addJobEntry(job);
+
+                    job.run();
+                }
+                else
+                {
+                    Main.get_control().getJobManager().addJobEntry(job);
+                }  
+                return job.getJobState() == JobInterface.JOBSTATE.FINISHED_OK ? true : false;
+            }
+        }
+        catch (Exception exception)
+        {
+            Log.err("Fehler bei Vfs job", exception);
+            return false;
+        }
+        finally
+        {
+            // REMOVE JOB AND CLOSE API
+            Main.get_control().getJobManager().removeJobEntry(job);
+
+            if (api != null)
+            {
+                try
+                {
+                    api.close();
+                }
+                catch (IOException ex)
+                {
+
+                }
+            }
+        }        
+    }    
+
+    private boolean isTicketSync( StoragePoolWrapper ticket )
+    {
         return true;
     }
 

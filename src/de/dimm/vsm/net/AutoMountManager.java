@@ -19,6 +19,7 @@ import java.io.IOException;
 import java.net.UnknownHostException;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -37,7 +38,7 @@ public class AutoMountManager extends WorkerParent implements IAgentIdleManager
     public AutoMountManager()
     {
         super( "AutoMountManager" );
-        mountList = new ArrayList<MountEntry>();
+        mountList = Collections.synchronizedList(new ArrayList<MountEntry>() );
     }
 
     @Override
@@ -60,7 +61,7 @@ public class AutoMountManager extends WorkerParent implements IAgentIdleManager
 
     List<MountEntry> getMountEntryList()
     {
-        List<MountEntry> mountEntries = new ArrayList<MountEntry>();
+        List<MountEntry> mountEntries = new ArrayList<>();
         try
         {
             List<StoragePool> poolList = Main.get_control().getStoragePoolList();
@@ -130,7 +131,7 @@ public class AutoMountManager extends WorkerParent implements IAgentIdleManager
     void mountAllUnMounted()
     {
         List<MountEntry> mountEntries = getMountEntryList();
-        Map<String,MountEntry> mountEntriesMap = new HashMap<String,MountEntry>();
+        Map<String,MountEntry> mountEntriesMap = new HashMap<>();
         for (MountEntry mountEntry : mountEntries)
         {
             mountEntriesMap.put( mountEntry.getKey(), mountEntry);
@@ -181,6 +182,9 @@ public class AutoMountManager extends WorkerParent implements IAgentIdleManager
 
                         if (!mountList.contains( mountEntry))
                         {
+                            // Touch it to prevent unload during inactivity
+                            contextMgr.touch(wr);
+                            
                             mountList.add( me );
                         }
                     }
@@ -238,13 +242,35 @@ public class AutoMountManager extends WorkerParent implements IAgentIdleManager
     {
         return mountList;
     }    
+    public static boolean isSame(StoragePoolWrapper ticket, MountEntry mountEntry)
+    {
+        if (mountEntry.getPool().getIdx() != ticket.getPoolIdx())
+                return false;;
+            
+            if (!mountEntry.getIp().equals( ticket.getAgentIp()))
+               return false;
+            
+            if (!mountEntry.getSubPath().equals( ticket.getBasePath()))
+                return false;
+        return true;
+    }
+    
+    public MountEntry getMountEntry(StoragePoolWrapper ticket)
+    {        
+        for (MountEntry mountEntry : mountList)
+        {
+            if (isSame(ticket, mountEntry))            
+                return mountEntry;
+        }
+        Log.err(Main.Txt("Kein Mounteintrag zu ticket gefunden") + ": " + ticket.toString() );
+        return null;
+    }    
 
     void unmountAllMounted()
     {
         List<MountEntry> mountEntries = getMountEntryList();
         for (MountEntry mountEntry : mountEntries)
         {
-
             try
             {
                 User user = getUser( mountEntry );

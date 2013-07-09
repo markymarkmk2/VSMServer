@@ -437,12 +437,7 @@ public class StorageNodeHandler
         }
         throw new UnsupportedOperationException("Not yet implemented");
     }
-
-    public boolean isReadOnly()
-    {
-       return storage_pool_handler.isReadOnly();
-    }
-
+  
     public FileHandle create_DDFS_handle( StoragePoolHandler aThis, FileSystemElemNode node, boolean create ) throws PathResolveException, IOException, SQLException
     {
         return DDFS_FileHandle.create_fs_handle(this.storageNode, aThis, node, create );

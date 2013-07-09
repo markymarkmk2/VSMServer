@@ -19,6 +19,7 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 
@@ -30,7 +31,7 @@ import java.util.Set;
 public class SearchContextManager extends WorkerParent
 {
 
-    final HashMap<SearchWrapper, SearchContext> handlerMap;
+    final Map<SearchWrapper, SearchContext> handlerMap;
 
     public static long EXPIRE_MS = 3600*1000l;  // 1h
 

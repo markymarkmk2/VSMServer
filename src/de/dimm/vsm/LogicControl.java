@@ -318,10 +318,12 @@ public class LogicControl
     {
         notificationServer = SmtpNotificationServer.createSmtpNotificationServer();
 
-        storagePoolNubHandler = new StoragePoolNubHandler();
-
-        // LOAD POOL-DATABASES FROM NUB-DB
-        storagePoolNubHandler.initMapperList();
+        if (storagePoolNubHandler == null)
+        {
+            storagePoolNubHandler = new StoragePoolNubHandler();
+            // LOAD POOL-DATABASES FROM NUB-DB
+            storagePoolNubHandler.initMapperList();
+        }
 
         if (Main.getRebuildDB())
         {
@@ -334,8 +336,11 @@ public class LogicControl
 
         createApiEntry();
 
-        licChecker = new LicenseChecker(PRODUCT_BASE, /*TB*/ 10, /*mods*/ LTM_FTP | LTM_S3);
-        licChecker.read_licenses();
+        if (licChecker == null)
+        {
+            licChecker = new LicenseChecker(PRODUCT_BASE, /*TB*/ 10, /*mods*/ LTM_FTP | LTM_S3);
+            licChecker.read_licenses();
+        }
 
         workerList = new ArrayList<WorkerParent>();
 

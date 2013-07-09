@@ -6,14 +6,14 @@
 package de.dimm.vsm.backup;
 
 import de.dimm.vsm.GeneralPreferences;
-import de.dimm.vsm.jobs.InteractionEntry;
 import de.dimm.vsm.log.Log;
 import de.dimm.vsm.LogicControl;
 import de.dimm.vsm.Main;
-import de.dimm.vsm.Utilities.VariableResolver;
 import de.dimm.vsm.WorkerParent;
 import de.dimm.vsm.auth.User;
 import de.dimm.vsm.backup.Backup.BackupJobInterface;
+import de.dimm.vsm.backup.jobinterface.CDPJobInterface;
+import de.dimm.vsm.backup.jobinterface.VfsJobInterface;
 import de.dimm.vsm.fsengine.GenericEntityManager;
 import de.dimm.vsm.fsengine.JDBCEntityManager;
 import de.dimm.vsm.fsengine.StoragePoolHandler;
@@ -30,6 +30,7 @@ import de.dimm.vsm.records.ClientInfo;
 import de.dimm.vsm.records.ClientVolume;
 import de.dimm.vsm.records.FileSystemElemNode;
 import de.dimm.vsm.records.Job;
+import de.dimm.vsm.records.MountEntry;
 import de.dimm.vsm.records.Schedule;
 import de.dimm.vsm.records.StoragePool;
 import java.io.IOException;
@@ -56,9 +57,7 @@ class ScheduleStart
     public String toString()
     {
         return sched.getName() + " " + Main.getDateString(nextStart);
-    }
-
-    
+    }    
 }
 
 /**
@@ -91,12 +90,10 @@ public class BackupManager extends WorkerParent
     {
         super("BackupManager");
 
-        startList = new ArrayList<ScheduleStart>();
-
+        startList = new ArrayList<>();
 
         Main.addNotification( new NotificationEntry(BA_AGENT_OFFLINE,
                 "Agent ist offline", "Der Agent $AGENT für Backup $NAME kann nicht kontaktiert werden", NotificationEntry.Level.WARNING, true));
-
 
         Main.addNotification( new NotificationEntry(BA_ERROR,
                 "Fehler beim Sichern in Backup $NAME", "In Volume $VOLUME bei Agent $AGENT im Backup $NAME traten Fehler auf", NotificationEntry.Level.ERROR, false));
@@ -105,7 +102,6 @@ public class BackupManager extends WorkerParent
 
         Main.addNotification( new NotificationEntry(BA_ABORT,
                 "Abbruch beim Sichern in Backup $NAME", "Die Sicherung von Volume $VOLUME bei Agent $AGENT im Backup $NAME wurde abgebrochen", NotificationEntry.Level.ERROR, false));
-
 
         Main.addNotification( new NotificationEntry(BA_VOLUME_OKAY,
                 "Volume $VOLUME beendet", "Volume $VOLUME auf $AGENT bei Backup $NAME wurde erfolgreich gesichert", NotificationEntry.Level.INFO, false));
@@ -189,9 +185,7 @@ public class BackupManager extends WorkerParent
 
     static ScheduleStart calcNextStart( Schedule schedule, long now )
     {
-
         GregorianCalendar baseCal = new GregorianCalendar();
-
         ScheduleStart start = null;
 
         // 1. CYCLE MODE
@@ -216,8 +210,7 @@ public class BackupManager extends WorkerParent
 
 
             long startTime = baseCal.getTimeInMillis();
-
-            int n = 0;
+            int n;
 
             // FIND THE FIRST CYCLEENTRY IN THE FUTURE
             for (n = 0;;n++)
@@ -236,7 +229,7 @@ public class BackupManager extends WorkerParent
         }
         else
         {
-            List<Job> jobList = null;
+            List<Job> jobList;
 
             if (schedule.getJobs().isRealized())
                 jobList = schedule.getJobs().getList();
@@ -272,7 +265,7 @@ public class BackupManager extends WorkerParent
                 ScheduleStart baseTimeStart = new ScheduleStart( baseCal.getTimeInMillis(), schedule);
 
 
-                int n = 0;
+                int n;
 
                 // FIND THE FIRST CYCLEENTRY IN THE FUTURE
                 for (n = 0;;n++)
@@ -314,8 +307,6 @@ public class BackupManager extends WorkerParent
     {
         return true;
     }
-
-
 
     @Override
     public void run()
@@ -377,8 +368,6 @@ public class BackupManager extends WorkerParent
         }
     }
 
-
-
     @Override
     public boolean check_requirements( StringBuffer sb )
     {
@@ -391,14 +380,13 @@ public class BackupManager extends WorkerParent
         return " Idle ";
     }
     
-    
     private static BackupJobResult getLastResult(Schedule sched)
     {
 
         JDBCEntityManager em = Main.get_control().get_util_em(sched.getPool());
 
-        long lastBackupJobResultIdx = -1;
-        List<Object[]> list = null;
+        long lastBackupJobResultIdx;
+        List<Object[]> list;
         try
         {
             list = em.createNativeQuery("select max(idx) from BackupJobResult b where b.schedule_idx=" + sched.getIdx(), 1);
@@ -481,183 +469,45 @@ public class BackupManager extends WorkerParent
     public JobInterface createCDPJob(AgentApiEntry api, Schedule sched, ClientInfo info, ClientVolume volume, CdpEvent ev)
     {
         setStatusTxt(Main.Txt("Starte CDP Job") + " " + ev.getPath());
-        return new CDPJobInterface(api, sched, info, volume, ev);
+        return new CDPJobInterface(this, api, sched, info, volume, ev);
     }
 
     public JobInterface createCDPJob(AgentApiEntry api, Schedule sched, ClientInfo info, ClientVolume volume, List<CdpEvent> evList)
     {
         setStatusTxt(Main.Txt("Starte CDP JobList"));
-        return new CDPJobInterface(api, sched, info, volume, evList);
+        return new CDPJobInterface(this, api, sched, info, volume, evList);
     }
 
-    public class CDPJobInterface implements JobInterface
+    public JobInterface createVfsJob( AgentApiEntry api, MountEntry mountEntry, List<RemoteFSElem> elem )
     {
+        setStatusTxt(Main.Txt("Starte CDP JobList"));
+        return new VfsJobInterface(this, api, mountEntry, elem);
+    }      
+    
+    public BackupContext initVfsbackup(  AgentApiEntry api,  MountEntry mountEntry ) throws IOException, Exception
+    {
+        StoragePool pool = mountEntry.getPool();
 
-        BackupContext actualContext;
-        AgentApiEntry api;
-        Schedule sched;
-        ClientInfo info;
-        ClientVolume volume;
-        List<CdpEvent> evList;
-        Date start = new Date();
-        JOBSTATE js;
+        StoragePoolNubHandler nubHandler = LogicControl.getStorageNubHandler();
 
-        public CDPJobInterface( AgentApiEntry api, Schedule sched, ClientInfo info, ClientVolume volume, CdpEvent ev )
-        {
-            this.actualContext = null;
-            this.api = api;
-            this.sched = sched;
-            this.info = info;
-            this.volume = volume;
-            this.evList = new ArrayList<CdpEvent>();
-            this.evList.add(ev);
-            js = JOBSTATE.MANUAL_START;
-        }
-        public CDPJobInterface( AgentApiEntry api, Schedule sched, ClientInfo info, ClientVolume volume, List<CdpEvent> evList )
-        {
-            this.actualContext = null;
-            this.api = api;
-            this.sched = sched;
-            this.info = info;
-            this.volume = volume;
-            this.evList = new ArrayList<CdpEvent>();
-            this.evList.addAll(evList);
-            js = JOBSTATE.MANUAL_START;
-        }
+        User user = User.createSystemInternal();
+        StoragePoolHandler sp_handler = StoragePoolHandlerFactory.createStoragePoolHandler( nubHandler, pool, user, /*rdonly*/false);
+        if (pool.getStorageNodes(sp_handler.getEm()).isEmpty())
+            throw new Exception("No Storage for pool defined");
 
-        @Override
-        public JOBSTATE getJobState()
-        {
-            if (actualContext != null)
-            {
-                return actualContext.getJobState();
-            }
-            return js;
-            
-        }
+        sp_handler.realizeInFs();
 
-        @Override
-        public void setJobState( JOBSTATE jOBSTATE )
-        {
-            if (actualContext != null)
-            {
-                actualContext.setJobState(jOBSTATE);
-            }
-            else
-            {
-                js = jOBSTATE;
-            }
-        }
+        sp_handler.check_open_transaction();
 
-        @Override
-        public InteractionEntry getInteractionEntry()
-        {
-            return null;
-        }
+        // HOTFOLDER CONTEXT RESOLVES THE FILESYSTEM WE ARE USING
+        BackupContext actualContext = new BackupContext(api, sp_handler, mountEntry );
+        actualContext.setAbortOnError(true);
 
-        @Override
-        public String getStatusStr()
-        {
-            if (actualContext != null)
-            {
-                return actualContext.getStatus();
-            }
-            return "";
-        }
+        // OPEN INDEXER
+        if (actualContext.getIndexer() != null && !actualContext.getIndexer().isOpen())
+            actualContext.getIndexer().open();
 
-        @Override
-        public String getStatisticStr()
-        {
-            if (actualContext != null)
-            {
-                return actualContext.getStat().toString();
-            }
-            return "";
-        }
-
-        @Override
-        public Date getStartTime()
-        {
-            return start;
-        }
-
-        @Override
-        public Object getResultData()
-        {
-            return null;
-        }
-
-        @Override
-        public int getProcessPercent()
-        {
-            if (actualContext != null)
-                return  (int)(actualContext.stat.Speed() / (1000*1000));
-            return 0;
-        }
-
-        @Override
-        public String getProcessPercentDimension()
-        {
-            return "MB";
-        }
-
-        @Override
-        public void abortJob()
-        {
-            if (actualContext != null)
-            {
-                actualContext.setAbort(true);
-            }            
-        }
-
-        public Schedule getSched()
-        {
-            return sched;
-        }
-
-        
-
-        @Override
-        public void run()
-        {
-            try
-            {
-                actualContext = initCDPbackup(api, sched, info, volume);
-                handleCDPbackup(actualContext, api, evList, sched);
-            }
-            catch (Throwable ex)
-            {
-                if (actualContext != null)
-                    actualContext.setJobState(JOBSTATE.ABORTED);
-            }
-            finally
-            {
-                if (actualContext != null)
-                {
-                    try
-                    {
-
-                        closeCDPbackup(actualContext);
-                    }
-                    catch (Exception exception)
-                    {
-                        Log.err("Fehler beim Schließen von CDP", exception);
-                    }
-                }
-            }
-        }
-        @Override
-        public void close()
-        {
-
-        }
-
-
-        @Override
-        public User getUser()
-        {
-            return null;
-        }
+        return actualContext;
     }
 
     public BackupContext initCDPbackup(  AgentApiEntry api,  Schedule sched, ClientInfo info, ClientVolume volume ) throws IOException, Exception
@@ -694,7 +544,75 @@ public class BackupManager extends WorkerParent
         sp_handler.close_transaction();
         sp_handler.close_entitymanager();
     }
+    
+    public void closeVfsbackup(  BackupContext actualContext ) throws IOException, Exception
+    {
+        actualContext.close();
+        //Log.debug("Closing CDP BackupContext" );
+        StoragePoolHandler sp_handler = actualContext.getPoolhandler();       
+        sp_handler.close_transaction();
+        sp_handler.close_entitymanager();
+    }
 
+    public BackupContext handleVfsbackup( BackupContext actualContext, AgentApiEntry api, List<RemoteFSElem> elems, MountEntry mountEntry )
+    {
+        for (int i = 0; i < elems.size(); i++)
+        {
+            RemoteFSElem elem = elems.get(i);
+            
+            boolean recursive = false;
+
+            String txt = Main.Txt("VFS ist aktiv mit") + " " + elem.getPath();
+            Log.debug(txt);
+            setStatusTxt(txt);
+            actualContext.setStatus(txt);
+
+            try
+            {
+                // DETECT PATH IN STORAGE
+                String abs_path = actualContext.getRemoteElemAbsPath( elem );
+
+                // RESOLVE STARTPATH IF POSSIBLE
+                FileSystemElemNode node = actualContext.poolhandler.resolve_elem_by_path( abs_path );
+
+                // MAP NODE IN THIS CONTEXT
+                if (node != null)
+                {
+                    node = actualContext.poolhandler.em_find(FileSystemElemNode.class, node.getIdx());
+                }
+
+                Backup.backupRemoteFSElem(actualContext, elem, node, recursive, /*onlyNewer*/ false);
+            }
+            catch (Throwable throwable)
+            {
+                 Log.err("Fehler beim VFS des Elements " + elem.getName(), throwable );
+                 actualContext.setStatus("Fehler beim VFS des Elements " + elem.getName() + ": " + throwable.getMessage() );
+                 actualContext.setResult(false);
+            }
+        }
+        
+        // SUCCEEDED?
+        if (actualContext.getResult())
+        {
+            actualContext.setStatus("");
+            setStatusTxt("");
+            actualContext.setJobState(JobInterface.JOBSTATE.FINISHED_OK_REMOVE);
+        }
+        else
+        {
+            actualContext.setJobState(JobInterface.JOBSTATE.FINISHED_ERROR);
+        }
+
+        // PUSH INDEX
+        if (actualContext.getIndexer() != null)
+        {
+            actualContext.getIndexer().flushAsync();
+        }
+
+        return actualContext;
+    }
+   
+    
 
     public BackupContext handleCDPbackup( BackupContext actualContext, AgentApiEntry api,  List<CdpEvent> evList, Schedule sched ) throws Exception, Throwable
     {

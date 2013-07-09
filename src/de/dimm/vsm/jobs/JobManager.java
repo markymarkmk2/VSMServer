@@ -9,8 +9,9 @@ import de.dimm.vsm.LogicControl;
 import de.dimm.vsm.WorkerParent;
 import de.dimm.vsm.auth.User;
 import de.dimm.vsm.backup.Backup.BackupJobInterface;
-import de.dimm.vsm.backup.BackupManager;
 import de.dimm.vsm.backup.hotfolder.MMImportManager.MMImportJobInterface;
+import de.dimm.vsm.backup.jobinterface.CDPJobInterface;
+import de.dimm.vsm.backup.jobinterface.VfsJobInterface;
 import de.dimm.vsm.jobs.JobInterface.JOBSTATE;
 import de.dimm.vsm.lifecycle.NodeMigrationManager.MigrationJob;
 import de.dimm.vsm.records.AbstractStorageNode;
@@ -426,10 +427,31 @@ public class JobManager extends WorkerParent
         for (int i = 0; i < jobs.length; i++)
         {
             JobEntry jobEntry = jobs[i];
-            if (jobEntry.getJob() instanceof BackupManager.CDPJobInterface)
+            if (jobEntry.getJob() instanceof CDPJobInterface)
             {
-                BackupManager.CDPJobInterface bi = (BackupManager.CDPJobInterface) jobEntry.getJob();
+                CDPJobInterface bi = (CDPJobInterface) jobEntry.getJob();
                 if (bi.getSched() != null && bi.getSched().getPool().getIdx() == poolIdx)
+                {
+                    if (jobEntry.getJobStatus() != JOBSTATE.FINISHED_OK &&
+                        jobEntry.getJobStatus() != JOBSTATE.FINISHED_ERROR)
+                    {
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
+    }
+    public boolean isPoolBusyVfs(long poolIdx)
+    {
+        JobEntry[] jobs = getJobArray(null);
+        for (int i = 0; i < jobs.length; i++)
+        {
+            JobEntry jobEntry = jobs[i];
+            if (jobEntry.getJob() instanceof VfsJobInterface)
+            {
+                VfsJobInterface bi = (VfsJobInterface) jobEntry.getJob();
+                if (bi.getMountEntry().getPool().getIdx() == poolIdx)
                 {
                     if (jobEntry.getJobStatus() != JOBSTATE.FINISHED_OK &&
                         jobEntry.getJobStatus() != JOBSTATE.FINISHED_ERROR)

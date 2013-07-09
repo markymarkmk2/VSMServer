@@ -302,7 +302,7 @@ public final class DDFS_WR_FileHandle extends DDFS_FileHandle implements IBackup
     
     public static final int MIN_FILECHANGE_THRESHOLD_S = 120;
 
-    FileSystemElemAttributes newAttr = null;
+    
     fr.cryptohash.Digest digest = null;
     StatCounter stat;
     HashCache hashCache;
@@ -337,7 +337,7 @@ public final class DDFS_WR_FileHandle extends DDFS_FileHandle implements IBackup
     @Override
     public void truncateFile( long size ) throws IOException, PoolReadOnlyException
     {
-        if (spHandler.isReadOnly())
+        if (spHandler.isReadOnly(node))
             throw new PoolReadOnlyException("Cannot truncateFile to dedup FS");
 
         DDHandle dDHandle = hm.getBlockForOffset(size, node.getName());
@@ -356,6 +356,23 @@ public final class DDFS_WR_FileHandle extends DDFS_FileHandle implements IBackup
             dDHandle.setDirty(true);
             dDHandle.close();
         }
+        if (isStream())
+            node.getAttributes().setStreamSize(size);
+        else
+            node.getAttributes().setFsize(size);
+        
+        try
+        {
+            spHandler.check_open_transaction();
+            spHandler.getEm().em_merge(node.getAttributes());
+            spHandler.check_commit_transaction();
+        }
+        catch (SQLException sQLException)
+        {
+            throw new IOException("Cannot update size");
+        }
+        
+        
         checkForFlush( true );
     }
 
@@ -625,7 +642,7 @@ public final class DDFS_WR_FileHandle extends DDFS_FileHandle implements IBackup
     @Override
     public boolean delete() throws PoolReadOnlyException
     {
-        if (spHandler.isReadOnly())
+        if (spHandler.isReadOnly(node))
             throw new PoolReadOnlyException("Cannot delete in dedup FS");
         return false;
     }
@@ -659,25 +676,13 @@ public final class DDFS_WR_FileHandle extends DDFS_FileHandle implements IBackup
         
 
         getSpHandler().check_open_transaction();
+        FileSystemElemAttributes newAttr = getNode().getAttributes();
 
         // Erster schreibender Zugriff, dann alles notwendige anlegen
-        if (newAttr == null)
+        if (digest == null)
         {           
             digest = new fr.cryptohash.SHA1();
-            newAttr = getNode().getAttributes();
-            long actTs = System.currentTimeMillis();
-            // Nur bei Änderungen, die länger als MIN_FILECHANGE_THRESHOLD_S existieren, wird ein neues Attribut vergeben
-            long diffSinceLastUpdate = System.currentTimeMillis() - newAttr.getTs();
-            if (diffSinceLastUpdate/1000 > MIN_FILECHANGE_THRESHOLD_S)
-            {
-                newAttr = new FileSystemElemAttributes(newAttr);
-                createNewAttribute = true;
-                 // Neuer TS
-                newAttr.setTs(actTs);
-            }
-            // M-Time setzen, nicht gelöscht
-            newAttr.setDeleted(false);
-            newAttr.setModificationDateMs(actTs);
+            
             hashCache = LogicControl.getStorageNubHandler().getHashCache(getSpHandler().getPool());
             indexer = LogicControl.getStorageNubHandler().getIndexer(getSpHandler().getPool());
             if (!indexer.isOpen())
@@ -757,8 +762,23 @@ public final class DDFS_WR_FileHandle extends DDFS_FileHandle implements IBackup
 
             // New MaxSize
             
-            if (newLen > origlen)
+            if (onClose && newLen > origlen)
             {
+                newAttr = getNode().getAttributes();
+                long actTs = System.currentTimeMillis();
+                // Nur bei Änderungen, die länger als MIN_FILECHANGE_THRESHOLD_S existieren, wird ein neues Attribut vergeben
+                long diffSinceLastUpdate = System.currentTimeMillis() - newAttr.getTs();
+                if (diffSinceLastUpdate/1000 > MIN_FILECHANGE_THRESHOLD_S)
+                {
+                    newAttr = new FileSystemElemAttributes(newAttr);
+                    createNewAttribute = true;
+                     // Neuer TS
+                    newAttr.setTs(actTs);
+                }
+                
+                // M-Time setzen, nicht gelöscht
+                newAttr.setDeleted(false);
+                newAttr.setModificationDateMs(actTs);                
                 if (createNewAttribute)
                 {
                     Log.debug("Creating attribute: " + newAttr);

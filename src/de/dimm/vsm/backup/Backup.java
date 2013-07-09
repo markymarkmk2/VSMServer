@@ -42,6 +42,7 @@ import de.dimm.vsm.net.HashDataResult;
 import de.dimm.vsm.net.interfaces.AgentApi;
 import de.dimm.vsm.net.RemoteFSElem;
 import de.dimm.vsm.net.RemoteFSElemWrapper;
+import de.dimm.vsm.net.StoragePoolWrapper;
 import de.dimm.vsm.net.interfaces.SnapshotHandle;
 import de.dimm.vsm.records.AbstractStorageNode;
 import de.dimm.vsm.records.BackupJobResult;
@@ -215,8 +216,29 @@ public class Backup
         {
             return ticket;
         }
-
     }
+    public class BackupVfsTicket
+    {
+        List<RemoteFSElem> elems;
+        StoragePoolWrapper ticket;
+
+        public BackupVfsTicket( List<RemoteFSElem> elem, StoragePoolWrapper ticket )
+        {
+            this.elems = elem;
+            this.ticket = ticket;
+        }
+
+        public List<RemoteFSElem> getElem()
+        {
+            return elems;
+        }
+
+        public StoragePoolWrapper getTicket()
+        {
+            return ticket;
+        }
+    }
+    
 
     public class BackupJobInterface implements JobInterface
     {
@@ -482,6 +504,17 @@ public class Backup
             }
             return false;
         }
+
+        public boolean addVfsEvent( List<RemoteFSElem> elems, StoragePoolWrapper ticket )
+        {
+            if (actualContext != null)
+            {
+                BackupVfsTicket vfsTicket = new BackupVfsTicket(elems, ticket);
+                actualContext.addVfsTicket(vfsTicket);
+                return true;
+            }
+            return false;
+        }
     }
 
 
@@ -572,27 +605,23 @@ public class Backup
             {
                 if (s.indexOf("$NAME") >= 0)
                 {
-                    String f = "";
-                    f = clientInfo.getSched().getName();
+                    String f = clientInfo.getSched().getName();
                     s = s.replace("$NAME", f );
                 }
 
                 if (s.indexOf("$POOL") >= 0)
                 {
-                    String f = "";
-                    f = clientInfo.getSched().getPool().getName();
+                    String f = clientInfo.getSched().getPool().getName();
                     s = s.replace("$POOL", f );
                 }
                 if (s.indexOf("$VOLUME") >= 0)
                 {
-                    String f = "";
-                    f = clientVolume.getVolumePath().getPath();
+                    String f = clientVolume.getVolumePath().getPath();
                     s = s.replace("$VOLUME", f );
                 }
                 if (s.indexOf("$AGENT") >= 0)
                 {
-                    String f = "";
-                    f = clientInfo.getIp();
+                    String f = clientInfo.getIp();
                     s = s.replace("$AGENT", f );
                 }
                 return s;
@@ -610,15 +639,13 @@ public class Backup
             {
                 if (s.indexOf("$NAME") >= 0)
                 {
-                    String f = "";
-                    f = sched.getName();
+                    String f = sched.getName();
                     s = s.replace("$NAME", f );
                 }
 
                 if (s.indexOf("$POOL") >= 0)
                 {
-                    String f = "";
-                    f = sched.getPool().getName();
+                    String f = sched.getPool().getName();
                     s = s.replace("$POOL", f );
                 }
                 return s;
@@ -646,7 +673,7 @@ public class Backup
             sched.getClientList().unRealize();
             
             // AND HOLD A COPY
-            List<ClientInfo> client_list = new ArrayList<ClientInfo>();
+            List<ClientInfo> client_list = new ArrayList<>();
             client_list.addAll( sched.getClientList().getList(hdl.getEm()) );
 
             int totalVolumesTried = 0;
@@ -674,7 +701,7 @@ public class Backup
                 clientInfo.getVolumeList().unRealize();
 
                 // AND HOLD A COPY
-                List<ClientVolume> volume_list = new ArrayList<ClientVolume>();
+                List<ClientVolume> volume_list = new ArrayList<>();
                 volume_list.addAll( clientInfo.getVolumeList().getList(hdl.getEm()) );
                 
                 StatCounter clientCounter = new StatCounter("Client " + clientInfo.toString());
@@ -1640,7 +1667,6 @@ public class Backup
     private static boolean write_complete_node_dedup( GenericContext context, RemoteFSElem remoteFSElem, FileSystemElemNode node, long ts) throws PoolReadOnlyException
     {
 
-
         RemoteFSElemWrapper remote_handle = null;
         try
         {            
@@ -1673,19 +1699,15 @@ public class Backup
                 {
                     checkSpace( context );
                 }
-
                
-                String remote_hash = null;
-
+                String remote_hash;
                 remote_hash = context.apiEntry.getApi().read_hash(remote_handle, offset, read_len, CS_Constants.HASH_ALGORITHM);
 
                 if (remote_hash == null)
                     throw new IOException("Cannot retrieve hash from offset " + offset + " len " + read_len + " of remote file " + remoteFSElem.toString());
 
-
                 // CHECK FOR EXISTING BLOCK (DEDUP)
-                DedupHashBlock block = null;
-
+                DedupHashBlock block;
                 try
                 {
                     block = check_for_existing_block( context, remote_hash, checkDHBExistance );
@@ -2846,7 +2868,7 @@ public class Backup
             {
                 Log.err("Fehler beim Entfernen von DedupBlock", ex);
             }
-            return;
+            throw new IOException( "Fehler beim Schreiben von DedupBlock " + node.toString(), e);
         }
     }
 

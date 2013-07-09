@@ -56,7 +56,7 @@ public class StoragePoolNubHandler
         mapperList = new ArrayList<PoolMapper>();
         
     }
-
+    
     public void removePoolDatabase( StoragePool pool, boolean physically) throws SQLException
     {
         PoolMapper poolMapper = null;

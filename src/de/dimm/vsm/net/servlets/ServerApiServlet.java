@@ -8,7 +8,9 @@ package de.dimm.vsm.net.servlets;
 import com.caucho.hessian.server.HessianServlet;
 import de.dimm.vsm.net.CdpEvent;
 import de.dimm.vsm.net.CdpTicket;
+import de.dimm.vsm.net.RemoteFSElem;
 import de.dimm.vsm.net.ServerApiImpl;
+import de.dimm.vsm.net.StoragePoolWrapper;
 import de.dimm.vsm.net.interfaces.ServerApi;
 import java.util.List;
 import java.util.Properties;
@@ -62,4 +64,10 @@ public class ServerApiServlet extends HessianServlet implements ServerApi
         return api.cdp_call_list(evList, ticket);
     }
   
+    // DIFFERENT FUNCS MUST HAVE DIFFERENT NAMENS!!!!!!!!
+    @Override
+    public boolean vfs_call( List<RemoteFSElem> elems, StoragePoolWrapper ticket )
+    {
+        return api.vfs_call(elems, ticket);
+    }
 }

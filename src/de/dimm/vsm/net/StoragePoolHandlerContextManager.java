@@ -378,7 +378,17 @@ public class StoragePoolHandlerContextManager extends WorkerParent
             }
         }
     }
-
+    public void touch( StoragePoolWrapper poolWrapper)
+    {
+        synchronized( handlerMap )
+        {
+            StoragePoolHandlerContext ctx = handlerMap.get(poolWrapper);
+            if (ctx != null)
+            {
+                ctx.touch();
+            }
+        }        
+    }
     void updateContext( StoragePoolWrapper poolWrapper, String agentIp, int agentPort, String drive )
     {
         synchronized( handlerMap )

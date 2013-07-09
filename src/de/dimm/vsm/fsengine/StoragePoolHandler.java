@@ -37,6 +37,8 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 
 
@@ -650,7 +652,7 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
     // RECURSIVE REMOVE!
     boolean _remove_fse_node( FileSystemElemNode node ) throws PoolReadOnlyException, SQLException, IOException, PathResolveException
     {
-        if (isReadOnly())
+        if (isReadOnly(node))
             throw new PoolReadOnlyException(pool);
 
 
@@ -801,7 +803,7 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
 
     public boolean remove_fse_node( FileSystemElemNode node, boolean withCommit ) throws PoolReadOnlyException
     {
-        if (isReadOnly())
+        if (isReadOnly(node))
             throw new PoolReadOnlyException(pool);
 
 
@@ -893,7 +895,7 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
     boolean retryConnectOnException = false;
     public List<AbstractStorageNode> register_fse_node_to_db( FileSystemElemNode node) throws IOException, PoolReadOnlyException
     {
-        if (isReadOnly())
+        if (isReadOnly(node))
             throw new PoolReadOnlyException(pool);
 
 
@@ -1031,6 +1033,9 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
 
         if (parent != null)
         {
+            if (isReadOnly(parent))
+                throw new PoolReadOnlyException(pool);
+            
             // Check for existing
             try
             {
@@ -1103,7 +1108,7 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
 
     public void instantiate_in_fs( List<AbstractStorageNode> s_nodes, FileSystemElemNode node ) throws PathResolveException, IOException, PoolReadOnlyException
     {
-        if (isReadOnly())
+        if (isReadOnly(node))
             throw new PoolReadOnlyException(pool);
 
         for (int i = 0; i < s_nodes.size(); i++)
@@ -1128,6 +1133,11 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
         if (parent == null)
         {
             parent = create_parent_dir_node(abs_path);
+        }
+        else
+        {
+             if (isReadOnly(parent))
+                throw new PoolReadOnlyException(pool);    
         }
 
         String name = get_name_from_path( abs_path );
@@ -1186,7 +1196,7 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
 
     public void move_fse_node( FileSystemElemNode node, String from, String to ) throws IOException, SQLException, PoolReadOnlyException, PathResolveException
     {
-        if (isReadOnly())
+        if (isReadOnly(node))
             throw new PoolReadOnlyException(pool);
 
 
@@ -1221,6 +1231,11 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
     public boolean isReadOnly()
     {
         return poolQry.isReadOnly();
+    }
+
+    public boolean isReadOnly(FileSystemElemNode node)
+    {
+        return poolQry.isReadOnly(node);
     }
 
 
@@ -1270,7 +1285,7 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
 
     public long open_fh( FileSystemElemNode node, boolean create ) throws IOException, PoolReadOnlyException, PathResolveException, SQLException
     {
-        if (create && isReadOnly())
+        if (create && isReadOnly(node))
             throw new PoolReadOnlyException(pool);
 
         return fseMapHandler.open_fh(node, create);
@@ -1278,7 +1293,7 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
 
     public long open_stream( FileSystemElemNode node, int streamInfo, boolean create ) throws IOException, PoolReadOnlyException, PathResolveException, UnsupportedEncodingException, SQLException
     {
-        if (create && isReadOnly())
+        if (create && isReadOnly(node))
             throw new PoolReadOnlyException(pool);
 
         return fseMapHandler.open_stream(node, streamInfo, create);
@@ -1622,7 +1637,7 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
 
     public HashBlock create_hashentry( FileSystemElemNode node, String hash_value, DedupHashBlock block, long offset, int len, boolean r, long ts  ) throws PoolReadOnlyException, SQLException
     {
-        if (isReadOnly())
+        if (isReadOnly(node))
             throw new PoolReadOnlyException(pool);
 
 
@@ -1662,7 +1677,7 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
 
     public DedupHashBlock create_dedup_hashblock( FileSystemElemNode node, String remote_hash,int read_len ) throws PoolReadOnlyException, SQLException
     {
-        if (isReadOnly())
+        if (isReadOnly(node))
             throw new PoolReadOnlyException(pool);
 
 
@@ -1817,7 +1832,26 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
     {
         return pool.getName();
     }
+    public boolean delete_fse_node( long fileNo ) throws PoolReadOnlyException, SQLException
+    {
+        if (isReadOnly())
+            throw new PoolReadOnlyException(pool);
+        
+        FileSystemElemNode node = getNodeByFileNo( fileNo );
 
+        if (isReadOnly(node))
+            throw new PoolReadOnlyException(pool);
+        try
+        {
+            setDeleted(node, true, System.currentTimeMillis());
+        }
+        catch (DBConnException exception)
+        {
+            Log.err("Cannot delete_fse_node", node.toString(), exception);
+            return false;
+        }
+        return true;              
+    }
 
     public boolean delete_fse_node( String path ) throws PoolReadOnlyException, SQLException
     {
@@ -1825,6 +1859,9 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
             throw new PoolReadOnlyException(pool);
 
         FileSystemElemNode node = resolve_node(path);
+        
+        if (isReadOnly(node))
+            throw new PoolReadOnlyException(pool);
 
         try
         {
@@ -1866,7 +1903,7 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
 
     public void set_ms_times( FileSystemElemNode fseNode, long ctoJavaTime, long atoJavaTime, long mtoJavaTime ) throws SQLException, DBConnException, PoolReadOnlyException
     {
-        if (isReadOnly())
+        if (isReadOnly(fseNode))
             throw new PoolReadOnlyException(pool);
 
         if (ctoJavaTime != 0)
@@ -1882,18 +1919,22 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
 
     public boolean exists( FileSystemElemNode fseNode )
     {
-       /* FileSystemElemNodeHandler h = new FileSystemElemNodeHandler(fseNode, this);
-        return h.exists();
-        * */
-
-        // TODO -CHECK ON REAL FS NEEDED?
-        return true;
+        return fseNode.getAttributes().isDeleted();
     }
 
     public boolean exists( long fileNo )
     {
         FileSystemElemNode fseNode = getNodeByFileNo( fileNo );
         return fseNode != null ? exists(fseNode) : false;
+    }
+
+    public boolean isReadOnly( long idx ) throws IOException, SQLException
+    {
+        FileSystemElemNode fseNode = resolve_fse_node_from_db(idx);
+        
+        if (fseNode == null)
+            throw new IOException("NodeIdx " + idx + " nicht gefunden");
+        return isReadOnly(fseNode);        
     }
 
 
@@ -1958,14 +1999,17 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
         if (isReadOnly())
             throw new PoolReadOnlyException(pool);
 
-
+        FileSystemElemNode fseNode = getNodeByFileNo( fileNo );
+        
+        if (isReadOnly(fseNode))
+            throw new PoolReadOnlyException(pool);
+        
         FileHandle fh = getFhByFileNo( fileNo );
         if (fh != null)
         {
             fh.truncateFile(size);
         }
 
-        FileSystemElemNode fseNode = getNodeByFileNo( fileNo );
         fseNode.getAttributes().setFsize(size);
         fseNode.setAttributes(em_merge( fseNode.getAttributes()));
     }
@@ -1976,8 +2020,14 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
         if (isReadOnly())
             throw new PoolReadOnlyException(pool);
 
-
+        FileSystemElemNode fseNode = getNodeByFileNo( fileNo );
+        
+        if (isReadOnly(fseNode))
+            throw new PoolReadOnlyException(pool);
+        
         FileHandle fh = getFhByFileNo( fileNo );
+        
+        
         if (fh != null)
         {
             fh.writeFile(b, length, offset);
@@ -1998,7 +2048,7 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
 
     public void setDeleted( FileSystemElemNode fseNode, boolean b, long actTimestamp ) throws SQLException, DBConnException, PoolReadOnlyException
     {
-        if (isReadOnly())
+        if (isReadOnly(fseNode))
             throw new PoolReadOnlyException(pool);
 
 
@@ -2097,7 +2147,7 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
 
     public void add_new_fse_attributes( FileSystemElemNode fsenode, RemoteFSElem elem, long actTimestamp) throws PoolReadOnlyException, SQLException
     {
-        if (isReadOnly())
+        if (isReadOnly(fsenode))
             throw new PoolReadOnlyException(pool);
 
 
@@ -2142,7 +2192,7 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
     }
     public void undelete_attributes( FileSystemElemNode fsenode, long actTimestamp) throws PoolReadOnlyException, SQLException
     {
-        if (isReadOnly())
+        if (isReadOnly(fsenode))
             throw new PoolReadOnlyException(pool);
 
         
@@ -2217,7 +2267,7 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
 
     public XANode create_xa_hashentry( FileSystemElemNode node, String hash_value, int streamInfo, DedupHashBlock block, long offset, int len, boolean reorganize, long ts ) throws PoolReadOnlyException, SQLException
     {
-        if (isReadOnly())
+        if (isReadOnly(node))
             throw new PoolReadOnlyException(pool);
 
         XANode he = new XANode();

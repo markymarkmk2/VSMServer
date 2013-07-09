@@ -7,12 +7,16 @@ package de.dimm.vsm.backup;
 
 import de.dimm.vsm.Utilities.VariableResolver;
 import de.dimm.vsm.backup.Backup.BackupCDPTicket;
-import de.dimm.vsm.fsengine.HashCache;
+import de.dimm.vsm.backup.Backup.BackupVfsTicket;
+import de.dimm.vsm.fsengine.ArrayLazyList;
+import de.dimm.vsm.fsengine.LazyList;
 import de.dimm.vsm.fsengine.StoragePoolHandler;
 import de.dimm.vsm.net.RemoteFSElem;
 import de.dimm.vsm.records.ClientInfo;
 import de.dimm.vsm.records.ClientVolume;
 import de.dimm.vsm.records.Excludes;
+import de.dimm.vsm.records.FileSystemElemNode;
+import de.dimm.vsm.records.MountEntry;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -30,6 +34,7 @@ public class BackupContext extends GenericContext implements VariableResolver
     private ClientVolume clientVolume;
 
     final List<BackupCDPTicket> cdpList;
+    final List<BackupVfsTicket> vfsList;
     AtomicBoolean cdpMtx = new AtomicBoolean();
    
 
@@ -40,6 +45,27 @@ public class BackupContext extends GenericContext implements VariableResolver
         clientVolume = vol;
         digest = new fr.cryptohash.SHA1();
         cdpList = new ArrayList<>();
+        vfsList = new ArrayList<>();
+    }
+
+    public BackupContext(  AgentApiEntry apiEntry, StoragePoolHandler poolhandler, MountEntry entry )
+    {
+        super( apiEntry, poolhandler);
+        actClientInfo = new ClientInfo();
+        actClientInfo.setIp(entry.getIp());
+        actClientInfo.setPort(entry.getPort());
+        
+        clientVolume = new ClientVolume();
+        long now = System.currentTimeMillis();
+        clientVolume.setVolumePath( new RemoteFSElem(entry.getSubPath(), FileSystemElemNode.FT_DIR, now, now, now, 0, 0) );
+        LazyList<ClientVolume> clist = new ArrayLazyList<ClientVolume>();
+        clist.add(clientVolume);        
+        actClientInfo.setVolumeList(clist);
+        
+        digest = new fr.cryptohash.SHA1();
+        cdpList = new ArrayList<>();
+        vfsList = new ArrayList<>();
+        basePath = entry.getSubPath();
     }
 
     @Override
@@ -48,10 +74,7 @@ public class BackupContext extends GenericContext implements VariableResolver
         if (actClientInfo != null)
             return actClientInfo.getExclList();
         return null;
-    }
-
-   
-
+    }   
  
     @Override
     public String getRemoteElemAbsPath(RemoteFSElem remoteFSElem )
@@ -73,7 +96,7 @@ public class BackupContext extends GenericContext implements VariableResolver
         return clientVolume;
     }
 
- @Override
+    @Override
     public String resolveVariableText( String s )
     {
         if (s.indexOf("$NAME") >= 0)
@@ -138,6 +161,15 @@ public class BackupContext extends GenericContext implements VariableResolver
             cdpList.add(cdpTticket);
         }
     }
+    // FIFO LISTE MIT CDP-TICKETS
+    public void addVfsTicket( BackupVfsTicket cdpTticket )
+    {
+        synchronized(vfsList)
+        {
+            vfsList.add(cdpTticket);
+        }
+    }
+    
     public BackupCDPTicket getCDPTicket()
     {
         synchronized(cdpList)
