@@ -100,7 +100,7 @@ public class CheckManager  extends WorkerParent{
         }
 
         @Override
-        public int getProcessPercent() {
+        public String getProcessPercent() {
             return check.getProcessPercent();
         }
 

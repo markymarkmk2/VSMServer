@@ -590,6 +590,7 @@ public class BackupManager extends WorkerParent
                  actualContext.setResult(false);
             }
         }
+        actualContext.getStat().check_stat(true);
         
         // SUCCEEDED?
         if (actualContext.getResult())
@@ -597,10 +598,15 @@ public class BackupManager extends WorkerParent
             actualContext.setStatus("");
             setStatusTxt("");
             actualContext.setJobState(JobInterface.JOBSTATE.FINISHED_OK_REMOVE);
+            String txt = Main.Txt("VFS ohne Fehler beendet");
+            Log.debug(txt);
+
         }
         else
         {
             actualContext.setJobState(JobInterface.JOBSTATE.FINISHED_ERROR);
+            String txt = Main.Txt("VFS mit Fehler beendet");
+            Log.err(txt);
         }
 
         // PUSH INDEX

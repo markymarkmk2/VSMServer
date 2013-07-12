@@ -311,12 +311,12 @@ public class Backup
         }
 
         @Override
-        public int getProcessPercent()
+        public String getProcessPercent()
         {
             if (actualContext != null)
-                return  (int)(actualContext.stat.Speed());
+                return  actualContext.stat.getSpeedPerSec();
 
-            return 0;
+            return "";
         }
 
         @Override

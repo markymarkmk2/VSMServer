@@ -82,9 +82,9 @@ class TestJob implements JobInterface, ActionListener
     }
 
     @Override
-    public int getProcessPercent()
+    public String getProcessPercent()
     {
-        return processPercent;
+        return Integer.toString(processPercent);
     }
 
     @Override

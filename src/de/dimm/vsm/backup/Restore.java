@@ -176,12 +176,12 @@ public class Restore
         }
 
         @Override
-        public int getProcessPercent()
+        public String getProcessPercent()
         {
             if (actualContext != null)
-                return  (int)(actualContext.stat.getByteTransferedPerSec() / (1000*1000));
+                return actualContext.stat.getSpeedPerSec();
 
-            return 0;
+            return "";
         }
 
         @Override
@@ -211,7 +211,7 @@ public class Restore
         @Override
         public String getProcessPercentDimension()
         {
-            return "MB/s";
+            return actualContext.stat.getSpeedDim();
         }
 
 

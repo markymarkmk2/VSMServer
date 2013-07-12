@@ -340,15 +340,15 @@ public class MMArchivManager
         }
 
         @Override
-        public int getProcessPercent()
+        public String getProcessPercent()
         {
             if (getJobState() == JOBSTATE.FINISHED_OK)
-                return 100;
+                return "100";
             if (getJobState() == JOBSTATE.FINISHED_ERROR)
-                return 0;
+                return "0";
 
             int seconds = (int)((System.currentTimeMillis() - startTS) / 1000);
-            return seconds;
+            return Integer.toString(seconds);
         }
 
         @Override

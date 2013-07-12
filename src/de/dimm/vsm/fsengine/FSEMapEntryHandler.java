@@ -44,18 +44,15 @@ class FSEMapEntry
 
 public class FSEMapEntryHandler
 {   
-    
     StoragePoolHandler poolHandler;
 
     // MAYBE THIS HAS TO BE PUT TO SOMEWHERE CENTRAL, INCLUDING LOCKING ETC
-    final HashMap<Long,FSEMapEntry> openFileHandleMap = new HashMap<Long, FSEMapEntry>();
+    final HashMap<Long,FSEMapEntry> openFileHandleMap = new HashMap<>();
 
     public FSEMapEntryHandler( StoragePoolHandler poolHandler )
     {
         this.poolHandler = poolHandler;
     }
-
-
 
     // THIS IS THE MAIN FH INDEX
     long newFilehandleIdx = 1;
@@ -105,27 +102,33 @@ public class FSEMapEntryHandler
             }
         }
         else
-            Log.debug( "close_fh: Cannot resolve fh " + fileNo );
+            Log.err( "close_fh: Cannot resolve fh " + fileNo );
 
     }
 
     public FileHandle getFhByFileNo( long idx )
     {
+        if (idx == -1)
+            return null;
+
         FSEMapEntry entry = openFileHandleMap.get(idx);
         if (entry != null)
         {
             return entry.fh;
         }
-        Log.debug( "getFhByFileIdx: Cannot resolve fh " + idx );
+        Log.err( "getFhByFileIdx: Cannot resolve fh " + idx );
         return null;
     }
     public FileSystemElemNode getNodeByFileNo( long idx )
     {
+        if (idx == -1)
+            return null;
+        
         FSEMapEntry entry = openFileHandleMap.get(idx);
         if (entry != null)
             return entry.node;
 
-        Log.debug( "getNodeByFileIdx: Cannot resolve fh " + idx );
+        Log.err( "getNodeByFileIdx: Cannot resolve fh " + idx );
         return null;
     }
     public void removeByFileNo( long idx )
@@ -133,7 +136,7 @@ public class FSEMapEntryHandler
         FSEMapEntry entry = openFileHandleMap.remove(idx);
 
         if (entry == null)
-            Log.debug( "removeByFileIdx: Cannot resolve fh " + idx );
+            Log.err( "removeByFileIdx: Cannot resolve fh " + idx );
 
         //Log.debug("handleMap entries: " + openFileHandleMap.size());
     }

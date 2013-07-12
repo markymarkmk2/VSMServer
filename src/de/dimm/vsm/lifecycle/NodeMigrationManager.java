@@ -216,15 +216,15 @@ public class NodeMigrationManager
         }
 
         @Override
-        public int getProcessPercent()
+        public String getProcessPercent()
         {
 
             if (totalEntries == 0)
-                return 0;
+                return "";
             
             processPercent = (int)((copiedEntries* 100) / totalEntries);
 
-            return processPercent;
+            return Integer.toString(processPercent);
         }
 
         @Override
@@ -255,6 +255,8 @@ public class NodeMigrationManager
         @Override
         public String getProcessPercentDimension()
         {
+            if (totalEntries == 0)
+                return "";
             return "%";
         }
 

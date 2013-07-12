@@ -57,8 +57,8 @@ public class CheckFSIntegrity implements ICheck {
     }
 
     @Override
-    public int getProcessPercent() {
-        return sumEntries;
+    public String getProcessPercent() {
+        return Integer.toString(sumEntries);
     }
 
     @Override

@@ -539,9 +539,9 @@ public class MMImportManager
         }
 
         @Override
-        public int getProcessPercent()
+        public String getProcessPercent()
         {            
-            return (int)(jobPercent + 0.5);
+            return String.format("%.0f", jobPercent );
         }
 
         @Override

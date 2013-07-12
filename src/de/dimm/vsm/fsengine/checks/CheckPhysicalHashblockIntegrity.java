@@ -292,8 +292,8 @@ public class CheckPhysicalHashblockIntegrity implements ICheck {
     }
 
     @Override
-    public int getProcessPercent() {
-        return percentDone;
+    public String getProcessPercent() {
+        return Integer.toString(percentDone);
     }
 
     @Override

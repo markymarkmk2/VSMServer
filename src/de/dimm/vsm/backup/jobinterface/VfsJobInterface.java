@@ -4,6 +4,7 @@
  */
 package de.dimm.vsm.backup.jobinterface;
 
+import de.dimm.vsm.Main;
 import de.dimm.vsm.auth.User;
 import de.dimm.vsm.backup.AgentApiEntry;
 import de.dimm.vsm.backup.BackupContext;
@@ -30,6 +31,7 @@ public class VfsJobInterface implements JobInterface
     List<RemoteFSElem> elems;
     Date start = new Date();
     JobInterface.JOBSTATE js;
+    User user;
 
     public VfsJobInterface( BackupManager mgr, AgentApiEntry api, MountEntry mountEntry, List<RemoteFSElem> elem )
     {
@@ -40,6 +42,11 @@ public class VfsJobInterface implements JobInterface
 
         this.elems = elem;
         js = JobInterface.JOBSTATE.MANUAL_START;
+        
+        if (mountEntry.getUsername() != null && Main.get_control().getUsermanager().existsUser(mountEntry.getUsername()))
+        {
+            user = Main.get_control().getUsermanager().getUser(mountEntry.getUsername());
+        }
     }
 
     public MountEntry getMountEntry()
@@ -110,19 +117,21 @@ public class VfsJobInterface implements JobInterface
     }
 
     @Override
-    public int getProcessPercent()
+    public String getProcessPercent()
     {
         if (actualContext != null)
         {
-            return (int) (actualContext.getStat().Speed() / (1000 * 1000));
+           return  actualContext.getStat().getSpeedPerSec();
         }
-        return 0;
+        return "";
     }
 
     @Override
     public String getProcessPercentDimension()
     {
-        return "MB";
+        if (actualContext != null)
+                return  actualContext.getStat().getSpeedDim();
+        return "";
     }
 
     @Override
@@ -174,7 +183,7 @@ public class VfsJobInterface implements JobInterface
 
     @Override
     public User getUser()
-    {
-        return null;
+    {        
+        return user;
     }
 }

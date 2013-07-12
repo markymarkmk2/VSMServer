@@ -105,6 +105,8 @@ public class StatCounter {
         statDedupCheckSize = 0;
 
         blocksize = Main.get_int_prop(GeneralPreferences.FILE_HASH_BLOCKSIZE, CS_Constants.FILE_HASH_BLOCKSIZE);
+        speedDim = "";
+        speedPerSec = 0;
 
     }
 
@@ -385,9 +387,16 @@ public class StatCounter {
         this.statDhbCacheSize = statDhbCacheSize;
     }
 
-    public double Speed()
+    public String getSpeedPerSec()
     {
-        return speedPerSec;
+        // NOCH KEINE AUSWERTUNG?
+        if (speedPerSec == 0 && speedDim.isEmpty())
+            return "";
+        
+        if (speedPerSec < 1.0)
+            return String.format("%.2f", speedPerSec);
+        
+        return Long.toString((long)speedPerSec);
     }
 
 

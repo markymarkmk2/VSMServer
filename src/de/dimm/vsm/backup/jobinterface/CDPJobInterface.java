@@ -17,6 +17,7 @@ import de.dimm.vsm.records.ClientVolume;
 import de.dimm.vsm.records.Schedule;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.Formatter;
 import java.util.List;
 
 /**
@@ -125,19 +126,21 @@ public class CDPJobInterface implements JobInterface
     }
 
     @Override
-    public int getProcessPercent()
+    public String getProcessPercent()
     {
         if (actualContext != null)
         {
-            return (int) (actualContext.getStat().Speed() / (1000 * 1000));
+            return  actualContext.getStat().getSpeedPerSec();
         }
-        return 0;
+        return "";
     }
 
     @Override
     public String getProcessPercentDimension()
     {
-        return "MB";
+        if (actualContext != null)
+                return  actualContext.getStat().getSpeedDim();
+        return "";
     }
 
     @Override

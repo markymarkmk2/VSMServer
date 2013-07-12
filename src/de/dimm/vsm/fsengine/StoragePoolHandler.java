@@ -655,6 +655,7 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
         if (isReadOnly(node))
             throw new PoolReadOnlyException(pool);
 
+        Log.err("Removing node ", node.toString());
 
         // REMOVE CHILDREN -> RECURSIVE DOWN FIRST!!!, NO CASCADE DELETE IN ER-MAPPING
         List<FileSystemElemNode> children = get_child_nodes(node);
@@ -666,7 +667,6 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
 
         }
         check_open_transaction();
-
 
         FileSystemElemAttributes attr = node.getAttributes();
 
@@ -699,9 +699,6 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
                     removeXANode( xaNode );
                 }
 */
-
-                commit_transaction();
-
                 return true;
             }
         }
