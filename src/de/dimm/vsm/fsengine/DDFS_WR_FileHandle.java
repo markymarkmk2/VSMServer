@@ -15,6 +15,7 @@ import de.dimm.vsm.Utilities.CryptTools;
 import de.dimm.vsm.Utilities.StatCounter;
 import de.dimm.vsm.backup.Backup;
 import de.dimm.vsm.backup.IBackupHelper;
+import de.dimm.vsm.backup.Restore;
 import de.dimm.vsm.log.Log;
 import de.dimm.vsm.net.interfaces.FileHandle;
 import de.dimm.vsm.records.AbstractStorageNode;
@@ -23,7 +24,9 @@ import de.dimm.vsm.records.FileSystemElemAttributes;
 import de.dimm.vsm.records.FileSystemElemNode;
 import de.dimm.vsm.records.HashBlock;
 import de.dimm.vsm.records.XANode;
+import java.io.File;
 import java.io.IOException;
+import java.io.RandomAccessFile;
 import java.io.UnsupportedEncodingException;
 import java.sql.SQLException;
 import java.util.ArrayList;
@@ -54,20 +57,25 @@ class DDHandleManager
 {
     public static final int MAX_DIRTY_BLOCKS_FOR_FLUSH = 20;
 
-    //protected List<DDHandle> handleList;
-    Map<Long,DDHandle> posMap;
     int blockSize;
     DDHandle lastBlock;
     DDFS_WR_FileHandle fh;
+    
+      
+    final List<DDHandle> openHandles;
+    final Map<Long,DDHandle> openPosMap;
     Map<Long,DDHandle> existingPosMap;
+    
 
     DDHandleManager( DDFS_WR_FileHandle fh)
     {
         //handleList = new ArrayList<>();
-        posMap = new HashMap<>();
+        //posMap = new HashMap<>();
         this.fh = fh;
         this.blockSize = fh.blockSize;
-        lastBlock = null;
+        lastBlock = null;       
+        openHandles = new ArrayList<>();
+        openPosMap = new HashMap<>();
         existingPosMap = null;
     }
 
@@ -80,30 +88,39 @@ class DDHandleManager
     DDHandle getBlockForOffset(long offset, String name)
     {
         long blockOffset = (offset / blockSize) * blockSize;
-        return posMap.get(blockOffset);
+        return existingPosMap.get(blockOffset);
     }
     void readExistingPosMap()  throws IOException, SQLException
     {
-        existingPosMap = new HashMap<>();
-
-        if (!fh.stream)
+        existingPosMap = new  HashMap<>();
+        List<DDHandle> handleList;
+        if (!fh.isCreate())
         {
-            fh.handleList = fh.buildHashBlockList( fh.node.getAttributes());
+            if (!fh.stream)
+            {
+                handleList = fh.buildHashBlockList( fh.node.getAttributes());
+            }
+            else
+            {
+                handleList = fh.buildXABlockList( fh.node.getAttributes());
+            }
         }
         else
         {
-            fh.handleList = fh.buildXABlockList( fh.node.getAttributes());
+            // CREATE WITH NEW
+            handleList = new ArrayList<>();
         }
         
         
-        for (Iterator<DDHandle> it = fh.handleList.iterator(); it.hasNext();)
+        for (Iterator<DDHandle> it = handleList.iterator(); it.hasNext();)
         {
             DDHandle dDHandle = it.next();
             existingPosMap.put(dDHandle.pos, dDHandle);
         }
+        fh.origlen = (fh.stream) ? fh.node.getAttributes().getStreamSize() : fh.node.getAttributes().getFsize();        
     }
-
-    DDHandle rereadBlock(DDHandle handle ) throws IOException
+    
+    void readExistingBlocks() throws IOException
     {
         if (existingPosMap == null)
         {
@@ -114,16 +131,22 @@ class DDHandleManager
 
             catch (SQLException sQLException)
             {
-                throw new IOException("cannot read pos map "  +  handle.toString());
+                throw new IOException("cannot read pos map");
             }
         }
+        
+    }
+
+    DDHandle rereadBlock(DDHandle handle ) throws IOException
+    {
+        readExistingBlocks();
         
         DDHandle readhandle = existingPosMap.get(handle.pos);
         if (readhandle != null)
         {
             if (readhandle.len != handle.len)
                 throw new IOException("Invalid first Block len "  + readhandle.len + "/" +  handle.len);
-            fh.checkBlockRead( readhandle);
+            fh.checkAndReadBlock( readhandle);
             handle = readhandle;
         }
         return handle;
@@ -136,48 +159,27 @@ class DDHandleManager
      */
     void addBlocks( long offset, long len, long maxLen) throws UnsupportedEncodingException, IOException
     {
-        if (existingPosMap == null)
-        {
-            try
-            {
-                readExistingPosMap();
-            }
-
-            catch (SQLException sQLException)
-            {
-                throw new IOException("cannot read pos map ");
-            }
-        }
+        readExistingBlocks();
  
         long blockOffset = (offset / blockSize) * blockSize;
-        long newLen = offset + len;
+        
+        // ADJUST SIZE IF NECESSARY
+        long fileLen = getUnflushedLength();
+        if (fileLen < (offset + len))
+        {
+            fileLen = offset + len;
+            //fh.setNodeSize(fileLen);            
+        }
        
         while (blockOffset < offset + len)
         {
             int newBlockSize = blockSize;
 
             // Are we at the end of a file
-            if (blockOffset + newBlockSize > newLen)
+            if (blockOffset + newBlockSize > fileLen)
             {
                 // ONLY CREATE PARTIAL BLOCK FOR NEW DATA
-                newBlockSize = (int)(newLen - blockOffset);
-                
-                // IF ORIGINAL DATA WAS LARGER, EXTEND
-//                if (blockOffset + newBlockSize < maxLen)
-//                {
-//                    long restOfOrig = maxLen - blockOffset;
-//                    // IS THIS BLOCK IN TOTAL THERE ?
-//                    if (restOfOrig > blockSize)
-//                    {
-//                        // READ FULL BLOCK
-//                        newBlockSize = blockSize;
-//                    }
-//                    else
-//                    {
-//                        // READ THE OLD PARTIAL BLOCK
-//                        newBlockSize = (int)restOfOrig;
-//                    }
-//                }
+                newBlockSize = (int)(fileLen - blockOffset);                
             }
 
             DDHandle existHandle = existingPosMap.get(blockOffset);
@@ -200,9 +202,9 @@ class DDHandleManager
                 // Fall C: Block hat neue Größe
                 if (newBlockSize > existHandle.len)
                 {
-                    resizeBlock( existHandle, newBlockSize);
+                    existHandle.resize(newBlockSize);
                 }
-                posMap.put(blockOffset, existHandle);
+                existingPosMap.put(blockOffset, existHandle);
                 blockOffset += newBlockSize;
                 lastBlock = existHandle;
                 continue;
@@ -210,8 +212,9 @@ class DDHandleManager
 
 
             DDHandle newHandle = createHandle(blockOffset, newBlockSize, null);
-            newHandle.setDirty(true);
-            newHandle.unread = true;
+            newHandle.setDirty();
+            // WE DO NOT NEED TO READ; AS THIS BLOCK IS A NEW BLOCK
+            newHandle.unread = false;
 
             // READ EXISTING DATA IF NECESSARY
             if (blockOffset < offset)
@@ -220,34 +223,32 @@ class DDHandleManager
                 newHandle = rereadBlock( newHandle);
             }
             Log.debug("New Block", "Block: " + newHandle);
-            posMap.put(blockOffset, newHandle);
+            existingPosMap.put(blockOffset, newHandle);
 
             blockOffset += newBlockSize;
             lastBlock = newHandle;
         }
-        
-        // DO WE HAVE A PARTIAL EXTENDEND FINAL BLOCK
-//        if (lastBlock != null && (lastBlock.pos + lastBlock.len > offset + len))
-//        {
-//            Log.debug("New Block", "Read partial extended final Block: " + lastBlock);
-//            lastBlock = rereadBlock( lastBlock);
-//        }
+                
     }
     
-    void resizeBlock( DDHandle handle, int newSize)
+    List<DDHandle> getHandles( long pos, int len )
     {
-        if (handle.data != null)
+        if (existingPosMap.isEmpty())
         {
-            byte[] data = new byte[newSize];
-            int copyLen = newSize;
-            if (copyLen > handle.data.length)
-                copyLen = handle.data.length;
-
-            System.arraycopy(handle.data, 0, data, 0, copyLen);
-            handle.data = data;
+            return null;
         }
-        handle.len = newSize;
-    }
+        List<DDHandle> ret = new ArrayList<>();
+        long startOffset = (pos / blockSize) * blockSize;   
+        while (startOffset < pos + len)
+        {
+            DDHandle hb = existingPosMap.get(Long.valueOf(startOffset));
+            ret.add(hb);
+            startOffset += blockSize;
+        }
+        return ret;
+    }    
+    
+   
 
     public DDHandle getLastBlock()
     {
@@ -257,7 +258,7 @@ class DDHandleManager
     boolean needsFlush()
     {
         boolean doFlush = false;
-        Collection<DDHandle> handles = posMap.values();
+        Collection<DDHandle> handles = existingPosMap.values();
 
         int dirtyCnt = 0;
         for (Iterator<DDHandle> it = handles.iterator(); it.hasNext();)
@@ -277,7 +278,7 @@ class DDHandleManager
     }
     List<DDHandle> getHandles()
     {
-        Collection<DDHandle> ret =  posMap.values();
+        Collection<DDHandle> ret =  existingPosMap.values();
         List<DDHandle> list = new ArrayList<>(ret);
 
         Collections.sort(list, new Comparator<DDHandle>() {
@@ -293,14 +294,121 @@ class DDHandleManager
             }
         });
         return list;
+    }  
+    long getUnflushedLength()
+    {
+        long ret = fh.length();
+        if (ret < fh.maxUnFlushedWritePos)
+            ret = fh.maxUnFlushedWritePos;
+        
+        return ret;
+    }
+    
+    protected void ensure_open( long pos, int len, String rafMode ) throws IOException
+    {
+        readExistingBlocks();
+         
+        if (fh.isDirectory())
+        {
+            throw new IOException("ensure_open Node " + fh.fh.getName() + " -> " + fh.fh.getAbsolutePath() + " fails, is a directory");
+        }
+
+        // CLOSE UNNECESSARY HANDLES
+        for (int i = 0; i < openHandles.size(); i++)
+        {
+            DDHandle dDHandle = openHandles.get(i);
+            if (dDHandle.isDirty())
+                continue;
+            if (pos + len <= dDHandle.pos || pos >= dDHandle.pos + dDHandle.len)
+            {
+                openHandles.remove(dDHandle);
+                openPosMap.remove(Long.valueOf(dDHandle.pos));
+                dDHandle.close();
+                i--;
+            }
+        }
+        
+       
+        if (!existingPosMap.isEmpty())
+        {           
+            long startOffset = (pos / blockSize) * blockSize;                        
+            while (startOffset < pos + len && startOffset < getUnflushedLength())
+            {
+                Long posKey = Long.valueOf(startOffset);
+                if (!openPosMap.containsKey(posKey))
+                {                    
+                    DDHandle dDHandle = existingPosMap.get(posKey);
+                    // IF WE HAVE TO READ EXISTING DATA, WE DO SO
+                    if (dDHandle != null)
+                    {
+                        if (dDHandle.isUnread())
+                        {
+                            AbstractStorageNode snode = fh.getStorageNodeForBlock( dDHandle);
+                            dDHandle.open(snode, rafMode);
+                        }
+                        openHandles.add(dDHandle);           
+                        openPosMap.put(Long.valueOf(dDHandle.pos), dDHandle);
+                    }
+                }
+                startOffset += blockSize;
+            }
+        }
+
+        // OPEN LANDING ZONE FILE IF EXISTENT
+        if (fh.fh != null && fh.fh.length() > 0)
+        {
+            if (fh.raf == null)
+            {
+                fh.raf = new RandomAccessFile(fh.fh, "r");
+            }
+        }
+    }    
+    void resizeExistingBlocks( long size ) 
+    {
+        Collection<DDHandle> collection = existingPosMap.values();
+        for (Iterator<DDHandle> it = collection.iterator(); it.hasNext();)
+        {
+            DDHandle dDHandle = it.next();
+            
+            // Block too far out
+            if (dDHandle.pos >= size)
+            {
+                it.remove();
+            }
+            // Block ist last block and too big ?
+            else if (dDHandle.pos + dDHandle.len > size)
+            {
+                dDHandle.resize((int)(size - dDHandle.pos));
+            }
+            // Check every other block if it is big enough
+            else if (dDHandle.pos + dDHandle.len < size)
+            {
+                long newBlockSize = size - dDHandle.pos;
+                if (newBlockSize > blockSize)
+                    newBlockSize = blockSize;
+                if (dDHandle.len != newBlockSize)
+                {
+                    dDHandle.resize((int)newBlockSize);
+                }
+            }
+        }
     }    
 }
 
 
-public final class DDFS_WR_FileHandle extends DDFS_FileHandle implements IBackupHelper
+public final class DDFS_WR_FileHandle implements FileHandle, IBackupHelper
 {
     
-    public static final int MIN_FILECHANGE_THRESHOLD_S = 120;
+    protected File fh;
+    protected FileSystemElemNode node;
+    protected StoragePoolHandler spHandler;
+    protected AbstractStorageNode fsNode;
+    protected boolean directory;
+    protected boolean create;
+    protected boolean stream;
+    protected boolean verbose;
+    protected RandomAccessFile raf;    
+    
 
     
     fr.cryptohash.Digest digest = null;
@@ -312,27 +420,71 @@ public final class DDFS_WR_FileHandle extends DDFS_FileHandle implements IBackup
     int blockSize;
 
     DDHandleManager hm;
+    long origlen;
+    long maxUnFlushedWritePos;
 
-   
-    protected DDFS_WR_FileHandle( AbstractStorageNode fs_node, StoragePoolHandler sp_handler, boolean isDirectory, boolean create, boolean isStream )
+    
+   // OPEN ALL NECESSARY BLOCKS FOR READ OPERATION, THIS CAN SPAN MORE THAN ONE DEDUP BLOCK (IF POS AND LEN CROSS BLOCK BOUNDARY OR IF LEN > BLOCKLEN OR BOTH)
+    
+    protected void ensure_open( long pos, int len, String rafMode ) throws IOException
+    {        
+        hm.ensure_open(pos, len, rafMode);
+    }
+public AbstractStorageNode getFsNode()
     {
-        super( fs_node, sp_handler, isDirectory, create, isStream);
+        return fsNode;
+    }
+
+    public StoragePoolHandler getSpHandler()
+    {
+        return spHandler;
+    }
+
+    public boolean isCreate()
+    {
+        return create;
+    }
+
+    public boolean isDirectory()
+    {
+        return directory;
+    }
+
+    public boolean isStream()
+    {
+        return stream;
+    }
+
+    public FileSystemElemNode getNode()
+    {
+        return node;
+    }
+
+    
+   
+    protected DDFS_WR_FileHandle( AbstractStorageNode fs_node, StoragePoolHandler sp_handler, FileSystemElemNode node, boolean create, boolean isStream ) throws IOException
+    {
+        this.node = node;
+        this.fsNode = fs_node;
+        this.spHandler = sp_handler;
+        this.directory = node.isDirectory();
+        this.create = create;
+        this.stream = isStream;        
         blockSize =  Main.get_int_prop(GeneralPreferences.FILE_HASH_BLOCKSIZE, CS_Constants.FILE_HASH_BLOCKSIZE);
         hm = new DDHandleManager(this);
-    }
+        
+        // Wenn wir als CreateAlways gestartet worden -> Truncate to 0
+        if (create)
+        {
+            setNodeSize(0);
+        }
+        hm.readExistingBlocks();        
+}
 
     public void setStreamInfo( int streamInfo )
     {
         this.streamInfo = streamInfo;
     }
-
-    // OPEN ALL NECESSARY BLOCKS FOR READ OPERATION, THIS CAN SPAN MORE THAN ONE DEDUP BLOCK (IF POS AND LEN CROSS BLOCK BOUNDARY OR IF LEN > BLOCKLEN OR BOTH)
-    @Override
-    protected void ensure_open( long pos, int len, String rafMode ) throws IOException
-    {       
-        _ensure_open(pos, len, rafMode);
-    }
-   
 
     @Override
     public void truncateFile( long size ) throws IOException, PoolReadOnlyException
@@ -340,28 +492,11 @@ public final class DDFS_WR_FileHandle extends DDFS_FileHandle implements IBackup
         if (spHandler.isReadOnly(node))
             throw new PoolReadOnlyException("Cannot truncateFile to dedup FS");
 
-        DDHandle dDHandle = hm.getBlockForOffset(size, node.getName());
-        if (dDHandle != null)
-        {
-            // Read Any existing data
-            dDHandle = hm.rereadBlock(dDHandle);
-
-            int newBlockSize = (int)(size - dDHandle.pos);
-
-            // Und Datenblock neu schreiben
-            byte[] data = dDHandle.data;
-            dDHandle.data = new byte[newBlockSize];
-            System.arraycopy(data, 0, dDHandle.data, 0, newBlockSize);
-            dDHandle.len = newBlockSize;
-            dDHandle.setDirty(true);
-            dDHandle.close();
-        }
-        if (isStream())
-            node.getAttributes().setStreamSize(size);
-        else
-            node.getAttributes().setFsize(size);
+        hm.resizeExistingBlocks( size );
+               
+        setNodeSize(size);
         
-        try
+         try
         {
             spHandler.check_open_transaction();
             spHandler.getEm().em_merge(node.getAttributes());
@@ -370,124 +505,32 @@ public final class DDFS_WR_FileHandle extends DDFS_FileHandle implements IBackup
         catch (SQLException sQLException)
         {
             throw new IOException("Cannot update size");
-        }
-        
-        
-        checkForFlush( true );
+        }                         
     }
-
-   
-
-    // Block, der von diesem Offset betroffen ist
     
-
-    void checkBlockRead(DDHandle actBlock) throws UnsupportedEncodingException, IOException
+   
+    // Prüfen, ob der Block noch gelesen werden muss
+    void checkAndReadBlock(DDHandle actBlock) throws UnsupportedEncodingException, IOException
     {
         if (actBlock.isUnread())
         {
             try
             {
-                Log.debug("checkBlockRead", "Block: " + actBlock);
+                Log.debug("checkAndReadBlock", "Block: " + actBlock);
                 FileHandle fHandle = getSpHandler().open_dedupblock_handle(actBlock.dhb, /*create*/ false);
                 actBlock.openRead(fHandle);
                 fHandle.close();
             }
             catch (PathResolveException ex)
             {
-                throw new IOException("Fehler bei update DDHandle", ex);
+                throw new IOException("Fehler bei checkAndReadBlock", ex);
             }
         }        
     }
 
     
-//    public synchronized void test_writeFile( byte[] b,  int length, long offset ) throws IOException, PoolReadOnlyException, UnsupportedEncodingException
-//    {
-//        Log.debug("writeFile", "Writing " + length + "  byte at offset " + offset );
-//        long newLen = 0;
-//        try
-//        {
-//            for (int i = 0; i < handleList.size(); i++)
-//            {
-//                DDHandle handle = handleList.get(i);
-//                newLen += handle.len;
-//
-//                // Ist beschrieben worden ?
-//                if (!handleList.get(i).isDirty())
-//                    continue;
-//
-//                if (handle.data == null)
-//                {
-//                    throw new IOException("Missing data in Block " + handle);
-//                }
-//
-//                Log.debug("checkForFlush", "Flushing " + handle);
-//
-//
-//                byte[] hash = digest.digest(handle.data);
-//                String hashValue = CryptTools.encodeUrlsafe(hash);
-//
-//                DedupHashBlock dhb = check_for_existing_block(hashValue);
-//                if (dhb != null)
-//                {
-//                    HashBlock hb = getSpHandler().create_hashentry(node, hashValue, dhb, handle.pos, handle.len, /*reorganize*/ false, newAttr.getTs());
-//                    node.getHashBlocks().addIfRealized(hb);
-//
-//                    // UPDATE BOOTSTRAP
-//                    getSpHandler().write_bootstrap_data(dhb, hb);
-//                    stat.addDedupBlock(dhb);
-//                    Log.debug("Found DHB " + dhb.toString());
-//                }
-//                else
-//                {
-//                    dhb = Backup.createDedupHashBlock(this, node, hashValue, streamInfo, handle.pos, handle.len, isStream(), newAttr.getTs());
-//                    if (dhb != null)
-//                    {
-//                        FileHandle fHandle = getSpHandler().open_dedupblock_handle(dhb, /*create*/ true);
-//                        fHandle.writeFile(handle.data, handle.len, /*offset*/ 0);
-//
-//                        updateHashBlock( isStream(), hashValue, dhb, handle.pos, handle.len, actAttribute.getTs() );
-//                        stat.addTransferBlock();
-//                        stat.addTransferLen( handle.len );
-//                        Log.debug("Added DHB " + dhb.toString());
-//                    }
-//                    else
-//                    {
-//                        // Cannot happen, Exception is thrown before
-//                        throw new SQLException("Could not create DHB");
-//                    }
-//                }
-//                // We have written data, discard it and mark as unread
-//                // TODO: speed up
-//                handle.dhb = dhb;
-//                if (handle.data.length == blockSize)
-//                {
-//                    handle.setDirty(false);
-//                    /*handle.data = null;
-//                    handle.unread = true;*/
-//                }
-//            }
-//
-//            if (createNewAttribute)
-//            {
-//                Log.debug("Creating attribute: " + newAttr);
-//                createNewFseAttribute( node, newAttr,  newLen );
-//            }
-//            else
-//            {
-//                Log.debug("Updating attribute: " + newAttr);
-//                updateFseAttribute( node, newAttr,  newLen );
-//            }
-//            getSpHandler().write_bootstrap_data(newAttr);
-//            indexer.addToIndexAsync(node.getAttributes(), /*ar-Job*/null);
-//            getSpHandler().commit_transaction();
-//        }
-//        catch (Exception exc)
-//        {
-//            Log.err("Fehler bei flush in DDFS_WR", ": " +  exc.getMessage(), exc);
-//            throw new IOException( exc.getMessage(), exc);
-//        }
-//    }
 
+    @Override
     public synchronized void writeFile( byte[] b,  int length, long offset ) throws IOException, PoolReadOnlyException, UnsupportedEncodingException
     {
         Log.debug("writeFile", "Writing " + length + "  byte at offset " + offset );
@@ -497,129 +540,40 @@ public final class DDFS_WR_FileHandle extends DDFS_FileHandle implements IBackup
         // Neue fehlende Blöcke der Lücke Schreiben
         hm.addBlocks( offset, length, node.getAttributes().getFsize());
 
-        // Erster betroffener Block
+        // Ersten betroffener Block ermitteln
         DDHandle actBlock = hm.getBlockForOffset(offset, this.node.getName());
         if (actBlock == null)
                 throw new IOException("Block kann nicht angelegt werden");
 
         Log.debug("writeFile", "ActBlock " + actBlock );
 
+        // Zu schreibende Länge ermitteln:
         int writeDataLen = length;
 
-        // Offset in ersten betroffenen Block;
-        int offsetInBlock = 0;
-        offsetInBlock = (int)(offset - actBlock.pos);
-
+        // Offset innerhalb des  ersten betroffenen Block;
+        int offsetInBlock = (int)(offset - actBlock.pos);
+        
+        // Ist Länge mit Offset im Block zu groß für diesen Block ?
         if (writeDataLen + offsetInBlock > actBlock.len)
         {
             writeDataLen = actBlock.len - offsetInBlock;
         }
-//        if (writeDataLen > blockSize)
-//        {
-//            writeDataLen = blockSize;
-//        }
-
-        // Haben wir einen Block gefunden, in dem weitergeschrieben werden soll ?
-//        if (actBlock != null)
-//        {
-//            checkBlockRead(actBlock);
-//            // Ist Block groß genug ?
-//            if (writeDataLen + offsetInBlock  > actBlock.len)
-//            {
-//                // IF NECESSARY, UPDATE BLOCK
-//                if (actBlock.len != blockSize)
-//                {
-//                    int newBlockSize = offsetInBlock + length;
-//                    if (newBlockSize > blockSize)
-//                        newBlockSize = blockSize;
-//
-//                    byte[] data = actBlock.data;
-//
-//                    // Falls das kein kompletter Block ist, dann Block auf volle Länge setzen
-//                    if (data != null && data.length != blockSize)
-//                    {
-//                        actBlock.data = new byte[blockSize];
-//                        System.arraycopy(data, 0, actBlock.data, 0, data.length);
-//                    }
-//                    actBlock.len = newBlockSize;
-//                }
-//            }
-
-//            // Zu schreibende länge errechnen
-//            if (writeDataLen + offsetInBlock > actBlock.len)
-//            {
-//                writeDataLen = actBlock.len - offsetInBlock;
-//            }
-//        }
-//        else
-//        {
-//            if (writeDataLen > blockSize)
-//            {
-//                writeDataLen = blockSize;
-//            }
-//            DDHandle lastBlock = hm.getLastBlock();
-//
-//            // Prüfen, ob letzter Block nicht komplett ist
-//            if (lastBlock != null)
-//            {
-//                if (lastBlock.len != blockSize )
-//                {
-//                    checkBlockRead(lastBlock);
-//                    byte[] data = lastBlock.data;
-//
-//                    // Falls das kein kompletter Block ist, dann Block auf volle Länge setzen
-//                    if (lastBlock.data.length != blockSize)
-//                    {
-//                        lastBlock.data = new byte[blockSize];
-//                        System.arraycopy(data, 0, lastBlock.data, 0, data.length);
-//                    }
-//                    lastBlock.len = blockSize;
-//                    lastBlock.setDirty(true);
-//                }
-//            }
- //       }
-
- 
-        long writePos = offset;
-        actBlock = hm.getBlockForOffset(writePos, this.node.getName());
 
         // OKAY;
         // offsetInBlock ist gesetzt
         // writeDataLen ist gesetzt
         // wir haben einen Block zum Schreiben, jetzt gehts los
+        long writePos = offset;
         int writtenData = 0;
         while (writtenData < length)
         {
-            // ARE WE WRITING THE BLOCK ONLY PARTLY?
-            // THIS IS DONE IN ADD BLOCKS
-//            if (offsetInBlock != 0 || writeDataLen < blockSize )
-//            {
-//                 Log.debug("writeFile", "found partially written block, read priot write " + actBlock );
-//                // THEN READ CONTENT PRIOR TO WRITE
-//                if (writePos < node.getAttributes().getFsize())
-//                {
-//                    checkBlockRead(actBlock);
-//
-//                    // IF WE ARE APPENDING TO A SHORT BLOCK, WE MAY HAVE TO ENLARGE IT AND KEEP EXISTING DATA
-//                    if (offsetInBlock + writeDataLen > actBlock.data.length)
-//                    {
-//                        byte[] data = new byte[offsetInBlock + writeDataLen];
-//                        Log.debug("writeFile", "found short block to append, expanding block from " + actBlock.data.length + " to " + data.length );
-//                        System.arraycopy(actBlock.data, 0, data, 0, actBlock.data.length);
-//                        actBlock.data = data;
-//                    }
-//                }
-//            }
-            // DATA FUER LEEREN BLOCK LADEN
-            if (actBlock.data == null)
-            {
-                actBlock.data = new byte[actBlock.len];
-            }
-            System.arraycopy(b, writtenData, actBlock.data, offsetInBlock, writeDataLen);
-            actBlock.setDirty(true);
+            actBlock.arraycopy(b, writtenData, offsetInBlock, writeDataLen);
 
             writtenData += writeDataLen;
             writePos += writeDataLen;
+            
+            if (maxUnFlushedWritePos < writePos)
+                maxUnFlushedWritePos = writePos;
 
             // Ist noch mehr für einen nächsten Block?
             if (writtenData < length)
@@ -647,10 +601,10 @@ public final class DDFS_WR_FileHandle extends DDFS_FileHandle implements IBackup
         return false;
     }
 
-    private void checkForFlush(boolean onClose) throws IOException
+    private void checkForFlush(boolean immediately) throws IOException
     {        
         boolean doFlush = false;
-        if (!onClose)
+        if (!immediately)
         {
             doFlush = hm.needsFlush();
         }
@@ -671,9 +625,7 @@ public final class DDFS_WR_FileHandle extends DDFS_FileHandle implements IBackup
         }
 
         if (!doFlush)
-            return;
-        
-        
+            return;                
 
         getSpHandler().check_open_transaction();
         FileSystemElemAttributes newAttr = getNode().getAttributes();
@@ -708,21 +660,19 @@ public final class DDFS_WR_FileHandle extends DDFS_FileHandle implements IBackup
                 if (!handle.isDirty())
                     continue;
 
-                if (handle.data == null)
-                {
-                    throw new IOException("Missing data in Block " + handle);
-                }
 
                 Log.debug("checkForFlush", "Flushing " + handle);
 
                 
-                byte[] hash = digest.digest(handle.data);
+                byte[] hash = digest.digest(handle.getData());
                 String hashValue = CryptTools.encodeUrlsafe(hash);
+                
+                long ts = newAttr.getTs();
 
                 DedupHashBlock dhb = check_for_existing_block(hashValue);
                 if (dhb != null)
                 {
-                    HashBlock hb = getSpHandler().create_hashentry(node, hashValue, dhb, handle.pos, handle.len, /*reorganize*/ false, newAttr.getTs());
+                    HashBlock hb = getSpHandler().create_hashentry(node, hashValue, dhb, handle.pos, handle.len, /*reorganize*/ false, ts);
                     node.getHashBlocks().addIfRealized(hb);
 
                     // UPDATE BOOTSTRAP
@@ -732,13 +682,13 @@ public final class DDFS_WR_FileHandle extends DDFS_FileHandle implements IBackup
                 }
                 else
                 {
-                    dhb = Backup.createDedupHashBlock(this, node, hashValue, streamInfo, handle.pos, handle.len, isStream(), newAttr.getTs());
+                    dhb = Backup.createDedupHashBlock(this, node, hashValue, streamInfo, handle.pos, handle.len, isStream(), ts);
                     if (dhb != null)
                     {
                         FileHandle fHandle = getSpHandler().open_dedupblock_handle(dhb, /*create*/ true);
-                        fHandle.writeFile(handle.data, handle.len, /*offset*/ 0);
+                        fHandle.writeFile(handle.getData(), handle.len, /*offset*/ 0);
 
-                        updateHashBlock( isStream(), hashValue, dhb, handle.pos, handle.len, actAttribute.getTs() );
+                        updateHashBlock( isStream(), hashValue, dhb, handle.pos, handle.len, ts );
                         stat.addTransferBlock();
                         stat.addTransferLen( handle.len );
                         Log.debug("Added DHB " + dhb.toString());
@@ -752,23 +702,20 @@ public final class DDFS_WR_FileHandle extends DDFS_FileHandle implements IBackup
                 // We have written data, discard it and mark as unread
                 // TODO: speed up
                 handle.dhb = dhb;
-                if (handle.data.length == blockSize)
+                if (handle.getData().length == blockSize)
                 {
-                    handle.setDirty(false);
-                    handle.data = null;
-                    handle.unread = true;
+                    handle.setUnread();
                 }
             }
 
             // New MaxSize
             
-            if (onClose && newLen > origlen)
+            if (immediately && newLen > origlen)
             {
                 newAttr = getNode().getAttributes();
                 long actTs = System.currentTimeMillis();
                 // Nur bei Änderungen, die länger als MIN_FILECHANGE_THRESHOLD_S existieren, wird ein neues Attribut vergeben
-                long diffSinceLastUpdate = System.currentTimeMillis() - newAttr.getTs();
-                if (diffSinceLastUpdate/1000 > MIN_FILECHANGE_THRESHOLD_S)
+                if (getSpHandler().isFileChangePersitent(node))
                 {
                     newAttr = new FileSystemElemAttributes(newAttr);
                     createNewAttribute = true;
@@ -791,10 +738,12 @@ public final class DDFS_WR_FileHandle extends DDFS_FileHandle implements IBackup
                 }
                 //getSpHandler().write_bootstrap_data(newAttr);
                 indexer.addToIndexAsync(node.getAttributes(), /*ar-Job*/null);
+                getSpHandler().commit_transaction();
+                maxUnFlushedWritePos = 0;
             }
             //getSpHandler().commit_transaction();
         }
-        catch (Exception exc)
+        catch (IOException | PathResolveException | PoolReadOnlyException | SQLException exc)
         {
             Log.err("Fehler bei flush in DDFS_WR", ": " +  exc.getMessage(), exc);
             throw new IOException( exc.getMessage(), exc);
@@ -809,6 +758,7 @@ public final class DDFS_WR_FileHandle extends DDFS_FileHandle implements IBackup
         else
             fsenode.getAttributes().setFsize(len);
 
+        Log.debug("updateFseAttribute len " +  len + " Node:" + fsenode.getIdx() + " Attr:" + fsenode.getAttributes().getIdx() + " " +  fsenode.getAttributes() );
         getSpHandler().check_open_transaction();
         getSpHandler().em_merge(fsenode.getAttributes());
         getSpHandler().check_commit_transaction();
@@ -826,6 +776,7 @@ public final class DDFS_WR_FileHandle extends DDFS_FileHandle implements IBackup
             newAttributes.setStreamSize( len);
 
 
+        Log.debug("createNewFseAttribute len " +  len + " Node:" + fsenode.getIdx() + " Attr:" + fsenode.getAttributes().getIdx() + " " +  fsenode.getAttributes() );
 
         getSpHandler().check_open_transaction();
 
@@ -882,15 +833,6 @@ public final class DDFS_WR_FileHandle extends DDFS_FileHandle implements IBackup
         return dhb;
     }
 
-    @Override
-    public void close() throws IOException
-    {
-        checkForFlush(true);
-
-
-        super.close();
-
-    }
 
     @Override
     public StoragePoolHandler getPoolHandler()
@@ -917,8 +859,349 @@ public final class DDFS_WR_FileHandle extends DDFS_FileHandle implements IBackup
     }
 
 
- 
+     @Override
+    public boolean exists()
+    {
+        try
+        {
+            hm.ensure_open(0, 0, DDHandle.RAF_RD_ONLY);
+            close();
+            return true;
+        }
+        catch (Exception iOException)
+        {
+        }
+        return false;
+    }
 
 
+    protected List<DDHandle> buildHashBlockList( FileSystemElemAttributes attrs ) throws IOException
+    {
+        List<HashBlock> hbList = node.getHashBlocks().getList(spHandler.getEm());
 
+        // IN CASE WE HAVE WRITTEN THIS PRESENTLY, WE HAVE TO REREAD LIST
+        if (hbList instanceof LazyList)
+        {
+            LazyList lhb = (LazyList) hbList;
+            lhb.unRealize();
+        }
+
+        if (verbose)
+        {
+            System.out.println("HBLIST 1: " + hbList.size());
+        }
+
+        if (!hbList.isEmpty())
+        {
+            // BUILD SORTED LIST FOR THIS FILE BASED ON poolQry
+            hbList = Restore.filter_hashblocks(hbList, attrs);
+        }
+
+        if (verbose)
+        {
+            System.out.println("HBLIST 2: " + hbList.size());
+        }
+
+        List<DDHandle> ret = new ArrayList<>();
+
+        for (int i = 0; i < hbList.size(); i++)
+        {
+            HashBlock hb = hbList.get(i);
+            if (hb.getDedupBlock() != null)
+            {
+                ret.add(new DDHandle(hb));
+            }
+        }
+
+        if (verbose)
+        {
+            System.out.println("HBLIST 3: " + ret.size());
+        }
+
+        // SANITY CHECK
+        long offset = 0;
+        for (int i = 0; i < ret.size(); i++)
+        {
+            DDHandle hb = ret.get(i);
+            if (offset != hb.pos)
+            {
+                System.out.println("HashBlocks");
+                for (int l = 0; l < hbList.size(); l++)
+                {
+                    HashBlock _hb = hbList.get(l);
+                    System.out.println(_hb.toString().toString() + " dhb:" + _hb.getDedupBlock());
+                }
+
+                System.out.println("DDHandles");
+                for (int l = 0; l < ret.size(); l++)
+                {
+                    DDHandle _ddhb = ret.get(l);
+                    System.out.println("Pos: " + _ddhb.pos + " Len: " + _ddhb.len + " DHB: " + _ddhb.dhb.toString());
+                }
+
+                throw new IOException("Invalid Block order");
+            }
+            offset += hb.len;
+        }
+
+        if (verbose)
+        {
+            System.out.println("HBLIST 4: " + ret.size());
+        }
+        return ret;
+    }
+
+    List<DDHandle> buildXABlockList( FileSystemElemAttributes attrs ) throws IOException, SQLException
+    {
+        List<XANode> hbList = spHandler.createQuery("select T1 from XANode T1 where T1.fileNode_idx=" + node.getIdx(), XANode.class);
+
+        if (verbose)
+        {
+            System.out.println("XALIST 1: " + hbList.size());
+        }
+
+        // IN CASE WE HAVE WRITTEN THIS PRESENTLY, WE HAVE TO REREAD LIST
+        if (hbList instanceof LazyList)
+        {
+            LazyList lhb = (LazyList) hbList;
+            lhb.unRealize();
+        }
+
+        if (!hbList.isEmpty())
+        {
+            // BUILD LIST FOR THIS FILE
+            hbList = Restore.filter_xanodes(hbList, attrs);
+        }
+        if (verbose)
+        {
+            System.out.println("XALIST 2: " + hbList.size());
+        }
+
+        List<DDHandle> ret = new ArrayList<>();
+
+        for (int i = 0; i < hbList.size(); i++)
+        {
+            XANode hb = hbList.get(i);
+            if (hb.getDedupBlock() != null)
+            {
+                ret.add(new DDHandle(hb));
+            }
+        }
+        // SANITY CHECK
+        long offset = 0;
+        for (int i = 0; i < ret.size(); i++)
+        {
+            DDHandle hb = ret.get(i);
+            if (offset != hb.pos)
+            {
+                throw new IOException("Invalid Block order");
+            }
+            offset += hb.len;
+        }
+        if (verbose)
+        {
+            System.out.println("XALIST 3: " + ret.size());
+        }
+
+
+        return ret;
+    }
+    
+    @Override
+    public long length()
+    {        
+        return getNodelLen();
+    } 
+    
+    void setNodeSize(long size) throws IOException
+    {        
+        if (isStream())
+            node.getAttributes().setStreamSize(size);
+        else
+            node.getAttributes().setFsize(size);        
+        
+       
+        origlen = size;        
+    }
+    
+    @Override
+    public void close() throws IOException
+    {
+        checkForFlush(true);
+
+        for (DDHandle dDHandle:  hm.openHandles)
+        {
+            dDHandle.close();
+        }
+        hm.openHandles.clear();
+        hm.openPosMap.clear();
+
+        if (hm.existingPosMap != null)
+        {
+            for (DDHandle dDHandle: hm.existingPosMap.values())
+            {                
+                dDHandle.close();
+            }
+            hm.existingPosMap.clear();
+        }
+
+        if (raf != null)
+        {
+            raf.close();
+            raf = null;
+        }
+    }    
+
+    AbstractStorageNode getStorageNodeForBlock(DDHandle ddh)
+    {
+        // LOOK FOR FIRST EXISTING NODE
+        List<AbstractStorageNode> s_nodes = spHandler.get_primary_storage_nodes(/*forWrite*/ false);
+        for (int i = 0; i < s_nodes.size(); i++)
+        {
+            AbstractStorageNode s_node = s_nodes.get(i);
+            if (s_node.isFS())
+            {
+                StorageNodeHandler snHandler = spHandler.get_handler_for_node(s_node);
+                try
+                {
+                    FileHandle lfh = snHandler.create_file_handle(ddh.dhb, false);
+                    if (lfh.exists())
+                    {
+                        return s_node;
+                    }
+                }
+                catch (PathResolveException | UnsupportedEncodingException exc)
+                {
+                    Log.err("getStorageNodeForBlock", exc);  
+                }
+            }
+        }
+        return null;
+    }
+    
+    @Override
+    public void force( boolean b ) throws IOException
+    {
+        // Mac calls this for fun
+        //throw new IOException("DD Filesystem is readonly");
+    }
+          @Override
+    public void create() throws IOException, PoolReadOnlyException
+    {
+        Log.err("Unused create in DDFS_WR_FIlehandle");        
+    }
+
+    @Override
+    public synchronized byte[] read( int length, long offset ) throws IOException
+    {
+        byte[] b = new byte[length];
+
+        int rlen = read(b, length, offset);
+        if (rlen == -1)
+        {
+            throw new IOException("Read error (-1)");
+        }
+
+        if (rlen != b.length)
+        {
+            byte[] bb = new byte[rlen];
+            System.arraycopy(b, 0, bb, 0, rlen);
+            b = bb;
+        }
+        return b;
+
+    }
+ @Override
+    public synchronized int read( byte[] b, int length, long offset ) throws IOException
+    {
+        Log.debug("readFile len " +  length + " Node:" + node.getIdx() + " Attr:" + node.getAttributes().getIdx()  + " " +  node.getAttributes());
+                
+        if (verbose)
+        {
+            System.out.println("DD Read: " + offset + " " + length);
+        }
+        // SKIP EMPTY READS
+        if (length == 0)
+            return 0;
+
+
+        // SKIP READ EOF
+        if (offset >= hm.getUnflushedLength())
+        {
+            return 0;
+        }
+        
+
+        hm.ensure_open(offset, length, DDHandle.RAF_RD_ONLY);
+
+        List<DDHandle> handles = hm.getHandles(offset, length);
+
+        if ((handles == null || handles.isEmpty()) && length > 0)
+        {
+            throw new IOException("Read error (-1)");
+        }
+        
+
+        int byteRead = 0;
+        int arrayOffset = 0;
+
+        long actReadOffset = offset;
+        for (DDHandle dDHandle: handles)
+        {
+            // CALC OFFSET INTO BLOCK
+            if (dDHandle == null)
+            {
+                throw new RuntimeException("Isser doch null??");
+            }
+            
+            // IS THIS BLOCK CORRECT FOR THIS DATA AREA?
+            if (dDHandle.pos <= actReadOffset && dDHandle.pos + dDHandle.len > actReadOffset)
+            {
+                checkAndReadBlock( dDHandle );
+
+                int fileOffset = (int) (actReadOffset - dDHandle.pos);
+
+                // CALCULATE LENGTH WE CAN READ FROM THIS BLOCK
+                int realLen = length - arrayOffset;
+                if (realLen > dDHandle.len - fileOffset)
+                {
+                    realLen = dDHandle.len - fileOffset;
+                }
+                
+
+                System.arraycopy(dDHandle.getData(), fileOffset, b, arrayOffset, realLen);
+
+                // ADD THE LENGTH TO OFFSETS
+                actReadOffset += realLen;
+                arrayOffset += realLen;
+                byteRead += realLen;
+            }
+        }
+        // TODO READ RAF IF BLOCKS NOT AVAILABLE
+        // MAYBE WE HAVE TO CREATE dDHandle WITH raf OF LANDINGZONE FILE
+
+        return byteRead;
+    }
+
+    
+    public static FileHandle create_fs_handle( AbstractStorageNode fs_node, StoragePoolHandler sp_handler, FileSystemElemNode node, boolean create) throws PathResolveException, IOException, SQLException
+    {
+
+        DDFS_WR_FileHandle fs = new DDFS_WR_FileHandle(fs_node, sp_handler, node, create, false);
+        return fs;
+
+    }
+    public static FileHandle create_fs_stream_handle( AbstractStorageNode fs_node, StoragePoolHandler sp_handler, FileSystemElemNode node, int streamInfo, boolean create ) throws PathResolveException, IOException, SQLException
+    {
+
+        DDFS_WR_FileHandle fs = new DDFS_WR_FileHandle(fs_node, sp_handler, node, create, true);
+        fs.setStreamInfo(streamInfo);
+        return fs;
+
+    } 
+
+    private long getNodelLen()
+    {
+        return isStream() ? node.getAttributes().getStreamSize() : node.getAttributes().getFsize();
+    }
 }

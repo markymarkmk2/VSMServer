@@ -9,7 +9,6 @@ import de.dimm.vsm.Exceptions.PathResolveException;
 import de.dimm.vsm.Exceptions.PoolReadOnlyException;
 import de.dimm.vsm.fsengine.PathResolver;
 import de.dimm.vsm.fsengine.StoragePoolHandler;
-import de.dimm.vsm.records.ArchiveJob;
 import de.dimm.vsm.records.FileSystemElemNode;
 import java.io.IOException;
 import java.sql.SQLException;

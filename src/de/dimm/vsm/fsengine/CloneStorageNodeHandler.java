@@ -197,12 +197,12 @@ public class CloneStorageNodeHandler extends StorageNodeHandler
     {
         if (storageNode.isFS())
         {
-            FileHandle ret1 = DDFS_FileHandle.create_fs_handle(storageNode, aThis, node, create);
+            FileHandle ret1 = DDFS_WR_FileHandle.create_fs_handle(storageNode, aThis, node, create);
             MultiFileHandle mfh = new MultiFileHandle();
             mfh.add(ret1);
             for (int i = 0; i < cloneStorageNodes.size(); i++)
             {
-                FileHandle ret2 = DDFS_FileHandle.create_fs_handle(cloneStorageNodes.get(i),aThis, node, create );
+                FileHandle ret2 = DDFS_WR_FileHandle.create_fs_handle(cloneStorageNodes.get(i),aThis, node, create );
                 mfh.add(ret2);
             }
             return mfh;
@@ -215,12 +215,12 @@ public class CloneStorageNodeHandler extends StorageNodeHandler
     {
         if (storageNode.isFS())
         {
-            FileHandle ret1 = DDFS_FileHandle.create_fs_stream_handle(storageNode, aThis, node, streamInfo, create);
+            FileHandle ret1 = DDFS_WR_FileHandle.create_fs_stream_handle(storageNode, aThis, node, streamInfo, create);
             MultiFileHandle mfh = new MultiFileHandle();
             mfh.add(ret1);
             for (int i = 0; i < cloneStorageNodes.size(); i++)
             {
-                FileHandle ret2 = DDFS_FileHandle.create_fs_stream_handle(cloneStorageNodes.get(i),aThis, node, streamInfo, create );
+                FileHandle ret2 = DDFS_WR_FileHandle.create_fs_stream_handle(cloneStorageNodes.get(i),aThis, node, streamInfo, create );
                 mfh.add(ret2);
             }
             return mfh;

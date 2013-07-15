@@ -5,6 +5,7 @@
 package de.dimm.vsm.fsengine;
 
 import de.dimm.vsm.Exceptions.PathResolveException;
+import de.dimm.vsm.log.Log;
 import de.dimm.vsm.net.interfaces.FileHandle;
 import de.dimm.vsm.records.AbstractStorageNode;
 import de.dimm.vsm.records.DedupHashBlock;
@@ -15,6 +16,7 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.io.UnsupportedEncodingException;
+
 
 /**
  *
@@ -28,7 +30,7 @@ public class DDHandle
     DedupHashBlock dhb;
     long pos;
     int len;
-    byte[] data;
+    private byte[] data;
     File fh;
     boolean dirty;
     boolean unread;
@@ -64,9 +66,10 @@ public class DDHandle
         this.data = data;
     }
 
-    public void setDirty( boolean dirty )
+    public void setDirty()
     {
-        this.dirty = dirty;
+        this.dirty = true;
+        this.dhb = null;
     }
 
     public boolean isDirty()
@@ -78,7 +81,44 @@ public class DDHandle
     {
         return unread;
     }
+    public void arraycopy(byte [] src, int srcOffset, int trgOffset, int len)
+    {
+        if (data == null)
+        {
+            if (this.len < len)
+            {
+                this.len = len;
+            }
+            createEmpty(this.len);
+        }
+        System.arraycopy(src, srcOffset, data, trgOffset, len);
+        setDirty();
+    }
+    public void resize(int newLen)
+    {
+        Log.debug("Resizing Block " + this.toString() + " to len " + newLen);
+        
+        if (data != null)
+        {
+            byte[] tmp = data;
+            data = new byte[newLen];
+            int copyLen = newLen;
+            if (copyLen > tmp.length)
+                copyLen = tmp.length;
 
+            System.arraycopy(tmp, 0, data, 0, copyLen);
+        }
+        len = newLen;
+        
+        setDirty();        
+    }
+    public void createEmpty(int len)
+    {
+        data = new byte[len];
+        this.len = len;
+        setDirty();
+    }
+  
     public boolean isWrittenComplete()
     {
         if (data != null)
@@ -96,6 +136,17 @@ public class DDHandle
             unread = false;
         }
     }
+
+    public byte[] getData() throws IOException
+    {
+        if (data == null)
+        {
+            throw new IOException("Missing data in Block " + this);
+        }
+        
+        return data;
+    }
+    
 
     void close() throws IOException
     {
@@ -143,6 +194,7 @@ public class DDHandle
         {
             throw new IOException("Short read in open DDFS_FileHandle (" + rlen + "/" + len + ")");
         }
+        unread = false;
     }
 
     void openWrite( AbstractStorageNode fs_node ) throws FileNotFoundException, IOException
@@ -161,5 +213,11 @@ public class DDHandle
             throw new IOException("Short read in open DDFS_FileHandle pos " + pos + "(is " + rlen + " / wants " + len + " )");
         }
         unread = false;
+    }
+
+    void setUnread()
+    {
+        data = null;
+        unread = true;
     }
 }

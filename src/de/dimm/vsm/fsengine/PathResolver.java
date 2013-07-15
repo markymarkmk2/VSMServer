@@ -49,12 +49,12 @@ public class PathResolver
     }
 
     // THIS IS THE ENTRY FROM THE MOUNTED DRIVE
-    public FileSystemElemNode resolve_elem_by_path( String dir_path ) throws SQLException
+    public FileSystemElemNode resolve_elem_by_path( String dir_path) throws SQLException
     {
         String[] path_arr = dir_path.split("/");
 
         FileSystemElemNode act_dir = handler.getRootDir();
-//        FileSystemElemNode act_dir = resolve_node(pool.getRootDirIdx());
+//        FileSystemElemNode act_dir = handler.resolve_fse_node_from_db(handler.getPool().getRootDir().getIdx());
         if (path_arr.length == 0)
             return act_dir;
 
@@ -66,7 +66,7 @@ public class PathResolver
 
             String string = path_arr[i];
 
-            act_dir = handler.resolve_child_node( act_dir, string );
+            act_dir = handler.resolve_child_node( act_dir, string);
 
             if (act_dir == null)
                 break;

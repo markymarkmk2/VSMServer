@@ -96,10 +96,12 @@ public class FSEMapEntryHandler
 
             fh.close();
             removeByFileNo( fileNo );
-            if (!Main.get_bool_prop(GeneralPreferences.CACHE_ON_WRITE_FS, false) && node != null && node.getParent() != null)
-            {               
-                node.getParent().getChildren().unRealize();                
-            }
+            // If we clear then we loose our stored Object in FileResolver
+//            if (!Main.get_bool_prop(GeneralPreferences.CACHE_ON_WRITE_FS, false) && node != null && node.getParent() != null)
+//            {               
+//                node.getParent().getChildren().unRealize();    
+//                 //node.getParent().getChildren().getList(poolHandler.getEm());
+//            }
         }
         else
             Log.err( "close_fh: Cannot resolve fh " + fileNo );

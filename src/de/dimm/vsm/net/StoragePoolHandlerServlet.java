@@ -149,7 +149,7 @@ public class StoragePoolHandlerServlet extends HessianServlet implements Storage
     }
 
     @Override
-    public boolean delete_fse_node( StoragePoolWrapper pool, String path ) throws PoolReadOnlyException, SQLException
+    public boolean delete_fse_node_path( StoragePoolWrapper pool, String path ) throws PoolReadOnlyException, SQLException, IOException
     {
         StoragePoolHandler handler = poolContextManager.getHandlerbyWrapper(pool);
         boolean ret = handler.delete_fse_node(path);
@@ -158,7 +158,7 @@ public class StoragePoolHandlerServlet extends HessianServlet implements Storage
         return ret;
     }
     @Override
-    public boolean delete_fse_node( StoragePoolWrapper pool, long idx ) throws PoolReadOnlyException, SQLException
+    public boolean delete_fse_node_idx( StoragePoolWrapper pool, long idx ) throws PoolReadOnlyException, SQLException, IOException
     {
         StoragePoolHandler handler = poolContextManager.getHandlerbyWrapper(pool);
         boolean ret = handler.delete_fse_node(idx);
@@ -179,6 +179,14 @@ public class StoragePoolHandlerServlet extends HessianServlet implements Storage
     {
         StoragePoolHandler handler = poolContextManager.getHandlerbyWrapper(pool);
         handler.move_fse_node(from, to);
+        handler.commit_transaction();
+    }
+
+    @Override
+    public void move_fse_node_idx( StoragePoolWrapper pool,long idx, String to ) throws IOException, SQLException, PoolReadOnlyException, PathResolveException
+    {
+        StoragePoolHandler handler = poolContextManager.getHandlerbyWrapper(pool);
+        handler.move_fse_node_idx(idx, to);
         handler.commit_transaction();
     }
 
@@ -317,6 +325,7 @@ public class StoragePoolHandlerServlet extends HessianServlet implements Storage
         int rlen =  handler.read(fileNo, b, length, offset);
         if (rlen < 0)
         {
+            Log.debug("read got null");
             return null;
         }
         
@@ -326,6 +335,7 @@ public class StoragePoolHandlerServlet extends HessianServlet implements Storage
             System.arraycopy(b, 0, bb, 0, rlen);
             b = bb;
         }
+        Log.debug("read got " + b.length);
         return b;
     }
 
@@ -335,6 +345,7 @@ public class StoragePoolHandlerServlet extends HessianServlet implements Storage
         int length = data.length;
         Log.debug("read len " + length + " offs " + offset, Long.toString(fileNo));
         int rlen = handler.read(fileNo, data, length, offset);
+        Log.debug("read got " + rlen);
         if (rlen < 0)
         {
             return -1;

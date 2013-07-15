@@ -440,12 +440,12 @@ public class StorageNodeHandler
   
     public FileHandle create_DDFS_handle( StoragePoolHandler aThis, FileSystemElemNode node, boolean create ) throws PathResolveException, IOException, SQLException
     {
-        return DDFS_FileHandle.create_fs_handle(this.storageNode, aThis, node, create );
+        return DDFS_WR_FileHandle.create_fs_handle(this.storageNode, aThis, node, create );
     }
 
     public FileHandle create_DDFS_StreamHandle( StoragePoolHandler aThis, FileSystemElemNode node, int streamInfo, boolean create ) throws PathResolveException, IOException, SQLException
     {
-        return DDFS_FileHandle.create_fs_stream_handle(this.storageNode, aThis, node, streamInfo, create );
+        return DDFS_WR_FileHandle.create_fs_stream_handle(this.storageNode, aThis, node, streamInfo, create );
     }
 
 /*
