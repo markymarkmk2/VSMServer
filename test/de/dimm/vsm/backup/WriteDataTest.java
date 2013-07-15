@@ -5,10 +5,11 @@
 
 package de.dimm.vsm.backup;
 
+import de.dimm.vsm.Exceptions.PathResolveException;
 import de.dimm.vsm.Exceptions.PoolReadOnlyException;
 import de.dimm.vsm.LogicControl;
 import de.dimm.vsm.fsengine.ArrayLazyList;
-import de.dimm.vsm.fsengine.JDBCEntityManager;
+import de.dimm.vsm.fsengine.DDFS_WR_FileHandle;
 import de.dimm.vsm.records.ClientInfo;
 import de.dimm.vsm.records.ClientVolume;
 import de.dimm.vsm.records.Excludes;
@@ -23,7 +24,11 @@ import de.dimm.vsm.net.SearchContextManager;
 import de.dimm.vsm.net.StoragePoolHandlerContextManager;
 import de.dimm.vsm.net.StoragePoolHandlerServlet;
 import de.dimm.vsm.net.StoragePoolWrapper;
+import de.dimm.vsm.net.interfaces.FileHandle;
+import de.dimm.vsm.records.AbstractStorageNode;
 import de.dimm.vsm.records.FileSystemElemNode;
+import java.io.IOException;
+import junit.framework.Assert;
 import org.junit.After;
 import org.junit.AfterClass;
 import org.junit.Before;
@@ -77,8 +82,12 @@ public class WriteDataTest {
 
         String absPath = "/127.0.0.1/8082/z/unittest/unittestdata/a/__start_sync.bat";
         String wrAbsPath = "/127.0.0.1/8082/z/unittest/unittestdata/a/new__start_sync.bat";
+        String wrAbsMovedPath = "/127.0.0.1/8082/z/unittest/unittestdata/a/moved__start_sync.bat";
         String fsPath = "z:\\unittest\\unittestdata\\a\\__start_sync.bat";
         String wrFsPath = "z:\\unittest\\unittestdata\\a\\new__start_sync.bat";
+        String wrFsMovedPath = "z:\\unittest\\unittestdata\\a\\moved__start_sync.bat";
+//        String wrFsPath = "satrt";
+//        String wrFsMovedPath = "verzwz";
 
         StoragePoolHandler pool_handler = StoragePoolHandlerTest.getSp_handler();
 
@@ -133,25 +142,54 @@ public class WriteDataTest {
         long wrFh = servlet.create_fh(wrapper, wrFsPath, FileSystemElemNode.FT_FILE);
         byte[] wrData = "1234567890".getBytes();
         long off = 0;
-        for (int i = 0; i < 1000*1000; i++)
+        //int blocks = 1000*1000;
+        int blocks = 1;
+        for (int i = 0; i < blocks; i++)
         {
             servlet.writeFile(wrapper, wrFh, wrData, wrData.length, off);
             off += wrData.length;
         }
         servlet.close_fh(wrapper, wrFh);
 
-        // Check read via Servlet
+        // Check written via Servlet
         checkFsExists( servlet, pool_handler, wrapper, wrAbsPath, wrFsPath);
 
+        // Move in VSMFS via Servlet
+        servlet.move_fse_node(wrapper, wrAbsPath, wrAbsMovedPath);
+        
+        // Check moved via Servlet
+        checkFsExists( servlet, pool_handler, wrapper, wrAbsMovedPath, wrFsMovedPath);
+        // Check moved via Servlet
+        checkNotFsExists( servlet, pool_handler, wrapper, wrAbsPath, wrFsPath);
 
+        // Move back
+        servlet.move_fse_node(wrapper, wrAbsMovedPath, wrAbsPath);
+        
+        // Check orig written via Servlet
+        checkFsExists( servlet, pool_handler, wrapper, wrAbsPath, wrFsPath);
+        checkNotFsExists( servlet, pool_handler, wrapper, wrAbsMovedPath, wrFsMovedPath);
 
+    }
+    void checkNotFsExists( StoragePoolHandlerServlet servlet, StoragePoolHandler pool_handler, StoragePoolWrapper wrapper, String absPath, String fsPath )
+    {
+        try
+        {
+            //((JDBCEntityManager)pool_handler.getEm()).getCache(JDBCEntityManager.OBJECT_CACHE).getCache().removeAll();
+            FileSystemElemNode node = pool_handler.resolve_node(absPath);
+            assertNull("Node in DB", node);
+        }
+        catch (Exception exception)
+        {
+            exception.printStackTrace();
+            fail(exception.getMessage());
+        }        
     }
 
     void checkFsExists( StoragePoolHandlerServlet servlet, StoragePoolHandler pool_handler, StoragePoolWrapper wrapper, String absPath, String fsPath )
     {
         try
         {
-            ((JDBCEntityManager)pool_handler.getEm()).getCache(JDBCEntityManager.OBJECT_CACHE).getCache().removeAll();
+            //((JDBCEntityManager)pool_handler.getEm()).getCache(JDBCEntityManager.OBJECT_CACHE).getCache().removeAll();
             FileSystemElemNode node = pool_handler.resolve_node(absPath);
             assertNotNull("Node nicht in DB", node);
             long fh = servlet.open_fh(wrapper, node.getIdx(), false);
@@ -161,7 +199,10 @@ public class WriteDataTest {
             File rf = new File(fsPath);
             if (rf.exists())
             {
-                assertEquals("Länge passt nicht", data.length, rf.length());
+                int dlen = 0;
+                if (data != null)
+                    dlen = data.length;
+                assertEquals("Länge passt nicht", dlen, rf.length());
             }
         }
         catch (Exception exception)
@@ -171,8 +212,8 @@ public class WriteDataTest {
         }
     }
 
-
-    void doBackup() throws SQLException, Throwable
+    
+    public void doBackup() throws SQLException, Throwable
     {
         System.out.println("doBackup");
 
@@ -216,13 +257,11 @@ public class WriteDataTest {
 
             String abs_path = context.getRemoteElemAbsPath( elem );
             node = pool_handler.resolve_node(abs_path);
-            if (node != null)
+            while (node != null)
             {
                 assertTrue(pool_handler.remove_fse_node(node, true));
 
                 node = pool_handler.resolve_node(abs_path);
-
-                assertNull(node);
 
             }
 
@@ -250,6 +289,8 @@ public class WriteDataTest {
             apiEntry.close();
 
             backup.close_entitymanager();
+            
+            
 
         }
         catch (UnknownHostException unknownHostException)
@@ -268,6 +309,119 @@ public class WriteDataTest {
             fail("Backup failed: " + exc.getMessage());
         }
     }
+    
+    void out( String s )
+    {
+        System.out.println(s);
+    }
+    @Test
+    public void doFS_WR_Test() throws SQLException, Throwable
+    {
+        System.out.println("doFS_WR_Test");
+        StoragePoolHandler pool_handler = StoragePoolHandlerTest.getSp_handler();
+          
+        try
+        {
+            String wrAbsPath = "/127.0.0.1/8082/z/unittest/unittestdata/a/__start_sync.bat";
+            
+            AbstractStorageNode sNode = pool_handler.get_primary_dedup_node_for_write();
+            FileSystemElemNode node = pool_handler.resolve_node(wrAbsPath);
+            node = pool_handler.resolve_fse_node_from_db(node.getIdx());
+
+            FileHandle fh = DDFS_WR_FileHandle.create_fs_handle(sNode, pool_handler, node, false);
+            out( String.format("Size: %d", fh.length() ));
+            byte[] data = fh.read(1024, 0);
+            out( String.format("read: %d Data: %s", data.length, new String(data) ));
+            Assert.assertTrue("Content", "rem pause".equals(new String(data)));
+            
+            byte[] wrdata = "jetztKommWasNeues".getBytes();
+            fh.writeFile(wrdata, wrdata.length, 0);
+            
+            byte[] data2 = fh.read( 1024, 0);
+            out( String.format("read: %d Data: %s", data2.length, new String(data2) ));
+            Assert.assertTrue("Content", new String(wrdata).equals( new String(data2)));
+            
+            fh.writeFile(data, data.length, 0);
+            fh.truncateFile(data.length);
+            
+            data = fh.read(1024, 0);
+            out( String.format("read: %d Data: %s", data.length, new String(data) ));
+            
+            
+            fh.close();
+            
+            // Reopen
+            fh = DDFS_WR_FileHandle.create_fs_handle(sNode, pool_handler, node, false);
+            data = fh.read(1024, 0);
+            out( String.format("read: %d Data: %s", data.length, new String(data) ));
+            Assert.assertTrue("Content", "rem pause".equals(new String(data)));
+            
+            // 2M
+            fh.truncateFile(2*1024*1024);
+            fh.writeFile(data, data.length, 1024*1024);
+            
+            data = fh.read(10, 0);
+            out( String.format("read: %d Data: %s", data.length, new String(data) ));
+            Assert.assertTrue("Content", "rem pause".equals(new String(data, 0, 9)));
+            
+            data = fh.read(10, 1024*1024);
+            out( String.format("read: %d Data: %s", data.length, new String(data) ));
+            Assert.assertTrue("Content", "rem pause".equals(new String(data, 0, 9)));
+            
+            data = fh.read(10, 2*1024*1024);
+            out( String.format("read: %d Data: %s", data.length, new String(data) ));
+            Assert.assertTrue("Content", data.length == 0);
+                        
+            fh.close();
+            
+            fh = DDFS_WR_FileHandle.create_fs_handle(sNode, pool_handler, node, true);
+            data = "rem pausen".getBytes();
+            fh.writeFile(data, data.length, 0);
+            
+            data = fh.read(1024, 0);
+            out( String.format("read: %d Data: %s", data.length, new String(data) ));
+            Assert.assertTrue("Content", "rem pausen".equals(new String(data)));            
+            fh.close();
+            
+            // Check move
+            String wrAbsPath2 = "/127.0.0.1/8082/z/unittest/unittestdata/a/xxx";            
+            pool_handler.move_fse_node(node, wrAbsPath, wrAbsPath2);
+                        
+            FileSystemElemNode node2 = pool_handler.resolve_node(wrAbsPath2);
+            node2 = pool_handler.resolve_fse_node_from_db(node2.getIdx());
+            
+            fh = DDFS_WR_FileHandle.create_fs_handle(sNode, pool_handler, node2, false);
+            data = fh.read(1024, 0);
+            out( String.format("read: %d Data: %s", data.length, new String(data) ));
+            Assert.assertTrue("Content", "rem pausen".equals(new String(data)));            
+            fh.close();
+            
+            pool_handler.move_fse_node(node, wrAbsPath2, wrAbsPath);
+            
+            node = pool_handler.resolve_node(wrAbsPath);
+            node = pool_handler.resolve_fse_node_from_db(node.getIdx());
+            // Reopen
+            fh = DDFS_WR_FileHandle.create_fs_handle(sNode, pool_handler, node, false);
+            data = fh.read(1024, 0);
+            out( String.format("read: %d Data: %s", data.length, new String(data) ));
+            Assert.assertTrue("Content", "rem pausen".equals(new String(data)));
+            data = "rem pause".getBytes();
+            fh.writeFile(data, data.length, 0);
+            fh.close();
+            
+            pool_handler.remove_fse_node(node, true);
+            
+            
+            
+           
+        }
+        catch (SQLException | PathResolveException | IOException | PoolReadOnlyException interruptedException)
+        {
+            interruptedException.printStackTrace();
+            fail(interruptedException.getMessage());
+        }
+    }    
+    
 
     private void sleep( int i )
     {
