@@ -21,7 +21,7 @@ import java.util.Comparator;
 import java.util.Date;
 import java.io.File;
 import de.dimm.vsm.Exceptions.PoolReadOnlyException;
-import de.dimm.vsm.backup.AgentApiEntry;
+import de.dimm.vsm.net.servlets.AgentApiEntry;
 import de.dimm.vsm.backup.Backup;
 import de.dimm.vsm.backup.GenericContext;
 import de.dimm.vsm.backup.Restore;

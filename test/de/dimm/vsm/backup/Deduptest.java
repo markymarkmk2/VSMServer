@@ -5,6 +5,7 @@
 
 package de.dimm.vsm.backup;
 
+import de.dimm.vsm.net.servlets.AgentApiEntry;
 import de.dimm.vsm.net.interfaces.GuiServerApi;
 import de.dimm.vsm.LogicControl;
 import de.dimm.vsm.lifecycle.RetentionResultList;

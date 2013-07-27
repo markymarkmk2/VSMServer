@@ -5,6 +5,7 @@
 
 package de.dimm.vsm.backup;
 
+import de.dimm.vsm.net.servlets.AgentApiEntry;
 import org.junit.Ignore;
 import de.dimm.vsm.Exceptions.PoolReadOnlyException;
 import de.dimm.vsm.LogicControl;

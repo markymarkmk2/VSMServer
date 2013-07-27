@@ -5,6 +5,8 @@
 
 package de.dimm.vsm.backup;
 
+import de.dimm.vsm.net.servlets.AgentApiEntry;
+import de.dimm.vsm.net.servlets.AgentApiDispatcher;
 import de.dimm.vsm.fsengine.StoragePoolHandlerTest;
 import de.dimm.vsm.net.interfaces.AgentApi;
 import java.io.IOException;
