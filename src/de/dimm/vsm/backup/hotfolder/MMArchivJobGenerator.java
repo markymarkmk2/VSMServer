@@ -7,7 +7,7 @@ package de.dimm.vsm.backup.hotfolder;
 
 import de.dimm.vsm.Exceptions.PathResolveException;
 import de.dimm.vsm.Exceptions.PoolReadOnlyException;
-import de.dimm.vsm.backup.AgentApiEntry;
+import de.dimm.vsm.net.servlets.AgentApiEntry;
 import de.dimm.vsm.fsengine.StoragePoolHandler;
 import de.dimm.vsm.net.RemoteFSElem;
 import de.dimm.vsm.records.ArchiveJob;

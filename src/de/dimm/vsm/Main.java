@@ -146,7 +146,7 @@ public class Main
     }    
     public void init() throws SQLException
     {
-
+        
         if (!isJava7orBetter())
         {
             System.err.println("Java Version must be at least 1.7, aborting");
@@ -307,6 +307,10 @@ public class Main
     {
         return get_int_prop(GeneralPreferences.PORT, 8080);
     }
+    public static int getSslServerPort()
+    {
+        return get_int_prop(GeneralPreferences.SSL_PORT, 8443);
+    }
 
     public static void checkJavaVersion()
     {
@@ -379,6 +383,7 @@ public class Main
         try
         {
             get_control().getNetServer().join_server();
+            get_control().getSslNetServer().join_server();
         }
         catch (Exception exception)
         {

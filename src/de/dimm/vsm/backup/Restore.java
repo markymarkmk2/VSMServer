@@ -4,6 +4,7 @@
  */
 package de.dimm.vsm.backup;
 
+import de.dimm.vsm.net.servlets.AgentApiEntry;
 import de.dimm.vsm.CS_Constants;
 import de.dimm.vsm.Exceptions.PathResolveException;
 import de.dimm.vsm.GeneralPreferences;

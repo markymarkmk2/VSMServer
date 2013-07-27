@@ -10,7 +10,7 @@ import de.dimm.vsm.Main;
 import de.dimm.vsm.Utilities.VariableResolver;
 import de.dimm.vsm.WorkerParent;
 import de.dimm.vsm.auth.User;
-import de.dimm.vsm.backup.AgentApiEntry;
+import de.dimm.vsm.net.servlets.AgentApiEntry;
 import de.dimm.vsm.backup.Backup;
 import de.dimm.vsm.fsengine.GenericEntityManager;
 import de.dimm.vsm.fsengine.StoragePoolHandler;

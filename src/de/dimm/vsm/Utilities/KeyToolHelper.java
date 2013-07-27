@@ -31,7 +31,7 @@ import javax.net.ssl.X509TrustManager;
  */
 public class KeyToolHelper
 {
-    public static final String MS_ALIAS = "mailsecurer";
+    public static final String ALIAS = "mailsecurer";
 
 
 
@@ -309,18 +309,18 @@ public class KeyToolHelper
             return false;
         try
         {
-            if (ks.containsAlias(MS_ALIAS))
+            if (ks.containsAlias(ALIAS))
             {
                 return true;
             }
             else
             {
-                LogManager.msg( LogManager.LVL_ERR, LogManager.TYP_SECURITY,"Missing alias " + MS_ALIAS + " in key store");
+                LogManager.msg( LogManager.LVL_ERR, LogManager.TYP_SECURITY,"Missing alias " + ALIAS + " in key store");
             }
         }
         catch (KeyStoreException ex)
         {
-                LogManager.msg( LogManager.LVL_ERR, LogManager.TYP_SECURITY,"Invalid alias " + MS_ALIAS + " in key store: " + ex.getMessage());
+                LogManager.msg( LogManager.LVL_ERR, LogManager.TYP_SECURITY,"Invalid alias " + ALIAS + " in key store: " + ex.getMessage());
         }
         return false;
     }

@@ -21,6 +21,7 @@ import java.util.GregorianCalendar;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Properties;
 import java.util.Set;
 import javax.naming.NamingException;
 
@@ -45,8 +46,8 @@ public class LoginManager extends WorkerParent implements GuiLoginApi
     @Override
     public boolean initialize()
     {
-        clientMap = new HashMap<Long, GuiServerApiImpl>();
-        lastLoginMap = new HashMap<String, Date>();
+        clientMap = new HashMap<>();
+        lastLoginMap = new HashMap<>();
         dummyGuiServerApi = new GuiServerApiImpl(0, null, null);
         return true;
     }
@@ -74,7 +75,6 @@ public class LoginManager extends WorkerParent implements GuiLoginApi
             {
                 continue;
             }
-
 
             cal.setTime(new Date());
             int minute = cal.get(GregorianCalendar.MINUTE);
@@ -108,17 +108,28 @@ public class LoginManager extends WorkerParent implements GuiLoginApi
         GuiServerApiImpl context = handle_login(user, pwd);
         if (context != null)
         {
-            long idx = guiIndex++;
+            long newLoginId = (long)(Math.random()*Long.MAX_VALUE);
+            while (clientMap.containsKey(newLoginId))
+            {
+                newLoginId = (long)(Math.random()*Long.MAX_VALUE);
+            }
+            
             Date d = lastLoginMap.get(user);
-
-            GuiWrapper wrapper = new GuiWrapper(idx, context, context.getUser(), d);
+            GuiWrapper wrapper = new GuiWrapper(newLoginId, context, context.getUser(), d);
             lastLoginMap.put(user, new Date());
 
-            clientMap.put(idx, context);
+            clientMap.put(newLoginId, context);
             return wrapper;
         }
         return null;
     }
+    
+    public GuiServerApiImpl getApi(long id)
+    {
+        return clientMap.get(id);
+    }
+    
+    
 
     @Override
     public GuiWrapper relogin( GuiWrapper wrapper, String user, String pwd )
@@ -186,9 +197,9 @@ public class LoginManager extends WorkerParent implements GuiLoginApi
             // OKAY, LOGIN SUCCEDED; WE GOT THE GROUPS, NOW BUILD AND RETURN CONTEXT
             User user = new User(userName, userName, userName);
             Role role = new Role();
-            role.getRoleOptions().addIfRealized( new RoleOption(0, role, RoleOption.RL_ADMIN, 0, ""));
-            role.getRoleOptions().addIfRealized( new RoleOption(0, role, RoleOption.RL_ALLOW_EDIT_PARAM, 0, ""));
-            role.getRoleOptions().addIfRealized( new RoleOption(0, role, RoleOption.RL_ALLOW_VIEW_PARAM, 0, ""));
+            role.getRoleOptions().add( new RoleOption(0, role, RoleOption.RL_ADMIN, 0, ""));
+            role.getRoleOptions().add( new RoleOption(0, role, RoleOption.RL_ALLOW_EDIT_PARAM, 0, ""));
+            role.getRoleOptions().add( new RoleOption(0, role, RoleOption.RL_ALLOW_VIEW_PARAM, 0, ""));
             user.setRole(role);
 
 
@@ -206,11 +217,11 @@ public class LoginManager extends WorkerParent implements GuiLoginApi
             User user = new User(userName, userName, userName);
             user.setIgnoreAcl(true);
             Role role = new Role();
-            role.getRoleOptions().addIfRealized( new RoleOption(0, role, RoleOption.RL_ALLOW_VIEW_PARAM, 0, ""));
-            role.getRoleOptions().addIfRealized( new RoleOption(0, role, RoleOption.RL_FSMAPPINGFILE, 0, "TestMapping"));
-            role.getRoleOptions().addIfRealized( new RoleOption(0, role, RoleOption.RL_USERPATH, 0, "192.168.1.145:8082:z:\\a\\FaxXP"));
-            role.getRoleOptions().addIfRealized( new RoleOption(0, role, RoleOption.RL_USERPATH, 0, "127.0.0.1:8082:/tmp"));
-            role.getRoleOptions().addIfRealized( new RoleOption(0, role, RoleOption.RL_USERPATH, 0, "127.0.0.1:8082:/tmp"));
+            role.getRoleOptions().add( new RoleOption(0, role, RoleOption.RL_ALLOW_VIEW_PARAM, 0, ""));
+            role.getRoleOptions().add( new RoleOption(0, role, RoleOption.RL_FSMAPPINGFILE, 0, "TestMapping"));
+            role.getRoleOptions().add( new RoleOption(0, role, RoleOption.RL_USERPATH, 0, "192.168.1.145:8082:z:\\a\\FaxXP"));
+            role.getRoleOptions().add( new RoleOption(0, role, RoleOption.RL_USERPATH, 0, "127.0.0.1:8082:/tmp"));
+            role.getRoleOptions().add( new RoleOption(0, role, RoleOption.RL_USERPATH, 0, "127.0.0.1:8082:/tmp"));
             
             try
             {
@@ -269,35 +280,12 @@ public class LoginManager extends WorkerParent implements GuiLoginApi
                     if (auth.open_user_context(userName, pwd))
                     {
 
-                        Set<String> groupsThisUser = new HashSet<String>();
+                        Set<String> groupsThisUser = new HashSet<>();
 
                         User user = auth.createUser(role, userName);
                         try
                         {
                             groupsThisUser = auth.list_groups(user);
-
-//                            // IN LDAP DOUBLECHECK
-//                            if (auth instanceof LDAPAuth && groupsThisUser.isEmpty())
-//                            {
-//                                List<String> groups = auth.list_groups();
-//                                for (int j = 0; j < groups.size(); j++)
-//                                {
-//                                    String g = groups.get(j);
-//                                    List<String> users = auth.list_users_for_group(g);
-//
-//                                    for (int k = 0; k < users.size(); k++)
-//                                    {
-//                                        String u = users.get(k);
-//                                        if (u.equals(user.getUserName()))
-//                                        {
-//                                            if (!groupsThisUser.contains(g))
-//                                            {
-//                                                groupsThisUser.add(g);
-//                                            }
-//                                        }
-//                                    }
-//                                }
-//                            }
                         }
                         catch (NamingException namingException)
                         {
@@ -346,4 +334,11 @@ public class LoginManager extends WorkerParent implements GuiLoginApi
         String filter = role.getAccountmatch();        
         return userName.matches(filter);
     }
+
+    @Override
+    public Properties getProperties()
+    {
+        return new Properties();
+    }
+    
 }

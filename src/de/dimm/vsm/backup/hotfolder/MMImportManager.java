@@ -17,7 +17,7 @@ import de.dimm.vsm.Main;
 import de.dimm.vsm.Utilities.ParseToken;
 import de.dimm.vsm.Utilities.SizeStr;
 import de.dimm.vsm.auth.User;
-import de.dimm.vsm.backup.AgentApiEntry;
+import de.dimm.vsm.net.servlets.AgentApiEntry;
 import de.dimm.vsm.backup.Backup;
 import de.dimm.vsm.fsengine.JDBCStoragePoolHandler;
 import de.dimm.vsm.fsengine.StoragePoolHandler;

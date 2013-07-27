@@ -4,20 +4,19 @@
  */
 package de.dimm.vsm.net;
 
+import de.dimm.vsm.net.servlets.AgentApiEntry;
 import de.dimm.vsm.Exceptions.PathResolveException;
 import de.dimm.vsm.Exceptions.PoolReadOnlyException;
 import de.dimm.vsm.LogicControl;
 import de.dimm.vsm.log.Log;
 import de.dimm.vsm.Main;
 import de.dimm.vsm.auth.User;
-import de.dimm.vsm.backup.AgentApiEntry;
 import de.dimm.vsm.backup.Backup;
 import de.dimm.vsm.backup.hotfolder.MMImportManager;
 import de.dimm.vsm.fsengine.FSEIndexer;
 import de.dimm.vsm.fsengine.StorageNodeHandler;
 import de.dimm.vsm.fsengine.StoragePoolHandler;
 import de.dimm.vsm.fsengine.VSMFSInputStream;
-import de.dimm.vsm.fsengine.checks.CheckManager;
 import de.dimm.vsm.jobs.JobEntry;
 import de.dimm.vsm.jobs.JobInterface;
 import de.dimm.vsm.jobs.JobManager;
@@ -132,7 +131,8 @@ public class GuiServerApiImpl implements GuiServerApi
         {
             try
             {
-                apiEntry.close();
+                if (apiEntry != null)
+                    apiEntry.close();
             }
             catch (Exception exception)
             {
@@ -177,7 +177,8 @@ public class GuiServerApiImpl implements GuiServerApi
         {
             try
             {
-                apiEntry.close();
+                if (apiEntry != null)
+                    apiEntry.close();
             }
             catch (Exception exception)
             {
@@ -223,7 +224,8 @@ public class GuiServerApiImpl implements GuiServerApi
         {
             try
             {
-                apiEntry.close();
+                if (apiEntry != null)
+                    apiEntry.close();
             }
             catch (Exception exception)
             {
@@ -267,7 +269,8 @@ public class GuiServerApiImpl implements GuiServerApi
         {
             try
             {
-                apiEntry.close();
+                if (apiEntry != null)
+                    apiEntry.close();
             }
             catch (Exception exception)
             {
@@ -312,7 +315,8 @@ public class GuiServerApiImpl implements GuiServerApi
         {
             try
             {
-                apiEntry.close();
+                if (apiEntry != null)
+                    apiEntry.close();
             }
             catch (Exception exception)
             {
@@ -364,7 +368,8 @@ public class GuiServerApiImpl implements GuiServerApi
         {
             try
             {
-                apiEntry.close();
+                if (apiEntry != null)
+                    apiEntry.close();
             }
             catch (Exception exception)
             {
@@ -452,7 +457,7 @@ public class GuiServerApiImpl implements GuiServerApi
     @Override
     public boolean restoreFSElem( IWrapper wrapper, RemoteFSElem path, String targetIP, int targetPort, String targetPath, int flags, User user ) throws PoolReadOnlyException, SQLException, IOException
     {
-        List<RemoteFSElem> list = new ArrayList<RemoteFSElem>();
+        List<RemoteFSElem> list = new ArrayList<>();
         list.add(path);
         return control.getPoolHandlerServlet().restoreFSElem(wrapper, list, targetIP, targetPort, targetPath, flags, user);
     }
@@ -507,7 +512,8 @@ public class GuiServerApiImpl implements GuiServerApi
         {
             try
             {
-                apiEntry.close();
+                if (apiEntry != null)
+                    apiEntry.close();
             }
             catch (Exception exception)
             {
@@ -861,8 +867,15 @@ public class GuiServerApiImpl implements GuiServerApi
     {
         control.getAutoMountManager().unMountEntry( this, mountEntry );
     }
-    
 
+    @Override
+    public Properties getProperties()
+    {
+        Properties props = new Properties();
+        props.setProperty("Version", Main.get_version_str());
+        return props;
+    }
+    
 
 
 }

@@ -4,11 +4,11 @@
  */
 package de.dimm.vsm.net;
 
+import de.dimm.vsm.net.servlets.AgentApiEntry;
 import de.dimm.vsm.log.Log;
 import de.dimm.vsm.LogicControl;
 import de.dimm.vsm.Main;
 import de.dimm.vsm.WorkerParent;
-import de.dimm.vsm.backup.AgentApiEntry;
 import de.dimm.vsm.fsengine.GenericEntityManager;
 import de.dimm.vsm.net.IAgentIdleManager;
 import de.dimm.vsm.net.interfaces.AgentApi;

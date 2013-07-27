@@ -11,7 +11,7 @@ import de.dimm.vsm.MMapi.MMapi;
 import de.dimm.vsm.Main;
 import de.dimm.vsm.Utilities.ParseToken;
 import de.dimm.vsm.auth.User;
-import de.dimm.vsm.backup.AgentApiEntry;
+import de.dimm.vsm.net.servlets.AgentApiEntry;
 import de.dimm.vsm.jobs.InteractionEntry;
 import de.dimm.vsm.jobs.JobInterface;
 import de.dimm.vsm.jobs.JobInterface.JOBSTATE;

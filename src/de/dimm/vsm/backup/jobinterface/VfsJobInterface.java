@@ -6,7 +6,7 @@ package de.dimm.vsm.backup.jobinterface;
 
 import de.dimm.vsm.Main;
 import de.dimm.vsm.auth.User;
-import de.dimm.vsm.backup.AgentApiEntry;
+import de.dimm.vsm.net.servlets.AgentApiEntry;
 import de.dimm.vsm.backup.BackupContext;
 import de.dimm.vsm.backup.BackupManager;
 import de.dimm.vsm.jobs.InteractionEntry;

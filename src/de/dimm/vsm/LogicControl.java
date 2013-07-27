@@ -4,12 +4,14 @@
  */
 package de.dimm.vsm;
 
+import de.dimm.vsm.Utilities.DefaultSSLServerSocketFactory;
+import de.dimm.vsm.Utilities.DefaultSSLSocketFactory;
 import de.dimm.vsm.log.Log;
 import de.dimm.vsm.Utilities.LicenseChecker;
 import de.dimm.vsm.Utilities.ThreadPoolWatcher;
 import de.dimm.vsm.auth.UserManager;
-import de.dimm.vsm.backup.AgentApiDispatcher;
-import de.dimm.vsm.backup.AgentApiEntry;
+import de.dimm.vsm.net.servlets.AgentApiDispatcher;
+import de.dimm.vsm.net.servlets.AgentApiEntry;
 import de.dimm.vsm.backup.Backup;
 import de.dimm.vsm.backup.BackupManager;
 import de.dimm.vsm.backup.hotfolder.HotFolderManager;
@@ -31,6 +33,7 @@ import de.dimm.vsm.net.AgentIdleManager;
 import de.dimm.vsm.net.AutoMountManager;
 import de.dimm.vsm.net.CDPManager;
 import de.dimm.vsm.net.FixHashUrlBug;
+import de.dimm.vsm.net.GuiWrapper;
 import de.dimm.vsm.net.LogQuery;
 import de.dimm.vsm.net.LoginManager;
 import de.dimm.vsm.net.NetServer;
@@ -40,7 +43,10 @@ import de.dimm.vsm.net.SearchContextManager;
 import de.dimm.vsm.net.StoragePoolHandlerContextManager;
 import de.dimm.vsm.net.StoragePoolHandlerServlet;
 import de.dimm.vsm.net.interfaces.GuiLoginApi;
+import de.dimm.vsm.net.interfaces.GuiServerApi;
 import de.dimm.vsm.net.servlets.ServerApiServlet;
+import de.dimm.vsm.net.servlets.UiApiServlet;
+import de.dimm.vsm.net.servlets.UiLoginServlet;
 import de.dimm.vsm.records.MessageLog;
 import de.dimm.vsm.records.Role;
 import de.dimm.vsm.records.Schedule;
@@ -57,6 +63,7 @@ import java.io.InputStreamReader;
 import java.lang.reflect.Method;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
+import java.security.Security;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Date;
@@ -76,6 +83,9 @@ public class LogicControl
 {
     public static final String PRODUCT_BASE = "VSM";
 
+    private static final String keyStore = "server.jks";
+    private static final String keyPwd = "1234fuenf";
+    
 
     public static final int LTM_FTP = 0x0001;
     public static final int LTM_S3 = 0x0002;
@@ -87,9 +97,12 @@ public class LogicControl
 
 
     NetServer netServer = null;
+    NetServer sslNetServer = null;
     StoragePoolHandlerServlet poolHandlerServlet = null;
 
     ServerApiServlet apiServlet = null;
+    UiLoginServlet loginServlet = null;
+    UiApiServlet uiApiServlet = null;
     HotFolderManager hfManager = null;
     LoginManager loginManager = null;
     Main main;
@@ -120,7 +133,16 @@ public class LogicControl
         return threadPoolWatcher;
     }
 
+    public static String getKeyPwd()
+    {
+        return Main.get_prefs().get_prop(GeneralPreferences.KEYSTORE_PWD, keyPwd);        
+    }
 
+    public static String getKeyStore()
+    {
+        return Main.get_prefs().get_prop(GeneralPreferences.KEYSTORE, keyStore);
+        
+    }
 
     public static void sleep( int cycle )
     {
@@ -197,6 +219,7 @@ public class LogicControl
     public void shutdown()
     {
         netServer.stop_server();
+        sslNetServer.stop_server();
 
         for (int i = workerList.size() - 1; i >= 0; i--)
         {
@@ -312,8 +335,20 @@ public class LogicControl
     public LogicControl( Main _main )
     {
         main = _main;
+       // initSecurity();
         VSMLogger.setup();
     }
+    
+    final void initSecurity()
+    {
+        Security.setProperty( "ssl.ServerSocketFactory.provider", DefaultSSLServerSocketFactory.class.getCanonicalName());
+        DefaultSSLSocketFactory.setKeyStore("server.jks");
+        DefaultSSLSocketFactory.setPassword("1234fuenf".toCharArray());
+//        System.setProperty("javax.net.ssl.trustStore", getKeyStore());
+//        System.setProperty("javax.net.ssl.keyStore", getKeyStore());
+//        System.setProperty("javax.net.ssl.keyStorePassword", getKeyPwd());        
+   
+    }    
     void init( boolean agent_tcp) throws SQLException
     {
         notificationServer = SmtpNotificationServer.createSmtpNotificationServer();
@@ -496,30 +531,32 @@ public class LogicControl
     final void initNetServer( SearchContextManager scm, StoragePoolHandlerContextManager spcm, boolean agent_tcp)
     {
         netServer = new NetServer();
+        sslNetServer = new NetServer();
 
         try
         {
+
+            apiServlet =  new ServerApiServlet();
+            netServer.addServlet("net", apiServlet);
+
+            uiApiServlet =  new UiApiServlet();
+            sslNetServer.addServlet("ui", uiApiServlet);
+
+            loginServlet =  new UiLoginServlet();
+            sslNetServer.addServlet("login", loginServlet);
+            
             poolHandlerServlet = new StoragePoolHandlerServlet(scm, spcm);
-
-            //if (!agent_tcp)
-            {
-                apiServlet =  new ServerApiServlet();
-
-                netServer.addServlet("net", apiServlet);
-            }
             netServer.addServlet("fs", poolHandlerServlet);
 
-
-            guiServlet = VaadinWysiwyg.createGuiServlet("de.dimm.vsm.vaadin.VSMClientApplication");
-            
+            guiServlet = VaadinWysiwyg.createGuiServlet("de.dimm.vsm.vaadin.VSMClientApplication");            
             netServer.addServletHolder("client/*", guiServlet);
             netServer.addServletHolder("VAADIN/*", guiServlet);
 
-            searchServlet = VaadinWysiwyg.createGuiServlet("de.dimm.vsm.vaadin.VSMSearchApplication");
-            
+            searchServlet = VaadinWysiwyg.createGuiServlet("de.dimm.vsm.vaadin.VSMSearchApplication");            
             netServer.addServletHolder("search/*", searchServlet);
 
-            netServer.start_server(Main.getServerPort(), false, "vsmkeystore2.jks", "123456");
+            netServer.start_server(Main.getServerPort(), false, getKeyStore(), getKeyPwd());
+            sslNetServer.start_server(Main.getSslServerPort(), true, getKeyStore(), getKeyPwd());
         }
         catch (Exception exception)
         {
@@ -765,10 +802,18 @@ public class LogicControl
     {
         return Main.get_control().getLoginManager();
     }
-
+    public static GuiServerApi getGuiServerApi(Object o )
+    {
+        if (o instanceof GuiWrapper)
+        {
+            GuiWrapper wr = (GuiWrapper)o;
+            return Main.get_control().getLoginManager().getApi(wr.getLoginIdx());
+        }
+        return null;
+    }
     static void createApiEntry()
     {
-        api_disp = new AgentApiDispatcher(use_ssl, "vsmkeystore2.jks", "123456", /*tcp*/ true);
+        api_disp = new AgentApiDispatcher(use_ssl, "vsmserver.jks", "123456", /*tcp*/ true);
     }
     public static AgentApiEntry getApiEntry( InetAddress addr, int port, boolean withMsg )
     {
@@ -850,6 +895,10 @@ public class LogicControl
     public NetServer getNetServer()
     {
         return netServer;
+    }
+    public NetServer getSslNetServer()
+    {
+        return sslNetServer;
     }
 
     public StoragePoolHandlerServlet getPoolHandlerServlet()

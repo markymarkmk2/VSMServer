@@ -27,12 +27,13 @@ public class StoragePoolHandlerFactory
     {
         return createStoragePoolHandler( Main.get_control().getStorageNubHandler(), pool, user, rdonly);
     }
-    public static StoragePoolHandler createStoragePoolHandler(StoragePoolNubHandler nubHandler, StoragePool pool, User user, boolean rdonly) throws IOException
+    public static StoragePoolHandler createStoragePoolHandler(StoragePoolNubHandler nubHandler, StoragePool _pool, User user, boolean rdonly) throws IOException
     {
         try
         {
+            StoragePool pool = Main.get_control().getStoragePool(_pool.getIdx());
             Log.debug("Offene DB-Verbindungen", "" + Main.get_control().getStorageNubHandler().getActiveConnections(pool) );
-
+// RELOAD FROM LIST
             JDBCConnectionFactory conn = nubHandler.getConnectionFactory(pool);
             JDBCEntityManager em = new JDBCEntityManager(pool.getIdx(), conn);
 
@@ -49,7 +50,7 @@ public class StoragePoolHandlerFactory
         catch (SQLException sQLException)
         {
             String msg = Main.Txt("Kann DB-Verbindung nicht öffnen");
-            Log.err(msg, pool.toString(), sQLException);
+            Log.err(msg, _pool.toString(), sQLException);
             throw new IOException( msg, sQLException);
         }
     }
@@ -68,10 +69,12 @@ public class StoragePoolHandlerFactory
     {
         return createStoragePoolHandler( Main.get_control().getStorageNubHandler(), pool, qry);
     }
-    public static StoragePoolHandler createStoragePoolHandler( StoragePoolNubHandler nubHandler, StoragePool pool, StoragePoolQry qry ) throws IOException
+    public static StoragePoolHandler createStoragePoolHandler( StoragePoolNubHandler nubHandler, StoragePool _pool, StoragePoolQry qry ) throws IOException
     {
         try
         {
+            // RELOAD FROM LIST
+            StoragePool pool = Main.get_control().getStoragePool(_pool.getIdx());
             JDBCConnectionFactory conn = nubHandler.getConnectionFactory(pool);
             JDBCEntityManager em = new JDBCEntityManager(pool.getIdx(), conn);
             JDBCStoragePoolHandler sp_handler = new JDBCStoragePoolHandler( em, pool, qry );
@@ -86,7 +89,7 @@ public class StoragePoolHandlerFactory
         }
         catch (Exception sQLException)
         {
-            Log.err("Kann DB-Verbindung nicht öffnen", pool.toString(), sQLException);
+            Log.err("Kann DB-Verbindung nicht öffnen", _pool.toString(), sQLException);
             throw new IOException(Main.Txt("Kann DB-Verbindung nicht öffnen"), sQLException);
         }
     }

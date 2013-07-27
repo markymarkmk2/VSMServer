@@ -31,6 +31,7 @@ public class GeneralPreferences extends Preferences
     public static final String STATION_ID ="StationID";
     public static final String DEBUG = "Debug";
     public static final String PORT = "Port";
+    public static final String SSL_PORT = "SslPort";
     public static final String SERVER = "Server";
     public static final String IP = "IP";
     public static final String GW = "Gateway";
@@ -92,6 +93,8 @@ public class GeneralPreferences extends Preferences
     public static final String BLOCK_DUPL_DIRS = "BlockDuplDir";
     public static final String CACHE_ON_WRITE_FS = "NoCacheOnWriteFS";
 
+    public static final String KEYSTORE = "KeystoreFile";
+    public static final String KEYSTORE_PWD = "KeystorePwd";
 
 
     
@@ -110,6 +113,7 @@ public class GeneralPreferences extends Preferences
         prop_names.add( STATION_ID );
         prop_names.add( DEBUG );
         prop_names.add( PORT );
+        prop_names.add( SSL_PORT );
         prop_names.add( SERVER );
         prop_names.add( IP );
         prop_names.add( GW );
@@ -158,6 +162,8 @@ public class GeneralPreferences extends Preferences
         prop_names.add( FIX_DUPL_NAMES );
         prop_names.add( BLOCK_DUPL_DIRS );
         prop_names.add( CACHE_ON_WRITE_FS );
+        prop_names.add( KEYSTORE );
+        prop_names.add( KEYSTORE_PWD );
 
 
 

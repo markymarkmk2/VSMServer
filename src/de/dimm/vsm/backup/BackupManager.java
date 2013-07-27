@@ -5,6 +5,7 @@
 
 package de.dimm.vsm.backup;
 
+import de.dimm.vsm.net.servlets.AgentApiEntry;
 import de.dimm.vsm.GeneralPreferences;
 import de.dimm.vsm.log.Log;
 import de.dimm.vsm.LogicControl;

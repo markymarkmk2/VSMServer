@@ -5,6 +5,7 @@
 
 package de.dimm.vsm.backup;
 
+import de.dimm.vsm.net.servlets.AgentApiEntry;
 import de.dimm.vsm.Utilities.VariableResolver;
 import de.dimm.vsm.backup.Backup.BackupCDPTicket;
 import de.dimm.vsm.backup.Backup.BackupVfsTicket;

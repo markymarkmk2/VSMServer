@@ -6,6 +6,7 @@
 package de.dimm.vsm.backup;
 
 
+import de.dimm.vsm.net.servlets.AgentApiEntry;
 import de.dimm.vsm.CS_Constants;
 import de.dimm.vsm.Exceptions.ClientAccessFileException;
 import de.dimm.vsm.Exceptions.PathResolveException;
