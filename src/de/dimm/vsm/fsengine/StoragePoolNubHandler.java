@@ -12,7 +12,9 @@ import de.dimm.vsm.LogicControl;
 import de.dimm.vsm.log.Log;
 import de.dimm.vsm.Main;
 import de.dimm.vsm.Utilities.DirectoryEntry;
+import de.dimm.vsm.fsengine.fixes.FixBootstrapEntries;
 import de.dimm.vsm.fsengine.fixes.FixDoubleDirNames;
+import de.dimm.vsm.fsengine.fixes.IFix;
 import de.dimm.vsm.records.FileSystemElemNode;
 import de.dimm.vsm.records.StoragePool;
 import de.dimm.vsm.records.StoragePoolNub;
@@ -208,6 +210,22 @@ public class StoragePoolNubHandler
        
 
         return createEmptyPoolDatabase(nub, dbPath);
+    }
+    
+    String createJdbcConnectString( StoragePoolNub nub, String dbName )
+    {
+        String jdbcConnectString;
+        String jdbcConnect = getDBConnectString(nub);
+        if (jdbcConnect.startsWith("jdbc:derby:"))
+        {
+            String dbPath = Main.DATABASEPATH + "db_" + nub.getIdx();
+            jdbcConnectString = jdbcConnect + dbPath + dbName;            
+        }
+        else
+        {
+            jdbcConnectString = jdbcConnect + "DB_" + nub.getIdx() + "_" + dbName;
+        }
+        return jdbcConnectString;        
     }
     
     public StoragePool createEmptyPoolDatabase( StoragePoolNub nub, String dbPath) throws PathResolveException, IOException, SQLException
@@ -750,7 +768,7 @@ public class StoragePoolNubHandler
     {
         if (Main.get_bool_prop(GeneralPreferences.FIX_DUPL_NAMES, false))
         {
-            FixDoubleDirNames fix = new FixDoubleDirNames(pool, em);
+            IFix fix = new FixDoubleDirNames(pool, em);
             try
             {
                 Log.info("Fixing duplicate names started");
@@ -763,5 +781,26 @@ public class StoragePoolNubHandler
             }
 
         }
+        if (Main.get_bool_prop(GeneralPreferences.FIX_BOOTSTRAP, false))
+        {
+            IFix fix = new FixBootstrapEntries(pool, em);
+            try
+            {
+                Log.info("Fixing bootstrap started");
+                fix.runFix();
+                Log.info("Fixing bootstrap done");
+            }
+            catch( Exception exc )
+            {
+                Log.err("Fixing duplicate names failed:", exc);
+            }
+
+        }
+    }
+
+    private String getDBConnectString( StoragePoolNub nub )
+    {
+        Main.get_prop(GeneralPreferences.JDBC_URL, "jdbc:derby");
+        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
     }
 }

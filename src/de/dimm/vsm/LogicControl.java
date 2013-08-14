@@ -802,14 +802,10 @@ public class LogicControl
     {
         return Main.get_control().getLoginManager();
     }
-    public static GuiServerApi getGuiServerApi(Object o )
+    public static GuiServerApi getGuiServerApi(GuiWrapper o )
     {
-        if (o instanceof GuiWrapper)
-        {
-            GuiWrapper wr = (GuiWrapper)o;
-            return Main.get_control().getLoginManager().getApi(wr.getLoginIdx());
-        }
-        return null;
+        GuiWrapper wr = (GuiWrapper)o;
+        return Main.get_control().getLoginManager().getApi(wr.getLoginIdx());
     }
     static void createApiEntry()
     {

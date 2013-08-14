@@ -11,6 +11,7 @@ import de.dimm.vsm.records.AbstractStorageNode;
 import de.dimm.vsm.records.DedupHashBlock;
 import de.dimm.vsm.records.FileSystemElemAttributes;
 import de.dimm.vsm.records.FileSystemElemNode;
+import de.dimm.vsm.records.HashBlock;
 import de.dimm.vsm.records.XANode;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
@@ -78,6 +79,7 @@ public class CloneStorageNodeHandler extends StorageNodeHandler
         }
         throw new UnsupportedOperationException("Not yet implemented");
     }
+    
     @Override
     public FileHandle create_xa_node_handle(FileSystemElemNode node, boolean create) throws PathResolveException, UnsupportedEncodingException
     {
@@ -95,6 +97,7 @@ public class CloneStorageNodeHandler extends StorageNodeHandler
         }
         throw new UnsupportedOperationException("Not yet implemented");
     }
+    
     @Override
     public FileHandle create_file_handle(DedupHashBlock block, boolean create) throws PathResolveException, UnsupportedEncodingException
     {
@@ -112,6 +115,7 @@ public class CloneStorageNodeHandler extends StorageNodeHandler
         }
         throw new UnsupportedOperationException("Not yet implemented");
     }
+    
     @Override
     public BootstrapHandle create_bootstrap_handle(FileSystemElemNode node) throws PathResolveException
     {
@@ -129,6 +133,7 @@ public class CloneStorageNodeHandler extends StorageNodeHandler
         }
         throw new UnsupportedOperationException("Not yet implemented");
     }
+    
     @Override
     public BootstrapHandle create_bootstrap_handle(FileSystemElemAttributes attr) throws PathResolveException
     {
@@ -146,12 +151,13 @@ public class CloneStorageNodeHandler extends StorageNodeHandler
         }
         throw new UnsupportedOperationException("Not yet implemented");
     }
+    
     @Override
-    public BootstrapHandle create_bootstrap_handle(DedupHashBlock block) throws PathResolveException, UnsupportedEncodingException
+    public BootstrapHandle create_bootstrap_handle(DedupHashBlock block, HashBlock node) throws PathResolveException, UnsupportedEncodingException
     {
         if (storageNode.isFS())
         {
-            BootstrapHandle ret1 = new FS_BootstrapHandle(storageNode, block );
+            BootstrapHandle ret1 = new FS_BootstrapHandle(storageNode, block, node );
             MultiBootstrapHandle mfh = new MultiBootstrapHandle();
             mfh.add(ret1);
             for (int i = 0; i < cloneStorageNodes.size(); i++)
@@ -163,6 +169,7 @@ public class CloneStorageNodeHandler extends StorageNodeHandler
         }
         throw new UnsupportedOperationException("Not yet implemented");
     }
+    
     @Override
     public BootstrapHandle create_bootstrap_handle(AbstractStorageNode node) throws PathResolveException, UnsupportedEncodingException
     {
@@ -180,17 +187,17 @@ public class CloneStorageNodeHandler extends StorageNodeHandler
         }
         throw new UnsupportedOperationException("Not yet implemented");
     }
+    
     @Override
-    public BootstrapHandle create_bootstrap_handle(XANode node) throws PathResolveException, UnsupportedEncodingException
+    public BootstrapHandle create_bootstrap_handle(DedupHashBlock block, XANode node) throws PathResolveException, UnsupportedEncodingException
     {
         if (storageNode.isFS())
         {
-            BootstrapHandle ret = new FS_BootstrapHandle(this.storageNode, node );
+            BootstrapHandle ret = new FS_BootstrapHandle(this.storageNode, block, node );
             return ret;
         }
         throw new UnsupportedOperationException("Not yet implemented");
     }
-
 
     @Override
     public FileHandle create_DDFS_handle( StoragePoolHandler aThis, FileSystemElemNode node, boolean create ) throws PathResolveException, IOException, SQLException
@@ -227,7 +234,5 @@ public class CloneStorageNodeHandler extends StorageNodeHandler
         }
         throw new UnsupportedOperationException("Not yet implemented");
     }
-
-
 
 }

@@ -9,6 +9,7 @@ package de.dimm.vsm.backup;
 import de.dimm.vsm.net.servlets.AgentApiEntry;
 import de.dimm.vsm.CS_Constants;
 import de.dimm.vsm.Exceptions.ClientAccessFileException;
+import de.dimm.vsm.Exceptions.DBConnException;
 import de.dimm.vsm.Exceptions.PathResolveException;
 import de.dimm.vsm.Exceptions.PoolReadOnlyException;
 import de.dimm.vsm.GeneralPreferences;
@@ -69,6 +70,8 @@ import java.util.Properties;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.FutureTask;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 
 
@@ -489,20 +492,45 @@ public class Backup
         {
             if (actualContext != null)
             {
-                BackupCDPTicket cdpTicket = new BackupCDPTicket(fileList, ticket);
-                actualContext.addCDPTicket(cdpTicket);
-                return true;
+                if (fitToContext( actualContext, ticket))
+                {
+                    BackupCDPTicket cdpTicket = new BackupCDPTicket(fileList, ticket);
+                    actualContext.addCDPTicket(cdpTicket);
+                    return true;
+                }
             }
+            Log.debug("Fehler beim Registrieren von CDP-Call: Context passt nicht zu ticket " + ticket.toString());
             return false;
         }
+        
         public boolean addCDPEvent( CdpEvent file, CdpTicket ticket )
         {
             if (actualContext != null)
             {
-                BackupCDPTicket cdpTicket = new BackupCDPTicket(file, ticket);
-                actualContext.addCDPTicket(cdpTicket);
-                return true;
+                if (fitToContext(actualContext, ticket))
+                {
+                    BackupCDPTicket cdpTicket = new BackupCDPTicket(file, ticket);
+                    actualContext.addCDPTicket(cdpTicket);
+                    return true;
+                }
             }
+            Log.debug("Fehler beim Registrieren von CDP-Call: Context passt nicht zu ticket " + ticket.toString());
+            return false;
+        }
+        
+        boolean fitToContext( BackupContext ctx, CdpTicket ticket)
+        {
+            if (ctx.getActClientInfo().getIdx() == ticket.getClientInfoIdx())
+                return true;
+            
+            return false;
+        }
+        
+        boolean fitToContext( BackupContext ctx, StoragePoolWrapper ticket)
+        {
+            if (ctx.getActClientInfo().getIp().equals( ticket.getAgentIp()))
+                return true;
+            
             return false;
         }
 
@@ -510,10 +538,14 @@ public class Backup
         {
             if (actualContext != null)
             {
-                BackupVfsTicket vfsTicket = new BackupVfsTicket(elems, ticket);
-                actualContext.addVfsTicket(vfsTicket);
-                return true;
+                if (fitToContext(actualContext, ticket))
+                {
+                    BackupVfsTicket vfsTicket = new BackupVfsTicket(elems, ticket);
+                    actualContext.addVfsTicket(vfsTicket);
+                    return true;
+                }
             }
+            Log.debug("Fehler beim Registrieren von Vfs-Call: Context passt nicht zu ticket " + ticket.toString());
             return false;
         }
     }
@@ -808,7 +840,7 @@ public class Backup
             }
 
         }
-        catch (Exception exc)
+        catch (SQLException | PoolReadOnlyException exc)
         {
             Log.err("Abbruch bei Backup " + sched.getName() , exc);
             throw exc;
@@ -832,7 +864,7 @@ public class Backup
     {
         Properties p;
         
-        AgentApiEntry apiEntry = null;
+        AgentApiEntry apiEntry;
 
         VariableResolver connectVr = new VariableResolver() {
 
@@ -1097,7 +1129,7 @@ public class Backup
                 }
             }
         }
-        catch (Exception exc)
+        catch (PoolReadOnlyException | PathResolveException | SQLException exc)
         {
             Log.err("Abbruch bei Dateisicherung", remoteFSElem.getPath(), exc);
             context.setJobState(JOBSTATE.ABORTED);
@@ -1122,13 +1154,13 @@ public class Backup
             buildStatusText(context, remoteFSElem.getPath() );
 
 
-            FutureTask<List<RemoteFSElem>> fRemote = new FutureTask<List<RemoteFSElem>>( new Callable<List<RemoteFSElem>>()
+            FutureTask<List<RemoteFSElem>> fRemote = new FutureTask<>( new Callable<List<RemoteFSElem>>()
             {
                 @Override
                 public List<RemoteFSElem> call() throws Exception
                 {
                     // HANDLE BACKUP FOR ALL ELEMENTS ON AGENT
-                    ArrayList<RemoteFSElem> fs_list = null;
+                    ArrayList<RemoteFSElem> fs_list;
                     try
                     {
                         fs_list = context.apiEntry.getApi().list_dir(remoteFSElem, lazyAclInfo);
@@ -1151,7 +1183,7 @@ public class Backup
             
             if (node != null)
             {
-                node.getChildren(context.poolhandler.getEm());
+                childNodes = node.getChildren(context.poolhandler.getEm());
             }
 
             // BUILD A MAP WITH ALL EXISTING NODES TO DETECT DELETED OBJECTS
@@ -1228,7 +1260,7 @@ public class Backup
             }
 
             // NOW WE HANDLE ALL NOT FOUND NODES
-            if (deleteMap != null)
+            if (deleteMap != null && !deleteMap.isEmpty())
             {
                 Collection<FileSystemElemNode> deletedColl = deleteMap.values();
                 for (Iterator<FileSystemElemNode> it1 = deletedColl.iterator(); it1.hasNext();)
@@ -1238,9 +1270,7 @@ public class Backup
                     {
                         try
                         {
-                            // ADD A NEW ATTRIBUTE FOR DELETED ENTRIES
-                            context.poolhandler.setDeleted(fileSystemElemNode, true, System.currentTimeMillis());
-                            Log.debug(Main.Txt("Setze Löschflag für"), fileSystemElemNode.toString());
+                            context.poolhandler.setDeleted(fileSystemElemNode, true, System.currentTimeMillis());                           
                         }
                         catch (Exception exception)
                         {
@@ -1248,7 +1278,7 @@ public class Backup
                         }
                     }
                 }
-                deletedColl.clear();
+                deleteMap.clear();
             }
 
             if (node != null)
@@ -2398,7 +2428,24 @@ public class Backup
         }
         catch (ClientAccessFileException e)
         {
-            Log.err( "Fehler beim Update von Node", node.toString() + ": " + e.getMessage());
+            // Detect Deleted Entries
+            boolean existsRemote = context.apiEntry.getApi().exists(remoteFSElem);
+            if (!existsRemote)
+            {
+                try
+                {
+                    context.getPoolhandler().setDeleted(node, true, ts);
+                    return true;
+                }
+                catch (SQLException | DBConnException | PoolReadOnlyException iOException)
+                {
+                    Log.debug( "Fehler beim Löschen von Node", node.toString(), iOException);
+                }
+            }
+            else
+            {
+                Log.err( "Fehler beim Update von Node", node.toString() + ": " + e.getMessage());
+            }
             return false;
         }
         catch (Exception e)
@@ -2593,11 +2640,31 @@ public class Backup
         {
             ret = update_remote_data_entry_to_pool( context, node, remoteFSElem, ts );
         }
+        else
+        {
+            // Detect Deleted dirs
+            boolean existsRemote = context.apiEntry.getApi().exists(remoteFSElem);
+            if (!existsRemote)
+            {
+                try
+                {
+                    context.getPoolhandler().setDeleted(node, true, ts);
+                }
+                catch (SQLException | DBConnException | PoolReadOnlyException iOException)
+                {
+                    Log.debug( "Fehler beim Löschen von Node", node.toString(), iOException);
+                    ret = false;
+                }                    
+                
+            }            
+        }
 
         // DO WE HAVE ADDITIONAL DATA
         if (ret && remoteFSElem.getStreamSize() > 0)
         {
             boolean lret = update_remote_xa_entry_to_pool( context,  node, remoteFSElem, ts );
+            if(!lret)
+                Log.debug( "Ignoriere Fehler bei StreamData von Node", node.toString());
         }
         return ret;
     }

@@ -164,6 +164,12 @@ public class JDBCStoragePoolHandler extends StoragePoolHandler
 
 
     @Override
+    public void raw_persist( Object o, long idx ) throws SQLException
+    {
+        em.raw_persist(o, idx);
+    }
+
+    @Override
     public void em_persist( Object o ) throws SQLException
     {
         if (persistRunner != null)

@@ -71,7 +71,7 @@ public class UserDirMapper
                         // THIS IS THE NEWEST ENTRY FOR THIS FILE
                         FileSystemElemAttributes attr = handler.getActualFSAttributes(fseNode, handler.getPoolQry());
                         RemoteFSElem remoteNode = StoragePoolHandlerServlet.genRemoteFSElemfromNode(fseNode, attr);
-                        return get_unmapped_child_nodes(handler, remoteNode);
+                        ret.addAll( get_unmapped_child_nodes(handler, remoteNode) );
                     }
                     else
                     {
@@ -111,7 +111,7 @@ public class UserDirMapper
                     // THIS IS THE NEWEST ENTRY FOR THIS FILE
                     FileSystemElemAttributes attr = handler.getActualFSAttributes(fseNode, handler.getPoolQry());
                     RemoteFSElem remoteNode = StoragePoolHandlerServlet.genRemoteFSElemfromNode(fseNode, attr);
-                    return get_unmapped_child_nodes(handler, remoteNode);
+                    ret.addAll( get_unmapped_child_nodes(handler, remoteNode) );
                 }
             }
             return ret;

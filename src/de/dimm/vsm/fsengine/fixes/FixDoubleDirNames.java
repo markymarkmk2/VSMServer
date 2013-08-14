@@ -14,7 +14,6 @@ import de.dimm.vsm.records.HashBlock;
 import de.dimm.vsm.records.PoolNodeFileLink;
 import de.dimm.vsm.records.StoragePool;
 import de.dimm.vsm.records.XANode;
-import java.io.IOException;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
@@ -29,13 +28,14 @@ import java.util.Map;
  *
  * @author Administrator
  */
-public class FixDoubleDirNames {
+public class FixDoubleDirNames implements IFix {
     JDBCEntityManager em;
     StoragePool pool;
     long cnt = 0;
     long actCnt = 0;
     int lastPercent = 0;
     int level = 0;
+    boolean abort;
 
     public FixDoubleDirNames( StoragePool pool, JDBCEntityManager em )
     {
@@ -43,6 +43,14 @@ public class FixDoubleDirNames {
         this.pool = pool;
     }
 
+    @Override
+    public void setAbort( boolean abort )
+    {
+        this.abort = abort;
+    }
+        
+
+    @Override
     public void runFix() throws SQLException
     {
         Log.info("Fixing duplicate names started");

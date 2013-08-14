@@ -12,12 +12,12 @@ import com.thoughtworks.xstream.converters.UnmarshallingContext;
 import com.thoughtworks.xstream.io.HierarchicalStreamReader;
 import com.thoughtworks.xstream.io.HierarchicalStreamWriter;
 import de.dimm.vsm.Exceptions.PathResolveException;
-import de.dimm.vsm.log.LogManager;
 import de.dimm.vsm.records.AbstractStorageNode;
 import de.dimm.vsm.records.DedupHashBlock;
 import de.dimm.vsm.records.FileSystemElemAttributes;
 import de.dimm.vsm.records.FileSystemElemNode;
 import de.dimm.vsm.records.HashBlock;
+import de.dimm.vsm.records.PoolNodeFileLink;
 import de.dimm.vsm.records.XANode;
 import java.io.File;
 import java.io.FileReader;
@@ -59,7 +59,7 @@ class IndirectListToEmptyListConverter implements Converter
 public class FS_BootstrapHandle<T> implements BootstrapHandle
 {
 
-    File fh;
+    protected File fh;
 
     public FS_BootstrapHandle( AbstractStorageNode fs_node, FileSystemElemNode node ) throws PathResolveException
     {
@@ -75,20 +75,20 @@ public class FS_BootstrapHandle<T> implements BootstrapHandle
         fh = new File(fs_node.getMountPoint() + sb.toString());
     }
 
-    public FS_BootstrapHandle( AbstractStorageNode fs_node, DedupHashBlock dedup_block ) throws PathResolveException, UnsupportedEncodingException
+    public FS_BootstrapHandle( AbstractStorageNode fs_node, DedupHashBlock dedup_block, HashBlock node ) throws PathResolveException, UnsupportedEncodingException
     {
         StringBuilder sb = new StringBuilder();
-        StorageNodeHandler.build_bootstrap_path(dedup_block, sb);
+        StorageNodeHandler.build_bootstrap_path(dedup_block, node, sb);
         fh = new File(fs_node.getMountPoint() + sb.toString());
     }
 
-    public FS_BootstrapHandle( AbstractStorageNode fs_node, XANode node ) throws PathResolveException, UnsupportedEncodingException
+    public FS_BootstrapHandle( AbstractStorageNode fs_node, DedupHashBlock dedup_block, XANode node ) throws PathResolveException, UnsupportedEncodingException
     {
         StringBuilder sb = new StringBuilder();
-        StorageNodeHandler.build_bootstrap_path(node, sb);
+        StorageNodeHandler.build_bootstrap_path(dedup_block, node, sb);
         fh = new File(fs_node.getMountPoint() + sb.toString());
     }
-    public FS_BootstrapHandle( AbstractStorageNode fs_node, HashBlock node ) throws PathResolveException, UnsupportedEncodingException
+    public FS_BootstrapHandle( AbstractStorageNode fs_node, PoolNodeFileLink node ) throws PathResolveException, UnsupportedEncodingException
     {
         StringBuilder sb = new StringBuilder();
         StorageNodeHandler.build_bootstrap_path(node, sb);
@@ -101,6 +101,10 @@ public class FS_BootstrapHandle<T> implements BootstrapHandle
         StorageNodeHandler.build_bootstrap_path(sb, node);
         fh = new File(fs_node.getMountPoint() + sb.toString());
     }
+     public FS_BootstrapHandle()
+     {
+         
+     }
 
     @Override
     public String toString()
@@ -118,6 +122,11 @@ public class FS_BootstrapHandle<T> implements BootstrapHandle
         }
         // IS GONE  -> OKAY
         return true;
+    }
+
+    public boolean exists()
+    {
+        return fh.exists();
     }
 
     @Override
@@ -374,22 +383,12 @@ public class FS_BootstrapHandle<T> implements BootstrapHandle
 
         try
         {
-            try
+            File parent = fh.getParentFile();
+            if (!parent.exists())
             {
-                fw = new FileWriter(fh);
+                parent.mkdirs();
             }
-            catch (IOException iOException)
-            {
-                File parent = fh.getParentFile();
-                if (!parent.exists())
-                {
-                    parent.mkdirs();
-                }
-                fw = new FileWriter(fh);
-            }
-
-
-            
+            fw = new FileWriter(fh);
             XStream xstream = new XStream();
             xstream.toXML(t, fw);            
         }
@@ -421,21 +420,11 @@ public class FS_BootstrapHandle<T> implements BootstrapHandle
 
         try
         {
-            try
+            File parent = fh.getParentFile();
+            if (!parent.exists())
             {
-                fw = new FileWriter(fh);
+                parent.mkdirs();
             }
-            catch (IOException iOException)
-            {
-                File parent = fh.getParentFile();
-                if (!parent.exists())
-                {
-                    parent.mkdirs();
-                }
-                fw = new FileWriter(fh);
-            }
-
-
             fw = new FileWriter(fh);
             XStream xstream = new XStream();
             xstream.toXML(t, fw);            
@@ -458,6 +447,81 @@ public class FS_BootstrapHandle<T> implements BootstrapHandle
             }
         }
     }
+  @Override
+    public void write_bootstrap( PoolNodeFileLink attr ) throws IOException
+    {
+        FileWriter fw = null;
+        PNFL_Bootstrap t = new PNFL_Bootstrap(attr);
+
+        try
+        {
+            File parent = fh.getParentFile();
+            if (!parent.exists())
+            {
+                parent.mkdirs();
+            }
+            fw = new FileWriter(fh);
+            XStream xstream = new XStream();
+            xstream.toXML(t, fw);            
+        }
+        catch (IOException iOException)
+        {
+            throw iOException;
+        }
+        finally
+        {
+            if (fw != null)
+            {
+                try
+                {
+                    fw.close();
+                }
+                catch (IOException iOException)
+                {
+                }
+            }
+        }
+    }
+
+    @Override
+    public void read_bootstrap( PoolNodeFileLink node ) throws IOException
+    {
+        FileReader fr = null;
+        try
+        {
+            fr = new FileReader(fh);
+            XStream xstream = new XStream();
+            Object o = xstream.fromXML(fr);
+            fr.close();
+
+            if (o instanceof PNFL_Bootstrap)
+            {
+                PNFL_Bootstrap t = (PNFL_Bootstrap) o;
+                t.setNode(node);                
+            }
+            else
+            {
+                throw new IOException("Wrong type of Bootstrap object: " + o.getClass().toString());
+            }
+        }
+        catch (IOException iOException)
+        {
+            throw iOException;
+        }
+        finally
+        {
+            if (fr != null)
+            {
+                try
+                {
+                    fr.close();
+                }
+                catch (IOException iOException)
+                {
+                }
+            }
+        }    
+    }    
 
     @Override
     public void read_bootstrap( HashBlock hb ) throws IOException
@@ -620,5 +684,7 @@ public class FS_BootstrapHandle<T> implements BootstrapHandle
             }
         }
     }
+
+  
 
 }

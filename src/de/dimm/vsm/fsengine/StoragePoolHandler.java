@@ -37,8 +37,6 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
 
 
@@ -61,7 +59,7 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
 
     // THIS LIST CONTAINS ALL HANDLERS OF S-NODES FROM THE POOL
     protected ArrayList<StorageNodeHandler> storage_node_handlers;
-    protected HashMap<String,FileSystemElemNode> dirHashMap = new HashMap<String,FileSystemElemNode>();
+    protected HashMap<String,FileSystemElemNode> dirHashMap = new HashMap<>();
 
     // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! DEBUG, DANGEROUS !!!!!!!!!!!!!!!!!!!!
     public static final boolean immediateCommit = false;
@@ -151,6 +149,7 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
 
     public abstract void em_persist( Object o, boolean noCache ) throws SQLException;
     public abstract void em_persist( Object o ) throws SQLException;
+    public abstract void raw_persist( Object o, long idx ) throws SQLException;
     public abstract void em_remove( Object o ) throws SQLException;
     public abstract void em_detach( Object o ) throws SQLException;
     public abstract <T> T em_merge( T t ) throws SQLException;
@@ -217,7 +216,7 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
                 instantiate_in_fs(s_nodes, node);
                 write_bootstrap_data(node);
             }
-            catch (Exception exc)
+            catch (SQLException | PathResolveException | IOException | PoolReadOnlyException exc)
             {
                 Log.err("Wurzelverzeichnis kann nicht erzeugt werden", pool.toString(), exc);
                 return false;
@@ -357,7 +356,7 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
         long freeSpace = checkStorageNodeSpace( node_list );
 
         // AND DD NODES
-        ArrayList<AbstractStorageNode> l = new ArrayList<AbstractStorageNode>();
+        ArrayList<AbstractStorageNode> l = new ArrayList<>();
 
         AbstractStorageNode ddNode = get_primary_dedup_node_for_write();
         if (ddNode != null)
@@ -383,21 +382,21 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
 
             try
             {
-                BootstrapHandle handle = new FS_BootstrapHandle<AbstractStorageNode>(abstractStorageNode, abstractStorageNode);
+                BootstrapHandle handle = new FS_BootstrapHandle<>(abstractStorageNode, abstractStorageNode);
                 Object o = handle.read_object(abstractStorageNode);
                 if (o == null)
                 {
                     handle.write_object(abstractStorageNode);
                 }
 
-                handle = new FS_BootstrapHandle<StoragePool>(abstractStorageNode, pool);
+                handle = new FS_BootstrapHandle<>(abstractStorageNode, pool);
                 o = handle.read_object(pool);
                 if (o == null)
                 {
                     handle.write_object(pool);
                 }
             }
-            catch (Exception exc)
+            catch (PathResolveException | IOException exc)
             {
                 Log.err("Cannot init_bootstrap", exc);
             }
@@ -477,7 +476,7 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
     // THIS IS THE ENTRY FROM THE MOUNTED DRIVE BEFORE get_child_nodes, AFTER resolve_elem_by_path
     public List<FileSystemElemNode> resolve_node_by_remote_elem(  List<RemoteFSElem> nodes ) throws SQLException
     {
-        List<FileSystemElemNode> retList = new ArrayList<FileSystemElemNode>();
+        List<FileSystemElemNode> retList = new ArrayList<>();
         for (int i = 0; i < nodes.size(); i++)
         {
             RemoteFSElem node = nodes.get(i);
@@ -770,7 +769,7 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
             }
             return true;
         }
-        catch (Exception exc)
+        catch (PathResolveException | PoolReadOnlyException | UnsupportedEncodingException exc)
         {
             Log.err( "Löschen schlug fehl", node.toString(), exc);
         }
@@ -852,7 +851,7 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
             }
 
         }
-        catch (Exception exc)
+        catch (SQLException | PoolReadOnlyException | IOException | PathResolveException exc)
         {
             Log.err("Cannot remove_fse_node", node.toString(), exc);
             return false;
@@ -865,7 +864,7 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
     {
         List<AbstractStorageNode> list = resolve_storage_nodes( pool );
 
-        List<AbstractStorageNode> ret = new ArrayList<AbstractStorageNode>();
+        List<AbstractStorageNode> ret = new ArrayList<>();
 
         // TODO: HANDLE MULTIPLE NODES
         // WE HAVE NO CLONING YET
@@ -921,7 +920,7 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
 
 
 
-        PoolNodeFileLink pnfl = null;
+        PoolNodeFileLink pnfl;
         try
         {
             check_open_transaction();
@@ -1095,6 +1094,11 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
             node = FileSystemElemNode.createDirNode();
             posixMode |= 0040000;
         }
+        if (node == null)
+        {
+            Log.err("Cannot create_fse_node_complete for type " + type);
+            return null;
+        }
         node.getAttributes().setName(name);
         node.getAttributes().setAccessDateMs( now.getTime());
         node.getAttributes().setCreationDateMs( now.getTime());
@@ -1166,7 +1170,7 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
             throw new PoolReadOnlyException(pool);
 
 
-        FileSystemElemNode node = null;
+        FileSystemElemNode node;
 
         FileSystemElemNode parent = resolve_parent_dir_node( abs_path);
         if (parent == null)
@@ -1366,7 +1370,7 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
             {
                 StorageNodeHandler snHandler = get_handler_for_node(s_node);
 
-                FileHandle fs_ret = null;
+                FileHandle fs_ret;
                 if (getPool().isLandingZone())
                     fs_ret = snHandler.create_file_handle(node, create );
                 else
@@ -1480,14 +1484,28 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
         }
         return ret;
     }
-    public BootstrapHandle open_bootstrap_handle(DedupHashBlock block ) throws IOException, PathResolveException
+    
+    public BootstrapHandle open_bootstrap_handle(PoolNodeFileLink attr ) throws IOException, PathResolveException
+    {
+        BootstrapHandle ret = null;
+        AbstractStorageNode s_node = attr.getStorageNode();
+
+        if (s_node.isFS())
+        {
+            StorageNodeHandler sh = get_handler_for_node(s_node);
+            ret = sh.create_bootstrap_handle(attr);
+        }
+        return ret;
+    }
+        
+    public BootstrapHandle open_bootstrap_handle(DedupHashBlock block, HashBlock node ) throws IOException, PathResolveException
     {
         AbstractStorageNode s_node = get_primary_dedup_node_for_write();
 
         if (s_node.isFS())
         {
             StorageNodeHandler sh = get_handler_for_node(s_node);
-            BootstrapHandle ret = sh.create_bootstrap_handle(block);
+            BootstrapHandle ret = sh.create_bootstrap_handle(block, node);
 
             return ret;
         }
@@ -1495,14 +1513,14 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
 
     }
 
-    public BootstrapHandle open_bootstrap_handle(XANode block ) throws IOException, PathResolveException
+    public BootstrapHandle open_bootstrap_handle(DedupHashBlock block, XANode node ) throws IOException, PathResolveException
     {
         AbstractStorageNode s_node = get_primary_dedup_node_for_write();
 
         if (s_node.isFS())
         {
             StorageNodeHandler sh = get_handler_for_node(s_node);
-            BootstrapHandle ret = sh.create_bootstrap_handle(block);
+            BootstrapHandle ret = sh.create_bootstrap_handle(block, node);
 
             return ret;
         }
@@ -1520,7 +1538,7 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
             Log.err("Fehlende Links für Dateinode", node.toString());
         }
 
-        List<AbstractStorageNode> s_nodes = new ArrayList<AbstractStorageNode>();
+        List<AbstractStorageNode> s_nodes = new ArrayList<>();
 
 
         for (int i = 0; i < list.size(); i++)
@@ -1570,7 +1588,7 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
 
     private FileHandle[] resolve_all_file_handles( FileSystemElemNode node ) throws PathResolveException
     {
-        ArrayList<FileHandle> list = new ArrayList<FileHandle>();
+        ArrayList<FileHandle> list = new ArrayList<>();
 
         List<PoolNodeFileLink> link_list = get_pool_node_file_links( node );
         if (link_list == null)
@@ -1593,7 +1611,7 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
 
     private BootstrapHandle[] resolve_all_bootstrap_handles( FileSystemElemNode node ) throws PathResolveException
     {
-        ArrayList<BootstrapHandle> list = new ArrayList<BootstrapHandle>();
+        ArrayList<BootstrapHandle> list = new ArrayList<>();
 
         List<PoolNodeFileLink> link_list = get_pool_node_file_links( node );
         if (link_list == null)
@@ -1623,7 +1641,7 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
     }
     private FileHandle[] resolve_all_attribute_handles( FileSystemElemNode node ) throws PathResolveException, UnsupportedEncodingException
     {
-        ArrayList<FileHandle> list = new ArrayList<FileHandle>();
+        ArrayList<FileHandle> list = new ArrayList<>();
 
         List<PoolNodeFileLink> link_list = get_pool_node_file_links( node );
         if (link_list == null)
@@ -1828,6 +1846,11 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
     {
         BootstrapHandle handle = open_bootstrap_handle(node);
         handle.write_bootstrap( node );  // THIS INCLUDES ATTRIBUTES
+        for (PoolNodeFileLink pnfl : node.getLinks())
+        {
+            handle = open_bootstrap_handle(pnfl);
+            handle.write_bootstrap( pnfl );  // THIS INCLUDES ATTRIBUTES
+        }
     }
     public void write_bootstrap_data( FileSystemElemAttributes attr ) throws IOException, PathResolveException
     {
@@ -1837,14 +1860,13 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
 
     public void write_bootstrap_data( DedupHashBlock block, HashBlock node ) throws IOException, PathResolveException
     {
-        BootstrapHandle handle = open_bootstrap_handle(block);
+        BootstrapHandle handle = open_bootstrap_handle(block, node);
         handle.write_bootstrap( node );
-
     }
 
     public void write_bootstrap_data( DedupHashBlock block, XANode node ) throws IOException, PathResolveException
     {
-        BootstrapHandle handle = open_bootstrap_handle(block);
+        BootstrapHandle handle = open_bootstrap_handle(block, node);
         handle.write_bootstrap( node );
     }
 
@@ -1858,7 +1880,13 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
     public static String resolve_bootstrap_path( AbstractStorageNode s_node, DedupHashBlock block, HashBlock node ) throws IOException, PathResolveException
     {
         StringBuilder sb = new StringBuilder();
-        StorageNodeHandler.build_bootstrap_path(block, sb);
+        StorageNodeHandler.build_bootstrap_path(block, node, sb);
+        return s_node.getMountPoint() + "/" + sb.toString();
+    }
+    public static String resolve_bootstrap_path( AbstractStorageNode s_node, DedupHashBlock block, XANode node ) throws IOException, PathResolveException
+    {
+        StringBuilder sb = new StringBuilder();
+        StorageNodeHandler.build_bootstrap_path(block, node, sb);
         return s_node.getMountPoint() + "/" + sb.toString();
     }
 
@@ -2111,6 +2139,8 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
         attr.setDeleted(b);
         
         mergeOrPersistAttribute(fsenode, attr, needNewAttributes); 
+        Log.debug(Main.Txt((b ? "Setze":"Entferne") + " Löschflag für"), fsenode.toString());
+        
     }
 
     // CAUTION, THIS MODIFIES THE ACTUAL FILE WITHOUT HISTORY MANAGEMENT!!!!
@@ -2276,7 +2306,7 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
             if (s_node.isFS())
             {
                 StorageNodeHandler sn_handler = get_handler_for_node(s_node);
-                FileHandle fs_ret = null;
+                FileHandle fs_ret;
 
                 if (getPool().isLandingZone())
                     fs_ret = sn_handler.create_xa_node_handle( node, create );
@@ -2490,7 +2520,7 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
                 StorageNodeHandler sn_handler = get_handler_for_node(s_node);
                 FileHandle fh = sn_handler.create_file_handle( dhb, /*create*/ false);
                 if (fh != null && fh.exists())
-                {
+                {                    
                     fh.delete();
                     BootstrapHandle bfh = sn_handler.create_bootstrap_handle(dhb);
                     bfh.delete();

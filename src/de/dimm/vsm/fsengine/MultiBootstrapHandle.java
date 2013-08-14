@@ -9,6 +9,7 @@ import de.dimm.vsm.net.interfaces.BootstrapHandle;
 import de.dimm.vsm.records.FileSystemElemAttributes;
 import de.dimm.vsm.records.FileSystemElemNode;
 import de.dimm.vsm.records.HashBlock;
+import de.dimm.vsm.records.PoolNodeFileLink;
 import de.dimm.vsm.records.XANode;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -64,6 +65,16 @@ public class MultiBootstrapHandle implements BootstrapHandle
             handle.write_bootstrap(attr);
         }
     }
+        @Override
+    public void write_bootstrap( PoolNodeFileLink attr ) throws IOException
+    {
+        for (int i = 0; i < fh_list.size(); i++)
+        {
+            BootstrapHandle handle = fh_list.get(i);
+            handle.write_bootstrap(attr);
+        }
+    }
+
 
     @Override
     public void read_bootstrap( FileSystemElemAttributes attr ) throws IOException
@@ -104,6 +115,28 @@ public class MultiBootstrapHandle implements BootstrapHandle
         }
         throw lastException;
     }
+    
+    @Override
+    public void read_bootstrap( PoolNodeFileLink node ) throws IOException
+    {
+        IOException lastException = null;
+        for (int i = 0; i < fh_list.size(); i++)
+        {
+            BootstrapHandle handle = fh_list.get(i);
+            try
+            {
+                handle.read_bootstrap(node);
+                return;
+            }
+            catch (IOException iOException)
+            {
+                lastException = iOException;
+            }
+        }
+        throw lastException;
+    }
+
+
 
     @Override
     public void write_bootstrap( HashBlock hb ) throws IOException

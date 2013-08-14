@@ -56,6 +56,12 @@ public class JPAStoragePoolHandler extends StoragePoolHandler /*implements Remot
         return list.get(0);
     }
 
+    @Override
+    public void raw_persist( Object o, long idx ) throws SQLException
+    {
+        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+    }
+
    
 
 

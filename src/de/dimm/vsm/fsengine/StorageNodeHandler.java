@@ -13,6 +13,7 @@ import de.dimm.vsm.records.DedupHashBlock;
 import de.dimm.vsm.records.FileSystemElemAttributes;
 import de.dimm.vsm.records.FileSystemElemNode;
 import de.dimm.vsm.records.HashBlock;
+import de.dimm.vsm.records.PoolNodeFileLink;
 import de.dimm.vsm.records.XANode;
 import java.io.File;
 import java.io.IOException;
@@ -35,6 +36,14 @@ public class StorageNodeHandler
 
     public static final String PATH_FSNODES_PREFIX = "/fs";
     public static final String PATH_DEDUPNODES_PREFIX = "/dd";
+    
+    public static final String DEDUP_PREFIX = "dd_";
+    public static final String FSEA_PREFIX = "at_";
+    public static final String FSEN_PREFIX = "fs_";
+    public static final String HASHBLOCK_PREFIX = "hb_";
+    public static final String PNFL_PREFIX = "pn_";
+    public static final String XATTR_PREFIX = "xa_";
+    public static final String BOOTSTRAP_SUFFIX = ".xml";
 
     public static final String BOOTSTRAP_PATH = "bootstrap";
     public static final String XA_PATH = "xa";
@@ -193,9 +202,9 @@ public class StorageNodeHandler
 
     static void build_bootstrap_path( FileSystemElemNode file_node, StringBuilder sb ) throws PathResolveException
     {
-        sb.insert(0, ".xml" );
+        sb.insert(0, BOOTSTRAP_SUFFIX );
         sb.insert(0, Hex.fromLong(file_node.getIdx()));
-        sb.insert(0, "/" + BOOTSTRAP_PATH + "/fs_");
+        sb.insert(0, "/" + BOOTSTRAP_PATH + "/" + FSEN_PREFIX);
 
         sb.insert(0, getFullParentPath( file_node ) );
 
@@ -205,50 +214,68 @@ public class StorageNodeHandler
     static void build_bootstrap_path( FileSystemElemAttributes attr, StringBuilder sb ) throws PathResolveException
     {
         FileSystemElemNode file_node = attr.getFile();
-        sb.insert(0, ".xml" );
+        sb.insert(0, BOOTSTRAP_SUFFIX );
         sb.insert(0, Hex.fromLong(attr.getIdx()));
-        sb.insert(0, "/" + BOOTSTRAP_PATH + "/at_");
+        sb.insert(0, "/" + BOOTSTRAP_PATH + "/" + FSEA_PREFIX);
 
         sb.insert(0, getFullParentPath( file_node ) );
 
         sb.insert(0, PATH_FSNODES_PREFIX);
     }
 
-    static void build_bootstrap_path( XANode node, StringBuilder sb ) throws PathResolveException
+//    static void build_bootstrap_path( XANode node, StringBuilder sb ) throws PathResolveException
+//    {
+//        sb.insert(0, BOOTSTRAP_SUFFIX );
+//        sb.insert(0, Hex.fromLong(node.getIdx()));
+//        sb.insert(0, "/" + BOOTSTRAP_PATH + "/" + XATTR_PREFIX);
+//
+//        sb.insert(0, getFullParentPath( node.getFileNode() ) );
+//
+//        sb.insert(0, PATH_FSNODES_PREFIX);
+//    }
+    static void build_bootstrap_path( PoolNodeFileLink node, StringBuilder sb ) throws PathResolveException
     {
-        sb.insert(0, ".xml" );
+        sb.insert(0, BOOTSTRAP_SUFFIX );
         sb.insert(0, Hex.fromLong(node.getIdx()));
-        sb.insert(0, "/" + BOOTSTRAP_PATH + "/xa_");
-
+        sb.insert(0, "/" + BOOTSTRAP_PATH + "/" + PNFL_PREFIX);
         sb.insert(0, getFullParentPath( node.getFileNode() ) );
-
         sb.insert(0, PATH_FSNODES_PREFIX);
     }
-    static void build_bootstrap_path( HashBlock node, StringBuilder sb ) throws PathResolveException
-    {
-        sb.insert(0, ".xml" );
-        sb.insert(0, Hex.fromLong(node.getIdx()));
-        sb.insert(0, "/" + BOOTSTRAP_PATH + "/hb_");
 
-        sb.insert(0, getFullParentPath( node.getFileNode() ) );
-
-        sb.insert(0, PATH_FSNODES_PREFIX);
-    }
-
+    // Root Dir für all DD Bootstrap entries
     static void build_bootstrap_path( DedupHashBlock dhb, StringBuilder sb ) throws PathResolveException, UnsupportedEncodingException
     {
         sb.append(PATH_DEDUPNODES_PREFIX);
         build_block_path( dhb.getIdx(), sb );
 
-        sb.append( BOOTSTRAP_PATH + "/dd_");
-        sb.append( dhb.getHashvalue());
-        sb.append(".xml" );
+        sb.append( BOOTSTRAP_PATH + "/" );
+        sb.append(dhb.getHashvalue());
+    }
+    static void build_bootstrap_path( DedupHashBlock dhb, HashBlock node, StringBuilder sb ) throws PathResolveException, UnsupportedEncodingException
+    {
+        sb.append(PATH_DEDUPNODES_PREFIX);
+        build_block_path( dhb.getIdx(), sb );
+
+        sb.append( BOOTSTRAP_PATH + "/" );
+        sb.append(dhb.getHashvalue()).append( "/");
+        sb.append(HASHBLOCK_PREFIX + "_").append( node.getIdx());
+        sb.append(BOOTSTRAP_SUFFIX );
+    }
+    static void build_bootstrap_path( DedupHashBlock dhb, XANode node, StringBuilder sb ) throws PathResolveException, UnsupportedEncodingException
+    {
+        sb.append(PATH_DEDUPNODES_PREFIX);
+        build_block_path( dhb.getIdx(), sb );
+
+        sb.append( BOOTSTRAP_PATH + "/" );
+        sb.append(dhb.getHashvalue()).append( "/");
+        sb.append(XATTR_PREFIX + "_").append( node.getIdx());
+        sb.append(BOOTSTRAP_SUFFIX );
     }
 
     
     static <T> void build_bootstrap_path( StringBuilder sb, T object ) throws PathResolveException
     {
-        sb.insert(0, ".xml" );
+        sb.insert(0, BOOTSTRAP_SUFFIX );
         sb.insert(0, object.getClass().getSimpleName());
         sb.insert(0, "/" + BOOTSTRAP_PATH + "/");
         sb.insert(0, PATH_FSNODES_PREFIX);
@@ -401,6 +428,24 @@ public class StorageNodeHandler
         }
         throw new UnsupportedOperationException("Not yet implemented");
     }
+    public BootstrapHandle create_bootstrap_handle(PoolNodeFileLink node) throws PathResolveException, UnsupportedEncodingException
+    {
+        if (storageNode.isFS())
+        {
+            BootstrapHandle ret = new FS_BootstrapHandle(this.storageNode, node );
+            return ret;
+        }
+        throw new UnsupportedOperationException("Not yet implemented");
+    }
+    public BootstrapHandle create_bootstrap_handle(DedupHashBlock block) throws PathResolveException, UnsupportedEncodingException
+    {
+        if (storageNode.isFS())
+        {
+            BootstrapHandle ret = new DDEntriesDir_BootstrapHandle(this.storageNode, block );
+            return ret;
+        }
+        throw new UnsupportedOperationException("Not yet implemented");
+    }
     public BootstrapHandle create_bootstrap_handle(FileSystemElemAttributes attr) throws PathResolveException
     {
         if (storageNode.isFS())
@@ -410,11 +455,20 @@ public class StorageNodeHandler
         }
         throw new UnsupportedOperationException("Not yet implemented");
     }
-    public BootstrapHandle create_bootstrap_handle(DedupHashBlock block) throws PathResolveException, UnsupportedEncodingException
+    public BootstrapHandle create_bootstrap_handle(DedupHashBlock block, HashBlock node) throws PathResolveException, UnsupportedEncodingException
     {
         if (storageNode.isFS())
         {
-            BootstrapHandle ret = new FS_BootstrapHandle(this.storageNode, block );
+            BootstrapHandle ret = new FS_BootstrapHandle(this.storageNode, block, node );
+            return ret;
+        }
+        throw new UnsupportedOperationException("Not yet implemented");
+    }
+    public BootstrapHandle create_bootstrap_handle(DedupHashBlock block, XANode node) throws PathResolveException, UnsupportedEncodingException
+    {
+        if (storageNode.isFS())
+        {
+            BootstrapHandle ret = new FS_BootstrapHandle(this.storageNode, block, node );
             return ret;
         }
         throw new UnsupportedOperationException("Not yet implemented");
@@ -428,16 +482,16 @@ public class StorageNodeHandler
         }
         throw new UnsupportedOperationException("Not yet implemented");
     }
-    public BootstrapHandle create_bootstrap_handle(XANode node) throws PathResolveException, UnsupportedEncodingException
-    {
-        if (storageNode.isFS())
-        {
-            BootstrapHandle ret = new FS_BootstrapHandle(this.storageNode, node );
-            return ret;
-        }
-        throw new UnsupportedOperationException("Not yet implemented");
-    }
-  
+//    public BootstrapHandle create_bootstrap_handle(XANode node) throws PathResolveException, UnsupportedEncodingException
+//    {
+//        if (storageNode.isFS())
+//        {
+//            BootstrapHandle ret = new FS_BootstrapHandle(this.storageNode, node );
+//            return ret;
+//        }
+//        throw new UnsupportedOperationException("Not yet implemented");
+//    }
+//  
     public FileHandle create_DDFS_handle( StoragePoolHandler aThis, FileSystemElemNode node, boolean create ) throws PathResolveException, IOException, SQLException
     {
         return DDFS_WR_FileHandle.create_fs_handle(this.storageNode, aThis, node, create );

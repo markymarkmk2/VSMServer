@@ -157,14 +157,14 @@ public class ServerApiImpl implements ServerApi
                 Log.debug("Stoppe CDP-Call da Pool aktiv ist");
                 return false;
             }
-            if (jm.isPoolBusyBackup(ticket.getPoolIdx()))
+            if (jm.isPoolBusyBackup(ticket))
             {
                 Log.debug("Registriere CDP-Call bei aktivem Backup");
                 BackupJobInterface bi = jm.getPoolBusyBackup(ticket.getPoolIdx());
                 bi.addCDPEvent( fileList, ticket );
-
                 return true;
             }
+            
             for (int i = 0; i < fileList.size(); i++)
             {
                 CdpEvent file = fileList.get(i);
@@ -172,7 +172,8 @@ public class ServerApiImpl implements ServerApi
                 if (file.elem == null || file.elem.getPath() == null || file.elem.getPath().isEmpty())
                 {
                     Log.warn("Ignoriere leeren CDP-Call",  file.toString());
-                    return false;
+                    fileList.remove(i);
+                    i--;
                 }
             }
             StoragePool pool = Main.get_control().getStoragePool(ticket.getPoolIdx());

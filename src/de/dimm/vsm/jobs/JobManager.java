@@ -14,6 +14,7 @@ import de.dimm.vsm.backup.jobinterface.CDPJobInterface;
 import de.dimm.vsm.backup.jobinterface.VfsJobInterface;
 import de.dimm.vsm.jobs.JobInterface.JOBSTATE;
 import de.dimm.vsm.lifecycle.NodeMigrationManager.MigrationJob;
+import de.dimm.vsm.net.CdpTicket;
 import de.dimm.vsm.records.AbstractStorageNode;
 import de.dimm.vsm.records.HotFolder;
 import de.dimm.vsm.records.Schedule;
@@ -399,6 +400,11 @@ public class JobManager extends WorkerParent
         BackupJobInterface bi = getPoolBusyBackup(poolIdx);
         return (bi != null);
     }
+    public boolean isPoolBusyBackup(CdpTicket ticket)
+    {
+        BackupJobInterface bi = getPoolBusyBackup(ticket);
+        return (bi != null);
+    }
     
     public BackupJobInterface getPoolBusyBackup(long poolIdx)
     {
@@ -421,6 +427,32 @@ public class JobManager extends WorkerParent
         }
         return null;
     }
+
+    public BackupJobInterface getPoolBusyBackup(CdpTicket ticket)
+    {
+        JobEntry[] jobs = getJobArray(null);
+        for (int i = 0; i < jobs.length; i++)
+        {
+            JobEntry jobEntry = jobs[i];
+            if (jobEntry.getJob() instanceof BackupJobInterface)
+            {
+                BackupJobInterface bi = (BackupJobInterface) jobEntry.getJob();
+                if (bi.getActSchedule() != null && bi.getActSchedule().getPool().getIdx() == ticket.getPoolIdx())
+                {
+                    if (bi.getActClientInfo().getIdx() == ticket.getClientInfoIdx())
+                    {
+                        if (jobEntry.getJobStatus() != JOBSTATE.FINISHED_OK &&
+                            jobEntry.getJobStatus() != JOBSTATE.FINISHED_ERROR)
+                        {
+                            return bi;
+                        }
+                    }
+                }
+            }
+        }
+        return null;
+    }
+    
     public boolean isPoolBusyCDP(long poolIdx)
     {
         JobEntry[] jobs = getJobArray(null);

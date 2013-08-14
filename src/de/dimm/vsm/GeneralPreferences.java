@@ -97,6 +97,8 @@ public class GeneralPreferences extends Preferences
     public static final String KEYSTORE_PWD = "KeystorePwd";
 
 
+    public static final String JDBC_URL = "JdbcUrl";
+    public static final String FIX_BOOTSTRAP = "FixBootstrap";
     
     /** Creates a new instance of Preferences */
     public GeneralPreferences()
@@ -160,10 +162,12 @@ public class GeneralPreferences extends Preferences
         prop_names.add( USE_NO_CACHE );
         prop_names.add( MIN_FREE_NODE_SPACE_GB );
         prop_names.add( FIX_DUPL_NAMES );
+        prop_names.add( FIX_BOOTSTRAP );
         prop_names.add( BLOCK_DUPL_DIRS );
         prop_names.add( CACHE_ON_WRITE_FS );
         prop_names.add( KEYSTORE );
         prop_names.add( KEYSTORE_PWD );
+        prop_names.add( JDBC_URL );
 
 
 
