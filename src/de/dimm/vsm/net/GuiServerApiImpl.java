@@ -32,6 +32,7 @@ import de.dimm.vsm.records.MountEntry;
 import de.dimm.vsm.records.Role;
 import de.dimm.vsm.records.Schedule;
 import de.dimm.vsm.records.StoragePool;
+import de.dimm.vsm.recovery.RecoveryManager;
 import de.dimm.vsm.tasks.TaskEntry;
 
 import java.io.IOException;
@@ -874,6 +875,14 @@ public class GuiServerApiImpl implements GuiServerApi
         Properties props = new Properties();
         props.setProperty("Version", Main.get_version_str());
         return props;
+    }
+
+    @Override
+    public List<String> scanDatabase( AbstractStorageNode node ) throws SQLException
+    {
+        RecoveryManager mgr = new RecoveryManager( node );
+        mgr.scan();
+        return mgr.getMessages();
     }
     
 

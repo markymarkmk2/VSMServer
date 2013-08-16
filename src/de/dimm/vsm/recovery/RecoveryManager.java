@@ -5,12 +5,17 @@
 package de.dimm.vsm.recovery;
 
 import com.thoughtworks.xstream.XStream;
+import de.dimm.vsm.Main;
+import de.dimm.vsm.auth.User;
 import de.dimm.vsm.fsengine.FSEA_Bootstrap;
 import de.dimm.vsm.fsengine.FSE_Bootstrap;
 import de.dimm.vsm.fsengine.HB_Bootstrap;
+import de.dimm.vsm.fsengine.JDBCStoragePoolHandler;
 import de.dimm.vsm.fsengine.StorageNodeHandler;
 import de.dimm.vsm.fsengine.StoragePoolHandler;
 import de.dimm.vsm.log.Log;
+import de.dimm.vsm.net.StoragePoolQry;
+import de.dimm.vsm.records.AbstractStorageNode;
 import de.dimm.vsm.records.DedupHashBlock;
 import de.dimm.vsm.records.FileSystemElemAttributes;
 import de.dimm.vsm.records.FileSystemElemNode;
@@ -20,6 +25,8 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  *
@@ -31,12 +38,23 @@ public class RecoveryManager
     String fsPath;
     String ddPath;
     int hashLen = 27;
+    List<String> messages = new ArrayList<>();
     
     DedupHashBlock actDedupHashBlock;
 
     public RecoveryManager( StoragePoolHandler spHandler, String nodePath )
     {
         this.spHandler = spHandler;
+        this.fsPath = nodePath + StorageNodeHandler.PATH_FSNODES_PREFIX;
+        this.ddPath = nodePath + StorageNodeHandler.PATH_DEDUPNODES_PREFIX;
+    }
+
+    public RecoveryManager( AbstractStorageNode node ) throws SQLException
+    {
+        StoragePoolQry qry = new StoragePoolQry( User.createSystemInternal(), false, -1);
+        spHandler = new JDBCStoragePoolHandler( Main.get_control().get_util_em( node.getPool()), node.getPool(), qry);
+        
+        String nodePath = node.getMountPoint();
         this.fsPath = nodePath + StorageNodeHandler.PATH_FSNODES_PREFIX;
         this.ddPath = nodePath + StorageNodeHandler.PATH_DEDUPNODES_PREFIX;
     }
@@ -360,6 +378,11 @@ public class RecoveryManager
         spHandler.check_open_transaction();
         spHandler.em_persist(node);
         spHandler.check_commit_transaction();    
+    }
+
+    public List<String> getMessages()
+    {
+        return messages;
     }
    
     

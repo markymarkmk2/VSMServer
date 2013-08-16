@@ -18,15 +18,15 @@
     <class>de.dimm.vsm.records.XANode</class>
     <class>de.dimm.vsm.records.HotFolder</class>
     <properties>
-        <property name="eclipselink.logging.level" value="ALL"/> 
+      <property name="eclipselink.logging.level" value="ALL"/>
       <property name="eclipselink.target-database" value="org.eclipse.persistence.platform.database.PostgreSQLPlatform"/>
       <property name="javax.persistence.jdbc.url" value="jdbc:postgresql://localhost:5432/VSMParamDB"/>
       <property name="javax.persistence.jdbc.password" value="12345"/>
       <property name="javax.persistence.jdbc.driver" value="org.postgresql.Driver"/>
-      <property name="javax.persistence.jdbc.user" value="mw"/>      
+      <property name="javax.persistence.jdbc.user" value="mw"/>
+      <property name="eclipselink.ddl-generation" value="create-tables"/>
     </properties>
   </persistence-unit>
-
   <persistence-unit name="VSM">
     <provider>org.eclipse.persistence.jpa.PersistenceProvider</provider>
     <class>de.dimm.vsm.records.ArchiveJob</class>
@@ -51,16 +51,16 @@
     <class>de.dimm.vsm.records.BackupVolumeResult</class>
     <class>de.dimm.vsm.records.MountEntry</class>
     <properties>
-     <!-- <property name="eclipselink.logging.level" value="ALL"/> -->
+      <!-- <property name="eclipselink.logging.level" value="ALL"/> -->
       <property name="eclipselink.target-database" value="org.eclipse.persistence.platform.database.DerbyPlatform"/>
       <property name="javax.persistence.jdbc.url" value="jdbc:derby:db/VSMParams;create=true"/>
       <property name="javax.persistence.jdbc.password" value="12345"/>
       <property name="javax.persistence.jdbc.driver" value="org.apache.derby.jdbc.EmbeddedDriver"/>
       <property name="javax.persistence.jdbc.user" value="mw"/>
       <property name="vsm.persistence.jdbc.pooldatasource" value="org.apache.derby.jdbc.EmbeddedConnectionPoolDataSource"/>
-    <property name="eclipselink.ddl-generation" value="create-tables"/></properties>
+      <property name="eclipselink.ddl-generation" value="create-tables"/>
+    </properties>
   </persistence-unit>
-  
   <persistence-unit name="VSMBase">
     <provider>org.eclipse.persistence.jpa.PersistenceProvider</provider>
     <class>de.dimm.vsm.records.StoragePoolNub</class>
@@ -72,7 +72,6 @@
     <class>de.dimm.vsm.records.MailNotifications</class>
     <class>de.dimm.vsm.records.MailGroup</class>
     <class>de.dimm.vsm.records.SmtpLoginData</class>
-    
     <properties>
       <property name="eclipselink.target-database" value="org.eclipse.persistence.platform.database.DerbyPlatform"/>
       <property name="javax.persistence.jdbc.url" value="jdbc:derby:db/VSMBase;create=true"/>
@@ -83,7 +82,6 @@
       <property name="eclipselink.ddl-generation" value="create-tables"/>
     </properties>
   </persistence-unit>
-
   <persistence-unit name="VSMLog">
     <provider>org.eclipse.persistence.jpa.PersistenceProvider</provider>
     <class>de.dimm.vsm.records.MessageLog</class>
@@ -97,7 +95,6 @@
       <property name="eclipselink.ddl-generation" value="create-tables"/>
     </properties>
   </persistence-unit>
-  
   <persistence-unit name="VSMText">
     <provider>org.eclipse.persistence.jpa.PersistenceProvider</provider>
     <class>de.dimm.vsm.records.TextBase</class>
