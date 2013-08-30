@@ -519,9 +519,14 @@ public class UiApiServlet  extends HessianServlet implements GuiServerApi
     }
 
     @Override
-    public List<String> scanDatabase( AbstractStorageNode node ) throws SQLException
+    public void scanDatabase( User user, AbstractStorageNode node )
     {
-        return entry.getApi().scanDatabase(node);
+        entry.getApi().scanDatabase(user, node);
+    }
+    @Override
+    public void rebuildBootstraps( User user, StoragePool pool )
+    {
+        entry.getApi().rebuildBootstraps( user, pool );
     }
 
 }

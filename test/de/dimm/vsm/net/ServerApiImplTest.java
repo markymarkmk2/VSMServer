@@ -4,13 +4,7 @@
  */
 package de.dimm.vsm.net;
 
-import de.dimm.vsm.Main;
-import de.dimm.vsm.Main;
-import de.dimm.vsm.fsengine.StoragePoolHandler;
 import de.dimm.vsm.fsengine.StoragePoolHandlerTest;
-import de.dimm.vsm.records.FileSystemElemNode;
-import de.dimm.vsm.records.MountEntry;
-import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
@@ -55,6 +49,15 @@ public class ServerApiImplTest
     public void tearDown()
     {
     }
+    
+    List<String> getList()
+    {
+        List<String> l = new ArrayList<>();
+        l.add("1");
+        l.add("2");
+        System.out.println("getList");    
+        return l;
+    }
 
     /**
      * Test of alert method, of class ServerApiImpl.
@@ -65,6 +68,12 @@ public class ServerApiImplTest
         System.out.println("alert");
         String reason = "";
         String msg = "";
+        
+        for (String s : getList())
+        {
+            System.out.println(s);            
+        }
+        
         ServerApiImpl instance = new ServerApiImpl();
         boolean expResult = false;
         boolean result = instance.alert(reason, msg);

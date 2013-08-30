@@ -13,7 +13,21 @@ import java.sql.SQLException;
 public interface IFix
 {
 
-    void runFix() throws SQLException;
-    public void setAbort( boolean abort );
+    public boolean runFix() throws SQLException;
+    public void abortJob();
+    public boolean isAborted();
+
+    public String getStatusStr();
+
+    public String getStatisticStr();
+
+    public Object getResultData();
+
+    public String getProcessPercent();
+
+    public String getProcessPercentDimension();
+
+
+    public void close();
     
 }

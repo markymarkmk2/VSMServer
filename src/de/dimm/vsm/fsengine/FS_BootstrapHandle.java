@@ -181,42 +181,42 @@ public class FS_BootstrapHandle<T> implements BootstrapHandle
         }
     }
 
-    @Override
-    public void read_bootstrap( FileSystemElemNode node ) throws IOException
-    {
-        FileReader fr = null;
-        try
-        {
-            fr = new FileReader(fh);
-            XStream xstream = new XStream();
-            Object o = xstream.fromXML(fr);
-            fr.close();
-
-            if (o instanceof FSE_Bootstrap)
-            {
-                FSE_Bootstrap t = (FSE_Bootstrap) o;
-                t.setNode(node);
-            }
-            throw new IOException("Wrong type of Bootstrap object: " + o.getClass().toString());
-        }
-        catch (IOException iOException)
-        {
-            throw iOException;
-        }
-        finally
-        {
-            if (fr != null)
-            {
-                try
-                {
-                    fr.close();
-                }
-                catch (IOException iOException)
-                {
-                }
-            }
-        }
-    }
+//    @Override
+//    public void read_bootstrap( FileSystemElemNode node ) throws IOException
+//    {
+//        FileReader fr = null;
+//        try
+//        {
+//            fr = new FileReader(fh);
+//            XStream xstream = new XStream();
+//            Object o = xstream.fromXML(fr);
+//            fr.close();
+//
+//            if (o instanceof FSE_Bootstrap)
+//            {
+//                FSE_Bootstrap t = (FSE_Bootstrap) o;
+//                t.setNode(node);
+//            }
+//            throw new IOException("Wrong type of Bootstrap object: " + o.getClass().toString());
+//        }
+//        catch (IOException iOException)
+//        {
+//            throw iOException;
+//        }
+//        finally
+//        {
+//            if (fr != null)
+//            {
+//                try
+//                {
+//                    fr.close();
+//                }
+//                catch (IOException iOException)
+//                {
+//                }
+//            }
+//        }
+//    }
 
     @Override
     public void write_bootstrap( FileSystemElemAttributes attr ) throws IOException
@@ -264,43 +264,43 @@ public class FS_BootstrapHandle<T> implements BootstrapHandle
         }
     }
 
-    @Override
-    public void read_bootstrap( FileSystemElemAttributes attr ) throws IOException
-    {
-       FileReader fr = null;
-        try
-        {
-            fr = new FileReader(fh);
-            XStream xstream = new XStream();
-            Object o = xstream.fromXML(fr);
-            fr.close();
-
-            if (o instanceof FSEA_Bootstrap)
-            {
-                FSEA_Bootstrap t = (FSEA_Bootstrap) o;
-                t.setNode(attr);
-            }
-            throw new IOException("Wrong type of Bootstrap object: " + o.getClass().toString());
-        }
-        catch (IOException iOException)
-        {
-            throw iOException;
-        }
-        finally
-        {
-            if (fr != null)
-            {
-                try
-                {
-                    fr.close();
-                }
-                catch (IOException iOException)
-                {
-                }
-            }
-        }
-    }
-
+//    @Override
+//    public void read_bootstrap( FileSystemElemAttributes attr ) throws IOException
+//    {
+//       FileReader fr = null;
+//        try
+//        {
+//            fr = new FileReader(fh);
+//            XStream xstream = new XStream();
+//            Object o = xstream.fromXML(fr);
+//            fr.close();
+//
+//            if (o instanceof FSEA_Bootstrap)
+//            {
+//                FSEA_Bootstrap t = (FSEA_Bootstrap) o;
+//                t.setNode(attr);
+//            }
+//            throw new IOException("Wrong type of Bootstrap object: " + o.getClass().toString());
+//        }
+//        catch (IOException iOException)
+//        {
+//            throw iOException;
+//        }
+//        finally
+//        {
+//            if (fr != null)
+//            {
+//                try
+//                {
+//                    fr.close();
+//                }
+//                catch (IOException iOException)
+//                {
+//                }
+//            }
+//        }
+//    }
+//
 
 
 
@@ -483,88 +483,88 @@ public class FS_BootstrapHandle<T> implements BootstrapHandle
         }
     }
 
-    @Override
-    public void read_bootstrap( PoolNodeFileLink node ) throws IOException
-    {
-        FileReader fr = null;
-        try
-        {
-            fr = new FileReader(fh);
-            XStream xstream = new XStream();
-            Object o = xstream.fromXML(fr);
-            fr.close();
-
-            if (o instanceof PNFL_Bootstrap)
-            {
-                PNFL_Bootstrap t = (PNFL_Bootstrap) o;
-                t.setNode(node);                
-            }
-            else
-            {
-                throw new IOException("Wrong type of Bootstrap object: " + o.getClass().toString());
-            }
-        }
-        catch (IOException iOException)
-        {
-            throw iOException;
-        }
-        finally
-        {
-            if (fr != null)
-            {
-                try
-                {
-                    fr.close();
-                }
-                catch (IOException iOException)
-                {
-                }
-            }
-        }    
-    }    
-
-    @Override
-    public void read_bootstrap( HashBlock hb ) throws IOException
-    {
-        FileReader fr = null;
-        try
-        {
-            fr = new FileReader(fh);
-            XStream xstream = new XStream();
-            Object o = xstream.fromXML(fr);
-            fr.close();
-
-            if (o instanceof HB_Bootstrap)
-            {
-                HB_Bootstrap t = (HB_Bootstrap) o;
-                t.setBlock(hb);
-                
-            }
-            else
-            {
-                throw new IOException("Wrong type of Bootstrap object: " + o.getClass().toString());
-            }
-        }
-        catch (IOException iOException)
-        {
-            throw iOException;
-        }
-        finally
-        {
-            if (fr != null)
-            {
-                try
-                {
-                    fr.close();
-                }
-                catch (IOException iOException)
-                {
-                }
-            }
-        }
-        
-    }
-
+//    @Override
+//    public void read_bootstrap( PoolNodeFileLink node ) throws IOException
+//    {
+//        FileReader fr = null;
+//        try
+//        {
+//            fr = new FileReader(fh);
+//            XStream xstream = new XStream();
+//            Object o = xstream.fromXML(fr);
+//            fr.close();
+//
+//            if (o instanceof PNFL_Bootstrap)
+//            {
+//                PNFL_Bootstrap t = (PNFL_Bootstrap) o;
+//                t.setNode(node);                
+//            }
+//            else
+//            {
+//                throw new IOException("Wrong type of Bootstrap object: " + o.getClass().toString());
+//            }
+//        }
+//        catch (IOException iOException)
+//        {
+//            throw iOException;
+//        }
+//        finally
+//        {
+//            if (fr != null)
+//            {
+//                try
+//                {
+//                    fr.close();
+//                }
+//                catch (IOException iOException)
+//                {
+//                }
+//            }
+//        }    
+//    }    
+//
+//    @Override
+//    public void read_bootstrap( HashBlock hb ) throws IOException
+//    {
+//        FileReader fr = null;
+//        try
+//        {
+//            fr = new FileReader(fh);
+//            XStream xstream = new XStream();
+//            Object o = xstream.fromXML(fr);
+//            fr.close();
+//
+//            if (o instanceof HB_Bootstrap)
+//            {
+//                HB_Bootstrap t = (HB_Bootstrap) o;
+//                t.setBlock(hb);
+//                
+//            }
+//            else
+//            {
+//                throw new IOException("Wrong type of Bootstrap object: " + o.getClass().toString());
+//            }
+//        }
+//        catch (IOException iOException)
+//        {
+//            throw iOException;
+//        }
+//        finally
+//        {
+//            if (fr != null)
+//            {
+//                try
+//                {
+//                    fr.close();
+//                }
+//                catch (IOException iOException)
+//                {
+//                }
+//            }
+//        }
+//        
+//    }
+//
     @Override
     public <T> T read_object( T test ) throws IOException
     {
@@ -643,48 +643,48 @@ public class FS_BootstrapHandle<T> implements BootstrapHandle
             }
         }
     }
-
-    @Override
-    public void read_bootstrap( XANode hb ) throws IOException
-    {
-        FileReader fr = null;
-        try
-        {
-            fr = new FileReader(fh);
-            XStream xstream = new XStream();
-            Object o = xstream.fromXML(fr);
-            fr.close();
-
-            if (o instanceof XA_Bootstrap)
-            {
-                XA_Bootstrap t = (XA_Bootstrap) o;
-                t.setBlock(hb);
-
-            }
-            else
-            {
-                throw new IOException("Wrong type of Bootstrap object: " + o.getClass().toString());
-            }
-        }
-        catch (IOException iOException)
-        {
-            throw iOException;
-        }
-        finally
-        {
-            if (fr != null)
-            {
-                try
-                {
-                    fr.close();
-                }
-                catch (IOException iOException)
-                {
-                }
-            }
-        }
-    }
-
-  
+//
+//    @Override
+//    public void read_bootstrap( XANode hb ) throws IOException
+//    {
+//        FileReader fr = null;
+//        try
+//        {
+//            fr = new FileReader(fh);
+//            XStream xstream = new XStream();
+//            Object o = xstream.fromXML(fr);
+//            fr.close();
+//
+//            if (o instanceof XA_Bootstrap)
+//            {
+//                XA_Bootstrap t = (XA_Bootstrap) o;
+//                t.setBlock(hb);
+//
+//            }
+//            else
+//            {
+//                throw new IOException("Wrong type of Bootstrap object: " + o.getClass().toString());
+//            }
+//        }
+//        catch (IOException iOException)
+//        {
+//            throw iOException;
+//        }
+//        finally
+//        {
+//            if (fr != null)
+//            {
+//                try
+//                {
+//                    fr.close();
+//                }
+//                catch (IOException iOException)
+//                {
+//                }
+//            }
+//        }
+//    }
+//
+//  
 
 }

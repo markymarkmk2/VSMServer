@@ -14,15 +14,19 @@ import de.dimm.vsm.auth.User;
 import de.dimm.vsm.backup.Backup;
 import de.dimm.vsm.backup.hotfolder.MMImportManager;
 import de.dimm.vsm.fsengine.FSEIndexer;
+import de.dimm.vsm.fsengine.JDBCConnectionFactory;
+import de.dimm.vsm.fsengine.JDBCEntityManager;
 import de.dimm.vsm.fsengine.StorageNodeHandler;
 import de.dimm.vsm.fsengine.StoragePoolHandler;
 import de.dimm.vsm.fsengine.VSMFSInputStream;
+import de.dimm.vsm.fsengine.fixes.FixBootstrapEntries;
 import de.dimm.vsm.jobs.JobEntry;
 import de.dimm.vsm.jobs.JobInterface;
 import de.dimm.vsm.jobs.JobManager;
 import de.dimm.vsm.lifecycle.NodeMigrationManager;
 import de.dimm.vsm.net.interfaces.GuiServerApi;
 import de.dimm.vsm.net.interfaces.IWrapper;
+import de.dimm.vsm.net.interfaces.UIRecoveryApi;
 import de.dimm.vsm.records.AbstractStorageNode;
 import de.dimm.vsm.records.ArchiveJob;
 import de.dimm.vsm.records.FileSystemElemNode;
@@ -878,11 +882,16 @@ public class GuiServerApiImpl implements GuiServerApi
     }
 
     @Override
-    public List<String> scanDatabase( AbstractStorageNode node ) throws SQLException
+    public void scanDatabase(  User user, AbstractStorageNode node )
+    {        
+        JobInterface ji = RecoveryManager.createJobInterface(user, node);
+        Main.get_control().getJobManager().addJobEntry(ji);
+    }
+    @Override
+    public void rebuildBootstraps( User user, StoragePool pool )
     {
-        RecoveryManager mgr = new RecoveryManager( node );
-        mgr.scan();
-        return mgr.getMessages();
+        JobInterface ji = FixBootstrapEntries.createFixJobInterface(user, pool);
+        Main.get_control().getJobManager().addJobEntry(ji);
     }
     
 

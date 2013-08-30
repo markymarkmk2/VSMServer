@@ -43,26 +43,19 @@ public class FixDoubleDirNames implements IFix {
         this.pool = pool;
     }
 
-    @Override
-    public void setAbort( boolean abort )
-    {
-        this.abort = abort;
-    }
-        
+
 
     @Override
-    public void runFix() throws SQLException
+    public boolean runFix() throws SQLException
     {
         Log.info("Fixing duplicate names started");
-        //cnt = 4935881;
-        Statement st = em.getConnection().createStatement();
-        ResultSet rs = st.executeQuery("select count(idx) from Filesystemelemnode");
-        if (rs.next())
+        try (Statement st = em.getConnection().createStatement(); ResultSet rs = st.executeQuery("select count(idx) from Filesystemelemnode"))
         {
-            cnt = rs.getLong(1);
+            if (rs.next())
+            {
+                cnt = rs.getLong(1);
+            }
         }
-        rs.close();
-        st.close();
         Log.info("Nodes to check: " + cnt);
 
         em.check_open_transaction();
@@ -72,6 +65,8 @@ public class FixDoubleDirNames implements IFix {
         checkDuplicates( root, /*recurse*/true );
 
         em.commit_transaction();
+        
+        return true;
     }
 
     private void checkDuplicates( FileSystemElemNode node, boolean recurse ) throws SQLException
@@ -97,7 +92,7 @@ public class FixDoubleDirNames implements IFix {
         //Log.debug("Checking " + level + ": " + node.getName() );
 
         // SORT IN INCREMENTING INDEX, OLD NODES ARE FIRST
-        List<FileSystemElemNode> children = new ArrayList<FileSystemElemNode>();
+        List<FileSystemElemNode> children = new ArrayList<>();
         children.addAll(node.getChildren(em));
         Collections.sort(children , new Comparator<FileSystemElemNode>() {
 
@@ -112,11 +107,13 @@ public class FixDoubleDirNames implements IFix {
 
 
         // NOW FIND NODES WITH DUPLICATE NAMES AND MERGE SECOND FOUND NODE INTO FIRST FOUND NODE
-        Map<String,FileSystemElemNode> map = new HashMap<String, FileSystemElemNode>();
-        boolean merged = false;
-
+        Map<String,FileSystemElemNode> map = new HashMap<>();
+        
         for (int i = 0; i < children.size(); i++)
         {
+            if (abort)
+                break;
+            
             FileSystemElemNode actNode = children.get(i);
             
             //  FIRST RECURSE DOWN, THEN WE CAN DELETE UNNEEDED DIRS ON OUR WAY BACK
@@ -130,8 +127,7 @@ public class FixDoubleDirNames implements IFix {
 
                 FileSystemElemNode keepNode = map.get(actNode.getName());
                 mergeNodes( keepNode, actNode );
-                merged = true;
-
+                
 
                 if(!(actNode.getChildren(em).isEmpty() && actNode.getHashBlocks(em).isEmpty() && actNode.getHistory(em).isEmpty() && actNode.getXaNodes(em).isEmpty()))
                 {
@@ -171,7 +167,6 @@ public class FixDoubleDirNames implements IFix {
             }
         }
        
-
         node.getChildren().unRealize();
         level--;
     }
@@ -263,5 +258,56 @@ public class FixDoubleDirNames implements IFix {
             xn.setParent(keepNode);
             em.em_merge(xn);
         }
+    }
+
+    @Override
+    public String getStatusStr()
+    {
+        return "";
+    }
+
+    @Override
+    public String getStatisticStr()
+    {
+        return "";
+    }
+
+    @Override
+    public Object getResultData()
+    {
+        return "";
+    }
+
+    @Override
+    public String getProcessPercent()
+    {
+        return Integer.toString(lastPercent);
+    }
+
+    @Override
+    public String getProcessPercentDimension()
+    {
+        return "%";
+    }
+
+    @Override
+    public void abortJob()
+    {
+        abort = true;
+    }
+
+    @Override
+    public boolean isAborted()
+    {
+        return abort;
+    }
+    
+    
+
+    @Override
+    public void close()
+    {
+        em.close_transaction();
+        em.close_entitymanager();
     }
 }

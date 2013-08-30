@@ -589,10 +589,13 @@ public class StoragePoolNubHandler
 
 
             root_node.getAttributes().setFile(null);
-            gem.em_persist(root_node.getAttributes());
-            gem.em_persist(root_node);
+            gem.em_persist(root_node.getAttributes(), true);
+            gem.em_persist(root_node, true);
             root_node.getAttributes().setFile(root_node);
             gem.em_merge(root_node.getAttributes());
+            
+            // Reload from DB
+            root_node = gem.em_find(FileSystemElemNode.class, root_node.getIdx());
 
 
             p.setRootDir(root_node);

@@ -75,67 +75,67 @@ public class MultiBootstrapHandle implements BootstrapHandle
         }
     }
 
-
-    @Override
-    public void read_bootstrap( FileSystemElemAttributes attr ) throws IOException
-    {
-        IOException lastException = null;
-        for (int i = 0; i < fh_list.size(); i++)
-        {
-            BootstrapHandle handle = fh_list.get(i);
-            try
-            {
-                handle.read_bootstrap(attr);
-                return;
-            }
-            catch (IOException iOException)
-            {
-                lastException = iOException;
-            }
-        }
-        throw lastException;
-    }
-
-    @Override
-    public void read_bootstrap( FileSystemElemNode node ) throws IOException
-    {
-        IOException lastException = null;
-        for (int i = 0; i < fh_list.size(); i++)
-        {
-            BootstrapHandle handle = fh_list.get(i);
-            try
-            {
-                handle.read_bootstrap(node);
-                return;
-            }
-            catch (IOException iOException)
-            {
-                lastException = iOException;
-            }
-        }
-        throw lastException;
-    }
-    
-    @Override
-    public void read_bootstrap( PoolNodeFileLink node ) throws IOException
-    {
-        IOException lastException = null;
-        for (int i = 0; i < fh_list.size(); i++)
-        {
-            BootstrapHandle handle = fh_list.get(i);
-            try
-            {
-                handle.read_bootstrap(node);
-                return;
-            }
-            catch (IOException iOException)
-            {
-                lastException = iOException;
-            }
-        }
-        throw lastException;
-    }
-
+//
+//    @Override
+//    public void read_bootstrap( FileSystemElemAttributes attr ) throws IOException
+//    {
+//        IOException lastException = null;
+//        for (int i = 0; i < fh_list.size(); i++)
+//        {
+//            BootstrapHandle handle = fh_list.get(i);
+//            try
+//            {
+//                handle.read_bootstrap(attr);
+//                return;
+//            }
+//            catch (IOException iOException)
+//            {
+//                lastException = iOException;
+//            }
+//        }
+//        throw lastException;
+//    }
+//
+//    @Override
+//    public void read_bootstrap( FileSystemElemNode node ) throws IOException
+//    {
+//        IOException lastException = null;
+//        for (int i = 0; i < fh_list.size(); i++)
+//        {
+//            BootstrapHandle handle = fh_list.get(i);
+//            try
+//            {
+//                handle.read_bootstrap(node);
+//                return;
+//            }
+//            catch (IOException iOException)
+//            {
+//                lastException = iOException;
+//            }
+//        }
+//        throw lastException;
+//    }
+//    
+//    @Override
+//    public void read_bootstrap( PoolNodeFileLink node ) throws IOException
+//    {
+//        IOException lastException = null;
+//        for (int i = 0; i < fh_list.size(); i++)
+//        {
+//            BootstrapHandle handle = fh_list.get(i);
+//            try
+//            {
+//                handle.read_bootstrap(node);
+//                return;
+//            }
+//            catch (IOException iOException)
+//            {
+//                lastException = iOException;
+//            }
+//        }
+//        throw lastException;
+//    }
+//
 
 
     @Override
@@ -157,46 +157,46 @@ public class MultiBootstrapHandle implements BootstrapHandle
             handle.write_bootstrap(xa);
         }
     }
-
-    @Override
-    public void read_bootstrap( HashBlock hb ) throws IOException
-    {
-        IOException lastException = null;
-        for (int i = 0; i < fh_list.size(); i++)
-        {
-            BootstrapHandle handle = fh_list.get(i);
-            try
-            {
-                handle.read_bootstrap(hb);
-                return;
-            }
-            catch (IOException iOException)
-            {
-                lastException = iOException;
-            }
-        }
-        throw lastException;
-    }
-    
-    @Override
-    public void read_bootstrap( XANode hb ) throws IOException
-    {
-        IOException lastException = null;
-        for (int i = 0; i < fh_list.size(); i++)
-        {
-            BootstrapHandle handle = fh_list.get(i);
-            try
-            {
-                handle.read_bootstrap(hb);
-                return;
-            }
-            catch (IOException iOException)
-            {
-                lastException = iOException;
-            }
-        }
-        throw lastException;
-    }
+//
+//    @Override
+//    public void read_bootstrap( HashBlock hb ) throws IOException
+//    {
+//        IOException lastException = null;
+//        for (int i = 0; i < fh_list.size(); i++)
+//        {
+//            BootstrapHandle handle = fh_list.get(i);
+//            try
+//            {
+//                handle.read_bootstrap(hb);
+//                return;
+//            }
+//            catch (IOException iOException)
+//            {
+//                lastException = iOException;
+//            }
+//        }
+//        throw lastException;
+//    }
+//    
+//    @Override
+//    public void read_bootstrap( XANode hb ) throws IOException
+//    {
+//        IOException lastException = null;
+//        for (int i = 0; i < fh_list.size(); i++)
+//        {
+//            BootstrapHandle handle = fh_list.get(i);
+//            try
+//            {
+//                handle.read_bootstrap(hb);
+//                return;
+//            }
+//            catch (IOException iOException)
+//            {
+//                lastException = iOException;
+//            }
+//        }
+//        throw lastException;
+//    }
 
 
     @Override

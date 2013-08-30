@@ -99,6 +99,7 @@ public class GeneralPreferences extends Preferences
 
     public static final String JDBC_URL = "JdbcUrl";
     public static final String FIX_BOOTSTRAP = "FixBootstrap";
+    public static final String BOOTSTRAPFIX_OVERWRITE = "BootstrapFixOverwrite";
     
     /** Creates a new instance of Preferences */
     public GeneralPreferences()
@@ -168,6 +169,7 @@ public class GeneralPreferences extends Preferences
         prop_names.add( KEYSTORE );
         prop_names.add( KEYSTORE_PWD );
         prop_names.add( JDBC_URL );
+        prop_names.add( BOOTSTRAPFIX_OVERWRITE );
 
 
 
