@@ -81,7 +81,8 @@ public class FixBootstrapEntries implements IFix
         this.em = em;
         this.pool = pool; 
         resultData = new ResultData();
-        overwriteExisting = Main.get_bool_prop(GeneralPreferences.BOOTSTRAPFIX_OVERWRITE, false );
+        // Default alles überschreiben
+        overwriteExisting = Main.get_bool_prop(GeneralPreferences.BOOTSTRAPFIX_OVERWRITE, true );
     }
 
     @Override
