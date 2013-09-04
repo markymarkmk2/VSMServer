@@ -70,8 +70,6 @@ import java.util.Properties;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.FutureTask;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
 
 
@@ -96,6 +94,20 @@ public class Backup
         Backup backup = new Backup(sched);
         JobInterface job = backup.createJob(user);
         return job;
+    }
+
+    // Rooteinträge werden nicht mitgesichert
+    private static boolean isFileSystemRoot( RemoteFSElem remoteFSElem )
+    {
+        if (remoteFSElem.getName().equals("/"))
+            return true;
+        
+        if (remoteFSElem.getName().length() <= 3 && remoteFSElem.getName().length() > 1)
+        {
+            if (remoteFSElem.getName().charAt(1) == ':')
+                return true;
+        }
+        return false;                
     }
 
    // List<Schedule> schedules;
@@ -1114,29 +1126,31 @@ public class Backup
 
         checkSpace(context);
        
-        // HANDLE OPS FOR THIS ENTRY
-        try
+        // Keinen Slash sichern
+        if (!isFileSystemRoot(remoteFSElem) )
         {
-            boolean ret = handle_single_fs_entry( context, node, remoteFSElem);
-            if (!ret)
+            try
             {
-                context.addError(remoteFSElem);
-                Log.err("Fehler beim Sichern der Datei", "%s", remoteFSElem.getPath());
-                if (context.isAbortOnError())
+                boolean ret = handle_single_fs_entry( context, node, remoteFSElem);
+                if (!ret)
                 {
-                    context.setResult( false );
-                    return;
+                    context.addError(remoteFSElem);
+                    Log.err("Fehler beim Sichern der Datei", "%s", remoteFSElem.getPath());
+                    if (context.isAbortOnError())
+                    {
+                        context.setResult( false );
+                        return;
+                    }
                 }
             }
+            catch (PoolReadOnlyException | PathResolveException | SQLException exc)
+            {
+                Log.err("Abbruch bei Dateisicherung", remoteFSElem.getPath(), exc);
+                context.setJobState(JOBSTATE.ABORTED);
+                context.setResult( false );
+                return;
+            }
         }
-        catch (PoolReadOnlyException | PathResolveException | SQLException exc)
-        {
-            Log.err("Abbruch bei Dateisicherung", remoteFSElem.getPath(), exc);
-            context.setJobState(JOBSTATE.ABORTED);
-            context.setResult( false );
-            return;
-        }
-
         if (context.isAbort())
         {
             context.setJobState(JOBSTATE.ABORTED);
