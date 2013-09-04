@@ -1,4 +1,7 @@
 Veränderungen in V1.5.4
+FIX: Slash als Startpfad zulassen
+
+Veränderungen in V1.5.4
 UPD: Schreiben der Desasterrecovery-Bootstraps
 UPD: Scannen einer Datenbank aus dem Desasterrecovery 
 
