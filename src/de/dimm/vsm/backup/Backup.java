@@ -871,6 +871,18 @@ public class Backup
         
         //return true;
     }
+    
+    
+    private static ArrayList<RemoteFSElem> listClientDir( AgentApiEntry apiEntry, final ClientVolume clientVolume, RemoteFSElem path, boolean lazyacl)
+    {
+        ArrayList<RemoteFSElem> start;
+        if (clientVolume != null && clientVolume.getStaylocal())
+            start = apiEntry.getApi().list_dir_local(path, lazyacl);
+        else
+            start = apiEntry.getApi().list_dir(path, lazyacl);
+        
+        return start;
+    }
 
     private BackupContext backupClientVolume(  StoragePoolHandler hdl, final ClientInfo clientInfo, ClientVolume clientVolume ) throws PoolReadOnlyException, SQLException
     {
@@ -934,7 +946,7 @@ public class Backup
 
         Log.debug("Verbunden mit Agent", clientInfo.toString() + ", " + agent_ver + ", " + agent_os + " " + agent_os_arch + " " + agent_os_ver);
 
-        ArrayList<RemoteFSElem> start = apiEntry.getApi().list_dir(clientVolume.getVolumePath(),/*lazyacl*/true);
+        ArrayList<RemoteFSElem> start = listClientDir( apiEntry, clientVolume, clientVolume.getVolumePath(),/*lazyacl*/true);
         if (start == null || start.isEmpty())
         {
             try
@@ -1175,15 +1187,21 @@ public class Backup
                 {
                     // HANDLE BACKUP FOR ALL ELEMENTS ON AGENT
                     ArrayList<RemoteFSElem> fs_list;
-                    try
+                    ClientVolume cvol = null;
+                    if (context instanceof BackupContext)
                     {
-                        fs_list = context.apiEntry.getApi().list_dir(remoteFSElem, lazyAclInfo);
+                        cvol = ((BackupContext)context).getActVolume();
+                    }                    
+                    try
+                    {                       
+                        fs_list = listClientDir(context.apiEntry, cvol, remoteFSElem, lazyAclInfo);
+                        //fs_list = context.apiEntry.getApi().list_dir(remoteFSElem, lazyAclInfo);
                     }
                     catch (Exception e)
                     {
                         Log.warn(Main.Txt("Fehler beim Lesen von Verzeichnis, wiederhole") , remoteFSElem.getPath());
                         LogicControl.sleep(1000);
-                        fs_list = context.apiEntry.getApi().list_dir(remoteFSElem, lazyAclInfo);
+                        fs_list = listClientDir(context.apiEntry, cvol, remoteFSElem, lazyAclInfo);
                     }
                     return fs_list;
                 }
