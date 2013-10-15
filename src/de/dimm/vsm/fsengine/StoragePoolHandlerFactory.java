@@ -31,8 +31,16 @@ public class StoragePoolHandlerFactory
     {
         try
         {
-            StoragePool pool = Main.get_control().getStoragePool(_pool.getIdx());
-            Log.debug("Offene DB-Verbindungen", "" + Main.get_control().getStorageNubHandler().getActiveConnections(pool) );
+            StoragePool pool;
+            if ( Main.get_control() != null)
+            {    
+                pool = Main.get_control().getStoragePool(_pool.getIdx());
+                Log.debug("Offene DB-Verbindungen", "" + Main.get_control().getStorageNubHandler().getActiveConnections(pool) );
+            }
+            else
+            {
+                pool = _pool;
+            }
 // RELOAD FROM LIST
             JDBCConnectionFactory conn = nubHandler.getConnectionFactory(pool);
             JDBCEntityManager em = new JDBCEntityManager(pool.getIdx(), conn);

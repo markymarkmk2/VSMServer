@@ -59,6 +59,7 @@ import de.dimm.vsm.records.XANode;
 import de.dimm.vsm.vaadin.VSMCMain;
 import java.io.IOException;
 import java.sql.SQLException;
+import java.sql.SQLNonTransientConnectionException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
@@ -1686,9 +1687,15 @@ public class Backup
         {
             Log.err( "Datei wurde nicht gesichert", e.getMessage());
             context.setStatus(VSMCMain.Txt("Entferne") + " " + remoteFSElem.getPath() );
-            context.poolhandler.remove_fse_node(node, true);
+            context.poolhandler.remove_fse_node(node, true);            
             context.apiEntry.getApi().get_properties();
         }
+        catch(SQLNonTransientConnectionException e)
+        {
+            // Platte kapuut, voll etc, da kommen wir nicht mehr heile raus
+             context.setAbort(true);
+             Log.err( "Datenbank ist geschlossen bei node", node.toString(), e);
+        }        
         catch (Exception e)
         {
             Log.err( "Fehler beim Schreiben von Node", node.toString(), e);
@@ -1822,6 +1829,12 @@ public class Backup
             context.poolhandler.remove_fse_node(node, true);
             context.apiEntry.getApi().get_properties();
         }
+        catch(SQLNonTransientConnectionException e)
+        {
+            // Platte kapuut, voll etc, da kommen wir nicht mehr heile raus
+             context.setAbort(true);
+             Log.err( "Datenbank ist geschlossen bei node", node.toString(), e);
+        }        
         catch (Exception e)
         {
 
@@ -1882,6 +1895,7 @@ public class Backup
         }
         catch (IOException iOException)
         {
+            context.setAbort(true);
             Log.err("Node konnte nicht erzeugt werden", remoteFSElem.toString(), iOException);
             return null;
         }
@@ -1905,6 +1919,7 @@ public class Backup
         }
         catch (IOException iOException)
         {
+            context.setAbort(true);
             Log.err("Anmeldung bei Datenbank schlug fehl", node.toString(), iOException);
             context.poolhandler.remove_fse_node(node, true);
             return null;
@@ -2081,6 +2096,12 @@ public class Backup
         {
             Log.err( "Streamdaten wurden nicht gesichert", node.toString() + ": " + e.getMessage());
         }
+        catch(SQLNonTransientConnectionException e)
+        {
+            // Platte kapuut, voll etc, da kommen wir nicht mehr heile raus
+             context.setAbort(true);
+             Log.err( "Datenbank ist geschlossen bei node", node.toString(), e);
+        }        
         catch (Exception e)
         {
             Log.err( "Fehler beim Schreiben von StreamDaten", node.toString(), e);
@@ -2217,6 +2238,13 @@ public class Backup
             Log.err( "Fehler beim Schreiben von DedupStreamDaten", node.toString() + ": " + e.getMessage());
             return false;
         }
+        catch(SQLNonTransientConnectionException e)
+        {
+            // Platte kapuut, voll etc, da kommen wir nicht mehr heile raus
+             context.setAbort(true);
+             Log.err( "Datenbank ist geschlossen bei node", node.toString(), e);
+             return false;
+        }        
         catch (Exception e)
         {
             Log.err( "Fehler beim Schreiben von DedupStreamDaten", node.toString(), e);
@@ -2480,6 +2508,13 @@ public class Backup
             }
             return false;
         }
+        catch(SQLNonTransientConnectionException e)
+        {
+            // Platte kapuut, voll etc, da kommen wir nicht mehr heile raus
+             context.setAbort(true);
+             Log.err( "Datenbank ist geschlossen bei node", node.toString(), e);
+             return false;
+        }        
         catch (Exception e)
         {
             Log.err( "Fehler beim Update von Node", node.toString(), e);
@@ -2639,6 +2674,13 @@ public class Backup
             Log.err( "Fehler beim Update von StreamDaten", node.toString() + ": " + e.getMessage());
             return false;
         }
+        catch(SQLNonTransientConnectionException e)
+        {
+            // Platte kapuut, voll etc, da kommen wir nicht mehr heile raus
+             context.setAbort(true);
+             Log.err( "Datenbank ist geschlossen bei node", node.toString(), e);
+             return false;
+        }        
         catch (Exception e)
         {
             // TODO: WIN + MAC Agent
@@ -2955,6 +2997,12 @@ public class Backup
                 context.hashCache.addDhb(remote_hash, dhb.getIdx());
                 context.stat.setDhbCacheSize( context.hashCache.size() );
             }
+        }
+        catch(SQLNonTransientConnectionException e)
+        {
+            // Platte kapuut, voll etc, da kommen wir nicht mehr heile raus
+             context.setAbort(true);
+             Log.err( "Datenbank ist geschlossen bei node", node.toString(), e);
         }
         catch (Exception e)
         {
