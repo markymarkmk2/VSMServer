@@ -1304,6 +1304,8 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
 
         // TODO: CACHE
         FileSystemElemNode node = resolve_fse_node_from_db(idx);
+        if (node == null)
+            throw new PathResolveException("Kein Node zu DB-Idx " + idx);
 
         long fileNo = open_fh( node, create );
 
@@ -1316,6 +1318,8 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
         // FILE HANDLE IDX IS NOT NODE-IDX
 
         FileSystemElemNode node = resolve_fse_node_from_db(idx);
+        if (node == null)
+            throw new PathResolveException("Kein Node zu DB-Idx " + idx);
 
         long fileNo = open_stream( node, streamInfo, create );
 
@@ -2142,6 +2146,19 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
         Log.debug(Main.Txt((b ? "Setze":"Entferne") + " Löschflag für"), fsenode.toString());
         
     }
+    
+    public void updateAttributes( long fileNo,  long actTimestamp, RemoteFSElem elem ) throws SQLException, DBConnException, PoolReadOnlyException
+    {
+        FileSystemElemNode fsenode = getNodeByFileNo( fileNo );
+        
+        if (isReadOnly(fsenode))
+            throw new PoolReadOnlyException(pool);
+
+        
+        add_new_fse_attributes( fsenode, elem, actTimestamp );
+        Log.debug(Main.Txt("Setze neue attribute  für"), fsenode.toString()); 
+    }
+
 
     // CAUTION, THIS MODIFIES THE ACTUAL FILE WITHOUT HISTORY MANAGEMENT!!!!
     void update_filesize( FileSystemElemNode node, long size ) throws PoolReadOnlyException, SQLException, DBConnException

@@ -331,7 +331,12 @@ public class LoginManager extends WorkerParent implements GuiLoginApi
 
     private boolean matchesRole( Role role, String userName )
     {
-        String filter = role.getAccountmatch();        
+        String filter = role.getAccountmatch();      
+        if (filter == null || filter.isEmpty())
+        {
+            Log.err("Ungültiger Rollenfilter ", role.getName());
+            return false;
+        }
         return userName.matches(filter);
     }
 

@@ -256,16 +256,13 @@ public class StoragePoolHandlerServlet extends HessianServlet implements Storage
         long ret = handler.open_stream(e, streamInfo, true);
         checkCommit( handler );
         return ret;
-
     }
 
     @Override
     public List<RemoteFSElem> get_child_nodes( StoragePoolWrapper pool, RemoteFSElem node ) throws SQLException
     {
         StoragePoolHandler handler = poolContextManager.getHandlerbyWrapper(pool);
-
         List<RemoteFSElem> ret = get_child_nodes(handler, node);
-        
         return ret;
     }
 
@@ -287,10 +284,10 @@ public class StoragePoolHandlerServlet extends HessianServlet implements Storage
     
      
     @Override
-    public void set_ms_times( StoragePoolWrapper pool, long fileNo, long toJavaTime, long toJavaTime0, long toJavaTime1 ) throws SQLException, DBConnException, PoolReadOnlyException
+    public void set_ms_times( StoragePoolWrapper pool, long fileNo, long cTime, long aTime, long mTime ) throws SQLException, DBConnException, PoolReadOnlyException
     {
         StoragePoolHandler handler = poolContextManager.getHandlerbyWrapper(pool);
-        handler.set_ms_times(fileNo, toJavaTime, toJavaTime0, toJavaTime1);
+        handler.set_ms_times(fileNo, cTime, aTime, mTime);
     }
 
     @Override
@@ -384,6 +381,21 @@ public class StoragePoolHandlerServlet extends HessianServlet implements Storage
         {
             Log.debug("truncateFile to " + size, Long.toString(fileNo));
             handler.truncateFile(fileNo, size);
+            handler.commit_transaction();
+        }
+        else
+            Log.err("Ungültiger Handler in Aufruf", "truncateFile");
+
+    }
+    
+    @Override
+    public void updateAttributes( StoragePoolWrapper pool, long fileNo, RemoteFSElem elem ) throws IOException, SQLException, PoolReadOnlyException
+    {
+        StoragePoolHandler handler = poolContextManager.getHandlerbyWrapper(pool);
+        if (handler != null)
+        {
+            Log.debug("updateAttributes for " + elem.getPath());
+            handler.updateAttributes( fileNo, System.currentTimeMillis(), elem );
             handler.commit_transaction();
         }
         else

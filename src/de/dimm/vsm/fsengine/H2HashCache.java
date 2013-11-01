@@ -55,7 +55,7 @@ public class H2HashCache extends HashCache
         if (!s.endsWith("/"))
             s += "/";
 
-        String p = s + "db_" + nub.getIdx() + RELPARAMPATH;
+        String p = s + nub.getDbName() + RELPARAMPATH;
         return p;
     }
     public H2HashCache(StoragePoolNub nub,  StoragePool pool)

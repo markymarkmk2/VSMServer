@@ -14,6 +14,7 @@ import de.dimm.vsm.fsengine.StoragePoolHandlerFactory;
 import de.dimm.vsm.log.Log;
 import de.dimm.vsm.records.FileSystemElemNode;
 import de.dimm.vsm.records.StoragePool;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
@@ -140,6 +141,26 @@ public class StoragePoolHandlerContextManager extends WorkerParent
                 // ALL FOLLOWING REQUESTS ARE IN REAL VSM-NAMESPACE
                 qry.setUseMappingFilter(false);
                 FileSystemElemNode node = handler.resolve_node( subPath );
+                // Bei schreibenden Mounts das Erstellen des VSM-Pfads zulassen
+                if (node == null && !rdonly)
+                {
+                    FileSystemElemNode parent = handler.resolve_parent_dir_node( subPath);
+                    // Fehlende Parent-Ordner erzeugen
+                    if (parent == null && !subPath.equals( "/"))
+                    {
+                        parent = handler.create_parent_dir_node(subPath);
+                    }
+                    // Ordner selber erzeugen (darf auch root-Path sein!)
+                    if (parent != null || subPath.equals( "/"))
+                    {
+                        handler.create_fse_node_complete( subPath, FileSystemElemNode.FT_DIR);
+                    }
+                    node = handler.resolve_node( subPath );    
+                    if (node == null)
+                    {
+                        throw new IOException("VSM-Pfad kann nicht angelegt werden: " + subPath );                        
+                    }
+                }
                 handler.setPathResolver( new NodePathResolver(node, handler));
                 handler.em_refresh(node);
 
@@ -200,6 +221,7 @@ public class StoragePoolHandlerContextManager extends WorkerParent
 
                 StoragePoolHandlerContext context = new StoragePoolHandlerContext(handler, drive, agentIp, port);
                 handlerMap.put(w, context);
+                Log.debug( "Adding StoragePoolWrapper " + w.toString());
                 return w;
             }
             catch (Exception iOException)
@@ -213,6 +235,7 @@ public class StoragePoolHandlerContextManager extends WorkerParent
     {
         synchronized (handlerMap)
         {
+            Log.debug( "Removing StoragePoolWrapper " + poolWrapper.toString());
             StoragePoolHandlerContext ctx = handlerMap.remove(poolWrapper);
             if (ctx != null && poolWrapper.isPoolHandlerCreated())
             {
