@@ -890,6 +890,9 @@ public class Backup
         Properties p;
         
         AgentApiEntry apiEntry;
+        
+        if (clientInfo == null)
+            throw new SQLException("Clientinfo is null");
 
         VariableResolver connectVr = new VariableResolver() {
 
@@ -898,18 +901,12 @@ public class Backup
             {
                 if (s.indexOf("$AGENT") >= 0)
                 {
-                    String f = "";
-                    if (clientInfo != null)
-                        f = clientInfo.getIp();
-
+                    String f = clientInfo.getIp();
                     s = s.replace("$AGENT", f );
                 }
                 if (s.indexOf("$NAME") >= 0)
                 {
-                    String f = "";
-                    if (clientInfo != null)
-                        f = clientInfo.getSched().getName();
-
+                    String f = clientInfo.getSched().getName();
                     s = s.replace("$NAME", f );
                 }
                 return s;
@@ -1224,7 +1221,7 @@ public class Backup
             HashMap<Long, FileSystemElemNode> deleteMap = null;
             if (!onlyNewer && childNodes != null && !childNodes.isEmpty())
             {
-                deleteMap =  new HashMap<Long, FileSystemElemNode>(childNodes.size());
+                deleteMap =  new HashMap<>(childNodes.size());
 
                 try
                 {
@@ -1245,10 +1242,7 @@ public class Backup
             {
                 fs_list = fRemote.get();
             }
-            catch (InterruptedException interruptedException)
-            {
-            }
-            catch (ExecutionException exc)
+            catch (ExecutionException | InterruptedException exc)
             {
                 Log.err(Main.Txt("Fehler beim Lesen von Verzeichnis") , remoteFSElem.getPath(), exc);
                 throw exc.getCause();
@@ -1305,7 +1299,7 @@ public class Backup
                         {
                             context.poolhandler.setDeleted(fileSystemElemNode, true, System.currentTimeMillis());                           
                         }
-                        catch (Exception exception)
+                        catch (SQLException | DBConnException | PoolReadOnlyException exception)
                         {
                             Log.err(Main.Txt("Fehler beim Setzen des Löschflags") , fileSystemElemNode.toString(), exception);
                         }
@@ -1354,7 +1348,7 @@ public class Backup
         ticket.getFileList();
         for (CdpEvent ev : ticket.getFileList())
         {
-            FileSystemElemNode node = null;
+            FileSystemElemNode node;
             RemoteFSElem remoteFSElem = ev.getElem();
 
             // DETECT PATH IN STORAGE
@@ -1600,7 +1594,7 @@ public class Backup
                                 {
                                     Log.err("Cannot decompress read_and_hash remote file handle " + remoteFSElem.toString());
                                     // FALLBACK
-                                    HashDataResult _res = null;
+                                    HashDataResult _res;
                                     _res = context.apiEntry.getApi().read_and_hash(remote_handle, offset, rlen);
                                     if (_res != null)
                                     {
@@ -1612,7 +1606,7 @@ public class Backup
                         }
                         else
                         {
-                            HashDataResult _res = null;
+                            HashDataResult _res;
                             _res = context.apiEntry.getApi().read_and_hash(remote_handle, offset, rlen);
                             if (_res != null)
                             {
@@ -1885,7 +1879,7 @@ public class Backup
     {
         String abs_path = context.getRemoteElemAbsPath( remoteFSElem );
 
-        FileSystemElemNode node = null;
+        FileSystemElemNode node;
 
         // FIRST DB STUFF: CREATE DATABASE NODE
         try
@@ -2004,7 +1998,7 @@ public class Backup
                     rlen = (int)len;
 
                 // READ DATA FROM CLIENT
-                int realLen = 0;
+                int realLen;
 
                 String hashValue = null;
                 byte[] data = null;
@@ -2032,7 +2026,7 @@ public class Backup
                         {
                             Log.err("Cannot decompress read_and_hash remote file handle " + remoteFSElem.toString());
                             // FALLBACK
-                            HashDataResult _res = null;
+                            HashDataResult _res;
                             _res = context.apiEntry.getApi().read_and_hash(remote_handle, offset, rlen);
                             if (_res != null)
                             {
@@ -2044,7 +2038,7 @@ public class Backup
                 }
                 else
                 {
-                    HashDataResult res = null;
+                    HashDataResult res;
                     res = context.apiEntry.getApi().read_and_hash(remote_handle, offset, rlen);
                     if (res != null)
                     {
@@ -2154,10 +2148,7 @@ public class Backup
 
 
             long len = remoteFSElem.getStreamSize();
-            long offset = 0;
-
-
-
+            long offset;
 
             int block_number = -1;
             while((long)(block_number+1) * context.hash_block_size < len)
@@ -2174,10 +2165,7 @@ public class Backup
                 if (read_len + offset > len)
                     read_len = (int) (len - offset);
 
-                String remote_hash = null;
-
-
-
+                String remote_hash;
 
                 // READ REMOTE HASH IF NECESSARY
                 remote_hash = context.apiEntry.getApi().read_hash(remote_handle, offset, read_len, CS_Constants.HASH_ALGORITHM);
@@ -2185,11 +2173,8 @@ public class Backup
                 if (remote_hash == null)
                     throw new IOException("Cannot retrieve hash from offset " + offset + " len " + read_len + " of remote file " + remoteFSElem.toString());
 
-
-
                 // CHECK FOR EXISTING BLOCK (DEDUP)
-                DedupHashBlock block = null;
-
+                DedupHashBlock block;
                 try
                 {
                     block = check_for_existing_block(context, remote_hash, checkDHBExistance);
@@ -2280,7 +2265,7 @@ public class Backup
 
     static private List<HashBlock> remove_older_hashblocks( List<HashBlock> hash_block_list )
     {
-        List<HashBlock> ret = new ArrayList<HashBlock>();
+        List<HashBlock> ret = new ArrayList<>();
 
         // SORT IN BLOCKOFFSET ORDER, NEWER BLOCKS FIRST
         java.util.Collections.sort(hash_block_list, new Comparator<HashBlock>() {
@@ -2360,7 +2345,7 @@ public class Backup
             
 
             long len = remoteFSElem.getDataSize();
-            long offset = 0;
+            long offset;
 
             // READ HASHBLOCKS
             List<HashBlock> hash_block_list = node.getHashBlocks().getList(context.poolhandler.getEm());
@@ -2393,7 +2378,7 @@ public class Backup
                 }
 
                 String local_hash = null;
-                String remote_hash = null;
+                String remote_hash;
 
 
                 // IS THIS A BLOCK NOT INSIDE ORIG ?
@@ -2441,7 +2426,7 @@ public class Backup
                 }
 
                 // CHECK FOR EXISTING BLOCK (DEDUP)
-                DedupHashBlock block = null;
+                DedupHashBlock block;
 
                 try
                 {
@@ -2551,7 +2536,7 @@ public class Backup
             
 
             long len = remoteFSElem.getStreamSize();
-            long offset = 0;
+            long offset;
 
             // READ XA HASHBLOCKS
             List<XANode> xa_block_list = node.getXaNodes().getList(context.poolhandler.getEm());
@@ -2586,7 +2571,7 @@ public class Backup
                 }
 
                 String local_hash = null;
-                String remote_hash = null;
+                String remote_hash;
 
 
                 // IS THIS A BLOCK NOT INSIDE ORIG ?
@@ -2626,7 +2611,7 @@ public class Backup
                 }
 
                  // CHECK FOR EXISTING BLOCK (DEDUP)
-                DedupHashBlock block = null;
+                DedupHashBlock block;
 
                 try
                 {
@@ -2838,7 +2823,7 @@ public class Backup
                 }
             }
         }
-        catch (Exception e)
+        catch (PathResolveException | IOException e)
         {
             Log.err("Path exeption during check of DHB existence", ": " + dhb.getHashvalue() , e);
             return false;
@@ -2850,7 +2835,7 @@ public class Backup
     {
         final StatCounter stat = context.getStat();
         final HashCache hashCache = context.getHashCache();
-        DedupHashBlock dhb = null;
+        DedupHashBlock dhb;
         try
         {
             dhb = context.getPoolHandler().create_dedup_hashblock( node, remote_hash, read_len );
@@ -2919,7 +2904,7 @@ public class Backup
         }
 
         
-        FileHandle handle = null;
+        FileHandle handle;
         try
         {
             // OPEN LOCAL DEDUP FILE HANDLE
@@ -2927,7 +2912,7 @@ public class Backup
 
 
             // READ DATA FROM CLIENT
-            byte[] data = null;
+            byte[] data;
 
             if (context.isCompressed() || context.isEncrypted())
             {
@@ -3012,7 +2997,7 @@ public class Backup
                 // CLEAN UP
                 context.poolhandler.removeDedupBlock(dhb, node);
             }
-            catch (Exception ex)
+            catch (SQLException | PathResolveException | PoolReadOnlyException | IOException ex)
             {
                 Log.err("Fehler beim Entfernen von DedupBlock", ex);
             }
@@ -3104,8 +3089,9 @@ public class Backup
 
             return null;
         }
-        catch (Exception pathResolveException)
+        catch (PathResolveException | IOException pathResolveException)
         {
+            Log.err("reviveHashBlock: Rebuild lost hash failed");
         }
         return null;
     }
