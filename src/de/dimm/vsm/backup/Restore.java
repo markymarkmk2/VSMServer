@@ -459,17 +459,16 @@ public class Restore
                 FileSystemElemAttributes childAttr = actualContext.poolhandler.getActualFSAttributes(childNode, actualContext.qry);
 
                 // OBVIOUSLY THE FILE WAS CREATED AFTER TS
-                if (attr == null)
+                if (childAttr == null)
                 {
                     continue;
                 }
 
                 // FILE WAS DELETED AT TS
-                if (attr.isDeleted())
+                if (childAttr.isDeleted() && !actualContext.getPoolHandler().getPoolQry().isShowDeleted())
                 {
                     continue;
                 }
-
 
                 restore_complete_node(childNode, childAttr, clientTargetPath);
             }
