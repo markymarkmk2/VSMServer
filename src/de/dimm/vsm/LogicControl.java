@@ -143,6 +143,15 @@ public class LogicControl
         return Main.get_prefs().get_prop(GeneralPreferences.KEYSTORE, keyStore);
         
     }
+    public static String getDbPath()
+    {
+        String path = Main.get_prop(GeneralPreferences.DB_PATH, Main.DATABASEPATH );
+        path = path.replace('\\', '/');
+        if (!path.endsWith("/"))
+            path = path + "/";
+        
+        return path;
+    }
 
     public static void sleep( int cycle )
     {
@@ -654,7 +663,7 @@ public class LogicControl
         if (baseEm != null)
             return baseEm;
 
-        String jdbcConnect = "jdbc:derby:db/VSMBase";
+        String jdbcConnect = "jdbc:derby:" + getDbPath() + "VSMBase";
         if (Main.getRebuildDB())
         {
             jdbcConnect += ";create=true";
@@ -691,7 +700,7 @@ public class LogicControl
         if (logEm != null)
             return logEm;
 
-        String jdbcConnect = "jdbc:derby:db/VSMLog";
+        String jdbcConnect = "jdbc:derby:" + getDbPath() + "VSMLog";
         if (Main.getRebuildDB())
         {
             jdbcConnect += ";create=true";
@@ -727,7 +736,7 @@ public class LogicControl
         if (textEm != null)
             return textEm;
 
-        String jdbcConnect = "jdbc:derby:db/VSMText";
+        String jdbcConnect = "jdbc:derby:" + getDbPath() + "VSMText";
         if (Main.getRebuildDB())
         {
             jdbcConnect += ";create=true";

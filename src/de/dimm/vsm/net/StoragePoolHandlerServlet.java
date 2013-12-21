@@ -26,6 +26,7 @@ import java.io.IOException;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.List;
 import org.apache.log4j.Logger;
 
@@ -432,6 +433,34 @@ public class StoragePoolHandlerServlet extends HessianServlet implements Storage
         
         
     }
+    @Override
+    public void writeBlock( StoragePoolWrapper pool, long fileNo, String hash, byte[] b, int length, long offset ) throws IOException, SQLException, PoolReadOnlyException, PathResolveException
+    {
+        StoragePoolHandler handler = poolContextManager.getHandlerbyWrapper(pool);
+        if (handler != null)
+        {
+            Log.debug("write len " + length + " offs " + offset, Long.toString(fileNo));
+            handler.writeBlock(fileNo, hash, b, length, offset);
+            handler.commit_transaction();
+        }
+        else
+            Log.err("Ungültiger Handler in Aufruf", "writeFile");
+        
+        
+    }
+    @Override
+    public boolean checkBlock( StoragePoolWrapper pool, String hash) throws IOException, SQLException
+    {
+        StoragePoolHandler handler = poolContextManager.getHandlerbyWrapper(pool);
+        if (handler != null)
+        {
+            Log.debug("CheckBlock " + hash + " offs ");
+            return handler.checkBlock(hash);
+        }
+        else
+            throw new IOException("Ungültiger Handler in Aufruf" +  "writeFile");
+        
+    }
 /*
     @Override
     public void create( StoragePoolWrapper pool, FileSystemElemNode fseNode )
@@ -577,7 +606,7 @@ public class StoragePoolHandlerServlet extends HessianServlet implements Storage
             return true;
 
         }
-        catch (Exception e)
+        catch (SQLException | DBConnException | PoolReadOnlyException e)
         {
             Log.err("Abbruch bei", "undeleteFSElem", e);
         }
@@ -602,7 +631,7 @@ public class StoragePoolHandlerServlet extends HessianServlet implements Storage
             return true;
 
         }
-        catch (Exception e)
+        catch (SQLException | DBConnException | PoolReadOnlyException e)
         {
             Log.err("Abbruch bei", "deleteFSElem", e);
         }
@@ -730,5 +759,73 @@ public class StoragePoolHandlerServlet extends HessianServlet implements Storage
         handler.commit_transaction();
 
     }
+
+    public List<RemoteFSElem> get_versions( StoragePoolHandler handler, RemoteFSElem node ) throws SQLException, IOException
+    {        
+        
+        LOG.debug("get_versions " + node.toString());
+        FileSystemElemNode fseNode = handler.resolve_node_by_remote_elem( node);
+        if (fseNode == null)
+            throw new IOException("Node not found");
+        boolean wasRealized = fseNode.getHistory().isRealized();
+        
+        List<FileSystemElemAttributes> attrs = fseNode.getHistory(handler.getEm());
+        
+        List<RemoteFSElem> ret = new ArrayList<>();
+                 
+        for (int i = 0; i < attrs.size(); i++)
+        {
+            FileSystemElemAttributes fileSystemElemAttributes = attrs.get(i);
+            RemoteFSElem elem = StoragePoolHandlerServlet.genRemoteFSElemfromNode(fseNode, fileSystemElemAttributes);
+            ret.add(elem);            
+        }   
+        if (!wasRealized)
+            fseNode.getHistory().unRealize();
+        
+        return ret;
+     }
+
+    
+    public boolean restoreVersionedFSElem( IWrapper wrapper, List<RemoteFSElem> nodes, String targetIP, int targetPort, String targetPath, int flags, User user ) throws SQLException, IOException
+    {
+        StoragePoolHandler handler = getPoolHandlerByWrapper( wrapper );
+        if (handler != null)
+            return restoreVersionedFSElem(handler, nodes, targetIP, targetPort, targetPath, flags, user);
+        else
+            Log.err("Ungültiger Handler in Aufruf", "restoreFSElem");
+        return false;
+    }
+    public boolean restoreVersionedFSElem( StoragePoolHandler handler, List<RemoteFSElem> nodes, String targetIP, int targetPort, String targetPath, int flags, User user ) throws SQLException, IOException
+    {
+        List<FileSystemElemNode> fseNodes = handler.resolve_node_by_remote_elem( nodes);
+        List<FileSystemElemAttributes> fseAttrs = handler.resolve_attrs_by_remote_elem( nodes);
+
+        boolean ret = false;
+
+        StoragePoolQry qry = handler.getPoolQry();
+        
+        try
+        {
+            InetAddress adr = InetAddress.getByName(targetIP);
+            RemoteFSElem target = RemoteFSElem.createDir(targetPath);
+            Restore rest = new Restore(handler, fseNodes, fseAttrs, flags, qry, adr, targetPort, target);
+
+            JobManager jm = Main.get_control().getJobManager();
+            JobInterface ji =  rest.createRestoreJob(user);
+            if (ji != null)
+            {
+                jm.addJobEntry( ji );
+                ret = true;
+            }
+        }
+        catch (UnknownHostException unknownHostException)
+        {
+            Log.warn( "Unbekannter Host", targetIP + ":" + targetPort + " " + targetPath, unknownHostException );
+            ret = false;
+        }
+        
+        return ret;
+    }    
+ 
 
 }

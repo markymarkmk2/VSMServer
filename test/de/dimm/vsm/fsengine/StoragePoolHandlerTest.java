@@ -4,7 +4,6 @@
  */
 package de.dimm.vsm.fsengine;
 
-import org.junit.Ignore;
 import de.dimm.vsm.LogicControl;
 import de.dimm.vsm.Exceptions.PathResolveException;
 import de.dimm.vsm.auth.User;
@@ -16,6 +15,8 @@ import java.util.ArrayList;
 import java.sql.ResultSet;
 import java.sql.PreparedStatement;
 import de.dimm.vsm.Exceptions.PoolReadOnlyException;
+import de.dimm.vsm.Main;
+import de.dimm.vsm.net.StoragePoolQry;
 import de.dimm.vsm.net.interfaces.FileHandle;
 import de.dimm.vsm.records.AbstractStorageNode;
 import de.dimm.vsm.records.FileSystemElemNode;
@@ -72,7 +73,8 @@ public class StoragePoolHandlerTest
             JDBCConnectionFactory conn = nubHandler.getConnectionFactory(pool);
             JDBCEntityManager em = new JDBCEntityManager(pool.getIdx(), conn);
             System.out.println("Open DB Connections: " + nubHandler.getActiveConnections(pool));
-            ret = new JDBCStoragePoolHandler(em, user, pool, /*rdonly*/ false);
+            StoragePoolQry qry = StoragePoolQry.createActualRdWrStoragePoolQry(user, /*del*/false);
+            ret = new JDBCStoragePoolHandler(em, pool, qry);
 
         }
         catch (SQLException sQLException)
@@ -108,6 +110,7 @@ public class StoragePoolHandlerTest
     public static boolean init()
     {
         // em = LogicControl.get_util_em();
+        
 
         fs_node = AbstractStorageNode.createFSNode();
         if (isWin())
@@ -130,6 +133,17 @@ public class StoragePoolHandlerTest
 
         nubHandler = new TestStoragePoolNubHandler();
         LogicControl.setStorageNubHandler(nubHandler);
+        
+        Main main = new Main();
+        try
+        {
+        main.init();
+        }
+        catch (Exception exception)
+        {
+            fail("init failed");
+        }
+
         try
         {
             pool = nubHandler.mountPoolDatabase(nub, jdbcConnectString, rebuild);
@@ -140,7 +154,7 @@ public class StoragePoolHandlerTest
                 rebuild = false;
             }
         }
-        catch (Exception exception)
+        catch (PathResolveException | IOException | SQLException exception)
         {
             System.out.println("Creating new Testdatabase");
             try
@@ -148,7 +162,7 @@ public class StoragePoolHandlerTest
                 pool = nubHandler.createEmptyPoolDatabase(nub, jdbcConnectString);
 
             }
-            catch (Exception iOException)
+            catch (PathResolveException | IOException | SQLException iOException)
             {
                 iOException.printStackTrace();
                 fail("Creating new Testdatabase failed");
@@ -246,7 +260,7 @@ public class StoragePoolHandlerTest
             sp_handler.commit_transaction();
             sp_handler.close_transaction();
         }
-        catch (Exception ex)
+        catch (SQLException | PoolReadOnlyException ex)
         {
             ex.printStackTrace();
             System.out.println("Cannot remove Test Data:" + ex.getMessage());
@@ -330,7 +344,7 @@ public class StoragePoolHandlerTest
                 sp_handler.create_fse_node_complete("/Dir", FileSystemElemNode.FT_DIR);
                 dir_node = sp_handler.resolve_elem_by_path("/Dir");
             }
-            catch (Exception iOException)
+            catch (IOException | PoolReadOnlyException | PathResolveException | SQLException iOException)
             {
                 iOException.printStackTrace();
                 fail("Cannot create fse node: " + iOException.getMessage());
@@ -345,7 +359,7 @@ public class StoragePoolHandlerTest
                 sp_handler.create_fse_node_complete("/Dir/File", FileSystemElemNode.FT_FILE);
                 file_node = sp_handler.resolve_elem_by_path("/Dir/File");
             }
-            catch (Exception iOException)
+            catch (SQLException | IOException | PoolReadOnlyException | PathResolveException iOException)
             {
                 iOException.printStackTrace();
                 fail("Cannot create fse node: " + iOException.getMessage());

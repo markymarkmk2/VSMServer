@@ -8,10 +8,12 @@ package de.dimm.vsm.fsengine;
 import de.dimm.vsm.log.Log;
 import de.dimm.vsm.Main;
 import de.dimm.vsm.net.StoragePoolWrapper;
+import de.dimm.vsm.records.FileSystemElemAttributes;
 import de.dimm.vsm.records.FileSystemElemNode;
 import java.io.IOException;
 import java.io.InputStream;
 import java.sql.SQLException;
+import java.util.List;
 
 /**
  *
@@ -22,7 +24,7 @@ public class VSMFSInputStream extends InputStream
 
     StoragePoolHandler sp;
     FileSystemElemNode node;
-    
+    FileSystemElemAttributes attrs;
 
     StoragePoolWrapper wrapper;
     long pos;
@@ -30,21 +32,40 @@ public class VSMFSInputStream extends InputStream
 
     public VSMFSInputStream( StoragePoolHandler sp, FileSystemElemNode node )
     {
+        this(sp, node, null);
+    }
+    
+    public VSMFSInputStream( StoragePoolHandler sp, FileSystemElemNode node, FileSystemElemAttributes attrs )
+    {
         this.sp = sp;
         this.node = node;
-
+        this.attrs = attrs;        
 
         pos = 0;
         wrapper = Main.get_control().getPoolHandlerServlet().getContextManager().createPoolWrapper(sp, "", 0, "");
         fileNo = -2;
 
     }
-    public VSMFSInputStream( StoragePoolHandler sp, long idx  )
+    public VSMFSInputStream( StoragePoolHandler sp, long idx, long attrIdx  )
     {
         this.sp = sp;
         try
         {
             this.node = sp.resolve_fse_node_from_db(idx);
+            if (attrIdx > 0)
+            {
+                List<FileSystemElemAttributes> attrList = node.getHistory(sp.getEm());
+                for (int i = 0; i < attrList.size(); i++)
+                {
+                    if (attrList.get(i).getIdx() == attrIdx)
+                    {
+                        this.attrs = attrList.get(i);
+                        break;
+                    }                    
+                }
+                if (attrs == null)
+                    Log.err("Attribut-Index kann nicht aufgelöst werden");
+            }
         }
         catch (SQLException sQLException)
         {
@@ -62,7 +83,10 @@ public class VSMFSInputStream extends InputStream
         {
             if (fileNo == -2)
             {
-                fileNo = sp.open_fh( node, /*create*/ false);
+                if (attrs != null)
+                    fileNo = sp.open_versioned_fh(node, attrs);
+                else
+                    fileNo = sp.open_fh( node, /*create*/ false);
             }
         }
         catch (Exception exception)

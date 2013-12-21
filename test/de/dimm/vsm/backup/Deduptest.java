@@ -377,7 +377,7 @@ get_fs_handle_for_dedupblock(hb_orig.get(0));
             // RESTORE LAST VERSION, CHECK IF MODIFICATIONS ARE ONLINE
 
             RemoteFSElem target = new RemoteFSElem(restore_path_data, FileSystemElemNode.FT_DIR, 0, 0, 0, 0, 0);
-            StoragePoolQry live_qry = new StoragePoolQry( User.createSystemInternal(), /*rd_only*/ true, /*snapshot*/ -1 );
+            StoragePoolQry live_qry = StoragePoolQry.createActualRdOnlyStoragePoolQry(User.createSystemInternal(), /*del*/false );
             Restore instance = new Restore(pool_handler, fileNode, restoreFlags, live_qry,  InetAddress.getByName(ip), port, target);
 
             instance.run_restore();
@@ -389,7 +389,7 @@ get_fs_handle_for_dedupblock(hb_orig.get(0));
             assertEquals(b1, 'b' );
             assertEquals(b2, 'c' );
 
-            StoragePoolQry ts_qry = new StoragePoolQry( User.createSystemInternal(), /*rd_only*/ true, /*snapshot*/ s0.getCreation().getTime());
+            StoragePoolQry ts_qry = StoragePoolQry.createTimestampStoragePoolQry(User.createSystemInternal(), s0.getCreation().getTime());
             instance.setRestoreParam(pool_handler, fileNode, restoreFlags, ts_qry,  InetAddress.getByName(ip), port, target);
             instance.run_restore();
             assertTrue(instance.getResult());
@@ -400,7 +400,7 @@ get_fs_handle_for_dedupblock(hb_orig.get(0));
             assertEquals(b1, 'a' );
             assertEquals(b2, 'a' );
 
-            ts_qry = new StoragePoolQry( User.createSystemInternal(), /*rd_only*/ true, /*snapshot*/ s1.getCreation().getTime());
+            ts_qry = StoragePoolQry.createTimestampStoragePoolQry( User.createSystemInternal(),  s1.getCreation().getTime());
             instance.setRestoreParam(pool_handler, fileNode, restoreFlags, ts_qry,  InetAddress.getByName(ip), port, target);
             instance.run_restore();
             assertTrue(instance.getResult());
@@ -411,7 +411,7 @@ get_fs_handle_for_dedupblock(hb_orig.get(0));
             assertEquals(b1, 'b' );
             assertEquals(b2, 'a' );
 
-            ts_qry = new StoragePoolQry( User.createSystemInternal(), /*rd_only*/ true, /*snapshot*/ s2.getCreation().getTime());
+            ts_qry = StoragePoolQry.createTimestampStoragePoolQry( User.createSystemInternal(), s2.getCreation().getTime());
             instance.setRestoreParam(pool_handler, fileNode, restoreFlags, ts_qry,  InetAddress.getByName(ip), port, target);
             instance.run_restore();
             assertTrue(instance.getResult());
@@ -479,7 +479,7 @@ get_fs_handle_for_dedupblock(hb_orig.get(0));
         try
         {
             // RETSORE FROM LIVE POOL-QRY
-            StoragePoolQry qry = new StoragePoolQry( User.createSystemInternal(), /*rd_only*/ true, /*snapshot*/ -1);
+            StoragePoolQry qry = StoragePoolQry.createActualRdOnlyStoragePoolQry(User.createSystemInternal(), /*del*/false);
             RemoteFSElem target = new RemoteFSElem(restore_path_data, FileSystemElemNode.FT_DIR, 0, 0, 0, 0, 0);
             Restore instance = new Restore(pool_handler, fileNode, restoreFlags, qry,  InetAddress.getByName(ip), port, target);
 

@@ -147,8 +147,8 @@ public class ParallelBackupTest {
         String ip = "127.0.0.1";
         int port = 8082;
 
-        AgentApiEntry apiEntry = null;
-        FileSystemElemNode node = null;
+        AgentApiEntry apiEntry;
+        FileSystemElemNode node;
 
         Backup backup = new Backup(null);
         try
@@ -180,7 +180,7 @@ public class ParallelBackupTest {
             Backup.backupRemoteFSElem(context, elem, node, true, true);
 
             pool_handler.commit_transaction();
-            node = pool_handler.resolve_node(abs_path);
+            //node = pool_handler.resolve_node(abs_path);
 
             apiEntry.close();
 

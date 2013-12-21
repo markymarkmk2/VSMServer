@@ -496,6 +496,11 @@ public class StorageNodeHandler
     {
         return DDFS_WR_FileHandle.create_fs_handle(this.storageNode, aThis, node, create );
     }
+    public FileHandle create_versioned_DDFS_handle( StoragePoolHandler aThis, FileSystemElemNode node, FileSystemElemAttributes attrs ) throws PathResolveException, IOException, SQLException
+    {
+        return DDFS_WR_FileHandle.create_versioned_fs_handle(this.storageNode, aThis, node, attrs );
+    }
+    
 
     public FileHandle create_DDFS_StreamHandle( StoragePoolHandler aThis, FileSystemElemNode node, int streamInfo, boolean create ) throws PathResolveException, IOException, SQLException
     {

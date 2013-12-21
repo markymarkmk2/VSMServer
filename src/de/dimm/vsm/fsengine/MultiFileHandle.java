@@ -5,9 +5,11 @@
 
 package de.dimm.vsm.fsengine;
 
+import de.dimm.vsm.Exceptions.PathResolveException;
 import de.dimm.vsm.Exceptions.PoolReadOnlyException;
 import de.dimm.vsm.net.interfaces.FileHandle;
 import java.io.IOException;
+import java.io.UnsupportedEncodingException;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
@@ -22,7 +24,7 @@ public class MultiFileHandle implements FileHandle
 
     public MultiFileHandle()
     {
-        fh_list = new ArrayList<FileHandle>();
+        fh_list = new ArrayList<>();
     }
     public void add( FileHandle fh )
     {
@@ -177,6 +179,14 @@ public class MultiFileHandle implements FileHandle
         }
         return sb.toString();
     }
+
+    @Override
+    public void writeBlock( String hashValue, byte[] data, int length, long offset ) throws IOException, PathResolveException, PoolReadOnlyException, UnsupportedEncodingException, SQLException
+    {
+        // Das ist nur notwendig bei Remote files
+        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+    }
+    
 
 
 }

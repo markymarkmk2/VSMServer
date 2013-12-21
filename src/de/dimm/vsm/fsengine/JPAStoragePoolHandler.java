@@ -30,7 +30,7 @@ public class JPAStoragePoolHandler extends StoragePoolHandler /*implements Remot
     
     private JPAStoragePoolHandler( EntityManager em,  User user, StoragePool pool, boolean readOnly, long snapShotTs )
     {
-        this( em, pool, new StoragePoolQry(user, readOnly, snapShotTs, false) );
+        this( em, pool, null);
     }
 
     public JPAStoragePoolHandler( EntityManager em,  User user, StoragePool pool, boolean readOnly )

@@ -328,6 +328,7 @@ public class WriteDataTest {
             AbstractStorageNode sNode = pool_handler.get_primary_dedup_node_for_write();
             FileSystemElemNode node = pool_handler.resolve_node(wrAbsPath);
             node = pool_handler.resolve_fse_node_from_db(node.getIdx());
+            
 
             FileHandle fh = DDFS_WR_FileHandle.create_fs_handle(sNode, pool_handler, node, false);
             out( String.format("Size: %d", fh.length() ));

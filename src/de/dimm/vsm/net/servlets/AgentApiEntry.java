@@ -7,7 +7,6 @@ package de.dimm.vsm.net.servlets;
 
 import de.dimm.vsm.log.Log;
 import de.dimm.vsm.net.RemoteCallFactory;
-import de.dimm.vsm.net.RemoteCallFactory;
 import de.dimm.vsm.net.interfaces.AgentApi;
 import java.io.IOException;
 import java.net.ConnectException;

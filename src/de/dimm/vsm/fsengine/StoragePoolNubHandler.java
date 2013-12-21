@@ -136,7 +136,7 @@ public class StoragePoolNubHandler
     {
         // TODO: DIFFERENT EMBEDDED DATABASES
 //        String jdbcConnectString = "jdbc:derby:" + dbPath + "/VSMParams;create=true";
-        String url = nub.getJdbcConnectString();
+        String url = getEffectiveJdbcConnectString( nub );
         String start = "jdbc:derby:";
         return (url.startsWith(start));
     }
@@ -146,7 +146,7 @@ public class StoragePoolNubHandler
         // TODO: DIFFERENT EMBEDDED DATABASES
 
 //        String jdbcConnectString = "jdbc:derby:" + dbPath + "/VSMParams;create=true";
-        String url = nub.getJdbcConnectString();
+        String url = getEffectiveJdbcConnectString( nub );
         String start = "jdbc:derby:";
         try
         {
@@ -162,40 +162,24 @@ public class StoragePoolNubHandler
 
     protected String getDbPath( StoragePoolNub nub )
     {
-        String s = Main.get_prop(GeneralPreferences.DB_PATH, Main.DATABASEPATH );
-        s = s.replace('\\', '/');
-        if (!s.endsWith("/"))
-            s += "/";
-
-        String dbPath = s + "db_" + nub.getIdx() + RELPARAMPATH;
+        String dbPath = LogicControl.getDbPath() + "db_" + nub.getIdx() + RELPARAMPATH;
         return dbPath;
     }
     protected String getDbRootPath( StoragePoolNub nub )
     {
-        String s = Main.get_prop(GeneralPreferences.DB_PATH, Main.DATABASEPATH );
-        s = s.replace('\\', '/');
-        if (!s.endsWith("/"))
-            s += "/";
-
-        String dbPath = s + "db_" + nub.getIdx();
+        String dbPath = LogicControl.getDbPath() + "db_" + nub.getIdx();
         return dbPath;
     }
     protected String getIndexPath( StoragePoolNub nub )
     {
-        String s = Main.get_prop(GeneralPreferences.DB_PATH, Main.DATABASEPATH );
-        s = s.replace('\\', '/');
-        if (!s.endsWith("/"))
-            s += "/";
-
-        String dbPath = s + "db_" + nub.getIdx() + "/Index";
+        String dbPath = LogicControl.getDbPath() + "db_" + nub.getIdx() + "/Index";
         return dbPath;
     }
 
     public StoragePool createEmptyPoolDatabase( StoragePoolNub nub ) throws PathResolveException, IOException, SQLException
     {
         // TODO: DIFFERENT EMBEDDED DATABASES
-
-        String dbPath = Main.DATABASEPATH + "db_" + nub.getIdx();
+        String dbPath = LogicControl.getDbPath() + "db_" + nub.getIdx();
         File dir = new File( dbPath);
 
 
@@ -218,7 +202,7 @@ public class StoragePoolNubHandler
         String jdbcConnect = getDBConnectString(nub);
         if (jdbcConnect.startsWith("jdbc:derby:"))
         {
-            String dbPath = Main.DATABASEPATH + "db_" + nub.getIdx();
+            String dbPath = LogicControl.getDbPath() + "db_" + nub.getIdx();
             jdbcConnectString = jdbcConnect + dbPath + dbName;            
         }
         else
@@ -419,10 +403,22 @@ public class StoragePoolNubHandler
                 em.close();
         }
     }
+    public static String getEffectiveJdbcConnectString(StoragePoolNub storagePoolNub)
+    {
+        String jdbcConnect = storagePoolNub.getJdbcConnectString();
+        if (jdbcConnect == null || jdbcConnect.isEmpty())
+            return null;
+        String defaultDbPath = ":" + Main.DATABASEPATH;
+        if (jdbcConnect.contains(defaultDbPath))
+        {
+            jdbcConnect = jdbcConnect.replaceFirst(defaultDbPath, ":" + LogicControl.getDbPath());
+        }
+        return jdbcConnect;
+    }
 
     private PoolMapper loadPoolDB( StoragePoolNub storagePoolNub )
     {
-        String jdbcConnect = storagePoolNub.getJdbcConnectString();
+        String jdbcConnect = getEffectiveJdbcConnectString( storagePoolNub );
         if (jdbcConnect == null || jdbcConnect.isEmpty())
             return null;
 
@@ -649,7 +645,7 @@ public class StoragePoolNubHandler
     private void closeDerbyDB(PoolMapper mp) throws SQLException
     {
         // DriverManager.getConnection("jdbc:derby:MyDbTest;shutdown=true");
-        String cs = mp.nub.getJdbcConnectString();
+        String cs = getEffectiveJdbcConnectString( mp.nub );
         int idx = cs.indexOf(';');
         if (idx > 0)
         {

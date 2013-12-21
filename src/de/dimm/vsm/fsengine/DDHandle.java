@@ -151,6 +151,7 @@ public class DDHandle
     void close() throws IOException
     {
         data = null;
+        unread = true;
     }
 
     void open( AbstractStorageNode fs_node, String rafMode ) throws FileNotFoundException, IOException
@@ -174,21 +175,18 @@ public class DDHandle
         {
             StorageNodeHandler.build_node_path(dhb, sb);
         }
-        catch (PathResolveException pathResolveException)
+        catch (PathResolveException | UnsupportedEncodingException pathResolveException)
         {
             throw new IOException("Cannot open DDFS", pathResolveException);
         }
-        catch (UnsupportedEncodingException unsupportedEncodingException)
-        {
-            throw new IOException("Cannot open DDFS", unsupportedEncodingException);
-        }
 
         fh = new File(fs_node.getMountPoint() + sb.toString());
-        RandomAccessFile raf = new RandomAccessFile(fh, "r");
-
-        data = new byte[len];
-        int rlen = raf.read(data);
-        raf.close();
+        int rlen;
+        try (RandomAccessFile raf = new RandomAccessFile(fh, "r"))
+        {
+            data = new byte[len];
+            rlen = raf.read(data);
+        }
 
         if (rlen != len)
         {

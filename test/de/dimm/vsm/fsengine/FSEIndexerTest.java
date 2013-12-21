@@ -4,6 +4,7 @@
  */
 package de.dimm.vsm.fsengine;
 
+import de.dimm.vsm.Exceptions.PathResolveException;
 import de.dimm.vsm.net.SearchEntry;
 import de.dimm.vsm.search.IndexImpl;
 import java.util.ArrayList;
@@ -14,10 +15,10 @@ import org.apache.lucene.util.Version;
 import de.dimm.vsm.Exceptions.PoolReadOnlyException;
 import de.dimm.vsm.records.ArchiveJob;
 import de.dimm.vsm.records.FileSystemElemNode;
+import java.io.IOException;
 import java.util.List;
 import java.sql.SQLException;
 import org.apache.lucene.analysis.WhitespaceAnalyzer;
-import org.apache.lucene.document.Document;
 import org.apache.lucene.index.Term;
 import org.apache.lucene.search.TermsFilter;
 import org.junit.After;
@@ -84,7 +85,7 @@ public class FSEIndexerTest
                 sp_handler.create_fse_node_complete("/Dir", FileSystemElemNode.FT_DIR);
                 dir_node = sp_handler.resolve_elem_by_path("/Dir");
             }
-            catch (Exception iOException)
+            catch (IOException | PoolReadOnlyException | PathResolveException | SQLException iOException)
             {
                 iOException.printStackTrace();
                 fail("Cannot create fse node: " + iOException.getMessage());
@@ -100,7 +101,7 @@ public class FSEIndexerTest
                 file_node = sp_handler.resolve_elem_by_path("/Dir/" + fileName);
                 sp_handler.create_fse_node_complete("/Dir/" + "dummy", FileSystemElemNode.FT_FILE);
             }
-            catch (Exception iOException)
+            catch (SQLException | IOException | PoolReadOnlyException | PathResolveException iOException)
             {
                 iOException.printStackTrace();
                 fail("Cannot create fse node: " + iOException.getMessage());

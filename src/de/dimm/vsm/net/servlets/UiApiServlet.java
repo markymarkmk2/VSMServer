@@ -25,6 +25,7 @@ import de.dimm.vsm.net.ScheduleStatusEntry;
 import de.dimm.vsm.net.SearchEntry;
 import de.dimm.vsm.net.SearchStatus;
 import de.dimm.vsm.net.SearchWrapper;
+import de.dimm.vsm.net.StoragePoolQry;
 import de.dimm.vsm.net.StoragePoolWrapper;
 import de.dimm.vsm.net.interfaces.GuiServerApi;
 import de.dimm.vsm.net.interfaces.IWrapper;
@@ -217,35 +218,15 @@ public class UiApiServlet  extends HessianServlet implements GuiServerApi
     {
         return entry.getApi().remountVolume(wrapper);
     }
-
     @Override
-    public StoragePoolWrapper openPoolView( StoragePool pool, Date timestamp, String subPath, User user )
+    public StoragePoolWrapper openPoolView( StoragePool pool, StoragePoolQry qry, String subPath )
     {
-        return entry.getApi().openPoolView(pool, timestamp, subPath, user);
+        return entry.getApi().openPoolView(pool, qry, subPath);
     }
-
     @Override
-    public StoragePoolWrapper openPoolView( StoragePool pool, boolean rdonly, String subPath, User user )
+    public StoragePoolWrapper openPoolView( StoragePool pool, StoragePoolQry qry, FileSystemElemNode node )
     {
-        return entry.getApi().openPoolView(pool, rdonly, subPath, user);
-    }
-
-    @Override
-    public StoragePoolWrapper openPoolView( StoragePool pool, boolean rdonly, boolean showDeleted, String subPath, User user )
-    {
-        return entry.getApi().openPoolView(pool, rdonly, showDeleted, subPath, user);
-    }
-
-    @Override
-    public StoragePoolWrapper openPoolView( StoragePool pool, boolean rdonly, FileSystemElemNode node, User user )
-    {
-        return entry.getApi().openPoolView(pool, rdonly, node, user);
-    }
-
-    @Override
-    public StoragePoolWrapper openPoolView( StoragePool pool, boolean rdonly, boolean showDeleted, FileSystemElemNode node, User user )
-    {
-        return entry.getApi().openPoolView(pool, rdonly, showDeleted, node, user);
+        return entry.getApi().openPoolView(pool, qry, node);
     }
 
     @Override
@@ -528,5 +509,24 @@ public class UiApiServlet  extends HessianServlet implements GuiServerApi
     {
         entry.getApi().rebuildBootstraps( user, pool );
     }
+
+    @Override
+    public List<RemoteFSElem> listVersions( IWrapper wrapper, RemoteFSElem path ) throws SQLException, IOException
+    {
+        return entry.getApi().listVersions(wrapper, path);
+    }
+    
+    @Override
+    public boolean restoreVersionedFSElem( IWrapper wrapper, RemoteFSElem path, String targetIP, int targetPort, String targetPath, int flags, User user ) throws SQLException, PoolReadOnlyException, IOException
+    {
+        return entry.getApi().restoreVersionedFSElem(wrapper, path, targetIP, targetPort, targetPath, flags, user);
+    }
+
+    @Override
+    public boolean restoreVersionedFSElems( IWrapper wrapper, List<RemoteFSElem> path, String targetIP, int targetPort, String targetPath, int flags, User user ) throws SQLException, PoolReadOnlyException, IOException
+    {
+        return entry.getApi().restoreVersionedFSElems(wrapper, path, targetIP, targetPort, targetPath, flags, user);
+    }
+
 
 }

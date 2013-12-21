@@ -57,7 +57,7 @@ public class SearchContextManager extends WorkerParent
             try
             {
                 long newIdx = handlerMap.size();
-                StoragePoolQry qry = new StoragePoolQry(user, slist);
+                StoragePoolQry qry = StoragePoolQry.createSearchlistStoragePoolQry(user, slist);
                 SearchWrapper w = new SearchWrapper(newIdx, pool.getIdx(), qry);
 
                 StoragePoolHandler handler = StoragePoolHandlerFactory.createStoragePoolHandler(pool, qry);

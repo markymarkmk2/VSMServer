@@ -53,6 +53,9 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
     protected static final String BS_REGEXP_SEPARATOR = "\\\\";
     protected static final String SLASH_REGEXP_SEPARATOR = "/";
     
+    // FIlesystemchanges < 120 s werden nicht historisiert:
+    // Attribute werden updated nicht neu inserted
+    // Datein werden gelöscht, nicht DeleteFLags gesetzt
     public static int minFilechangeThresholdS = 120;    
 
 
@@ -83,24 +86,7 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
         searchContext = null;
         pathResolver = new PathResolver(this);
     }
-    private StoragePoolHandler( User user, StoragePool pool, boolean readOnly, long snapShotTs, boolean showDeleted )
-    {
-        this( pool, new StoragePoolQry(user, readOnly, snapShotTs, showDeleted) );
-    }
 
-    public StoragePoolHandler(  User user, StoragePool pool, boolean readOnly )
-    {
-        // ACTUAL FILESYSTEM, CANNOT BE A SNAPSHOTFILESYSTEM
-        this( user, pool, readOnly, -1, false );
-    }
-
-
-
-    public StoragePoolHandler( User user, StoragePool pool, long snapShotTs )
-    {
-        // SNAPSHOT FILESYSTEM, CAN ONLY BE RDONLY
-        this( user, pool, /*rdonly*/ true, snapShotTs, false );
-    }
 
     public static int getMinFilechangeThresholdS()
     {
@@ -485,7 +471,31 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
         }
         return retList;
     }
-
+    
+    public List<FileSystemElemAttributes> resolve_attrs_by_remote_elem(  List<RemoteFSElem> nodes ) throws SQLException, IOException
+    {
+        List<FileSystemElemAttributes> retList = new ArrayList<>();
+        for (int i = 0; i < nodes.size(); i++)
+        {
+            RemoteFSElem node = nodes.get(i);
+            FileSystemElemNode fseNode = resolve_node_by_remote_elem(node);
+            List<FileSystemElemAttributes> history = fseNode.getHistory(getEm());
+            FileSystemElemAttributes attr = null;
+            for (int j = 0; j < history.size(); j++)
+            {
+                FileSystemElemAttributes fileSystemElemAttributes = history.get(j);
+                if (fileSystemElemAttributes.getIdx() == node.getAttrIdx())
+                {
+                    attr = fileSystemElemAttributes;
+                    break;
+                }                
+            }
+            if (attr == null)
+                throw new IOException("Kann Attribut nicht aufloesen " + fseNode);
+            retList.add(attr);
+        }
+        return retList;
+    }
    
     
 
@@ -1258,10 +1268,9 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
                 attr = new FileSystemElemAttributes(fsenode.getAttributes());
             }
 
-            attr.setName(to_name);
-            attr.setTs( System.currentTimeMillis() );
+            attr.setName(to_name);           
 
-            mergeOrPersistAttribute(fsenode, attr, needNewAttributes);             
+            mergeOrPersistAttribute(fsenode, attr, needNewAttributes, System.currentTimeMillis());             
             commit_transaction();            
             write_bootstrap_data( fsenode );
             return;
@@ -1335,6 +1344,11 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
         return fseMapHandler.open_fh(node, create);
     }
 
+    public long open_versioned_fh( FileSystemElemNode node, FileSystemElemAttributes attrs ) throws IOException, PoolReadOnlyException, PathResolveException, SQLException
+    {
+        return fseMapHandler.open_versioned_fh(node, attrs);
+    }
+
     public long open_stream( FileSystemElemNode node, int streamInfo, boolean create ) throws IOException, PoolReadOnlyException, PathResolveException, UnsupportedEncodingException, SQLException
     {
         if (create && isReadOnly(node))
@@ -1360,7 +1374,49 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
     {
         fseMapHandler.removeByFileNo(fileNo);
     }
+ 
+    public FileHandle open_versioned_file_handle(FileSystemElemNode node, FileSystemElemAttributes attrs ) throws IOException, PathResolveException, SQLException
+    {
+        List<AbstractStorageNode> s_nodes = resolve_storage_nodes( node );
+        FileHandle ret = null;
 
+        for (int i = 0; i < s_nodes.size(); i++)
+        {
+            AbstractStorageNode s_node = s_nodes.get(i);
+
+            if (s_node.isFS())
+            {
+                StorageNodeHandler snHandler = get_handler_for_node(s_node);
+
+                FileHandle fs_ret;
+                fs_ret = snHandler.create_versioned_DDFS_handle( this, node, attrs );
+                
+                // IF WE HAVE MORE THAN ONE HANDLE
+                if (ret != null)
+                {
+                    // IS RETURN ALREADY A MULTIHANDLE, THEN ADD THIS ONE
+                    if (ret instanceof MultiFileHandle)
+                    {
+                        MultiFileHandle mfh = (MultiFileHandle)ret;
+                        mfh.add(fs_ret);
+                    }
+                    else
+                    {
+                        // CREATE A MULTIHANDLE AND ADD THE CREATED HANDLES
+                        MultiFileHandle mfh = new MultiFileHandle();
+                        mfh.add(ret);
+                        mfh.add(fs_ret);
+                        ret = mfh;
+                    }
+                }
+                else
+                {
+                    ret = fs_ret;
+                }
+            }
+        }
+        return ret;
+    }    
     public FileHandle open_file_handle(FileSystemElemNode node, boolean create ) throws IOException, PathResolveException, SQLException
     {
         List<AbstractStorageNode> s_nodes = resolve_storage_nodes( node );
@@ -1915,6 +1971,7 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
             }
             else
             {
+                Log.debug("Delete Node wird nicht historisiert", node.toString());
                 remove_fse_node(node, immediateCommit);
             }
         }
@@ -1991,7 +2048,19 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
         if (mtoJavaTime != 0)
             fseNode.getAttributes().setModificationDateMs(mtoJavaTime);
 
-        fseNode.setAttributes(em_merge( fseNode.getAttributes()));
+        // Timestamps von Verzeichnissen werden nicht historisiert
+        // TODO: ist das korrekt so ??
+        if (fseNode.isDirectory())
+        {
+            check_open_transaction();
+            fseNode.setAttributes(em_merge(fseNode.getAttributes()));
+        }
+        else
+        {
+            mergeOrPersistAttribute(fseNode, fseNode.getAttributes(), isFileChangePersitent(fseNode), System.currentTimeMillis());  
+        }
+        
+        commit_transaction();
     }
 
 
@@ -2124,6 +2193,47 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
 //        }
 
     }
+    public boolean checkBlock( String hash ) throws IOException, SQLException
+    {
+        // READ FROM CACHE
+        HashCache hashCache = LogicControl.getStorageNubHandler().getHashCache(getPool());
+        DedupHashBlock dhb;
+        
+        if (hashCache.isInited())
+        {
+            long idx = hashCache.getDhbIdx(hash);
+            return (idx > 0);
+        }
+        else
+        {
+            dhb = findHashBlock(hash );
+        } 
+        return dhb != null;        
+    }
+    
+    public void writeBlock( long fileNo, String hash, byte[] b, int length, long offset ) throws IOException, SQLException, PoolReadOnlyException, PathResolveException
+    {
+        if (isReadOnly())
+            throw new PoolReadOnlyException(pool);
+
+        FileSystemElemNode fseNode = getNodeByFileNo( fileNo );
+        Log.debug("writeFile len " +  length + " Node:" + fseNode.getIdx() + " Attr:" + fseNode.getAttributes().getIdx() + " " +  fseNode.getAttributes());
+        
+        if (isReadOnly(fseNode))
+            throw new PoolReadOnlyException(pool);
+        
+        FileHandle fh = getFhByFileNo( fileNo );
+        
+        
+        if (fh != null)
+        {
+            fh.writeBlock(hash, b, length, offset);
+        }
+        else
+        {
+            throw new IOException("Cannot retrieve FileHandle for fileNo " + fileNo);
+        }
+    }
 
     public void setDeleted( FileSystemElemNode fsenode, boolean b, long actTimestamp ) throws SQLException, DBConnException, PoolReadOnlyException
     {
@@ -2138,18 +2248,29 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
         {
             attr = new FileSystemElemAttributes(fsenode.getAttributes());
         }
-        
-        attr.setTs( actTimestamp );
+                
         attr.setDeleted(b);
         
-        mergeOrPersistAttribute(fsenode, attr, needNewAttributes); 
+        mergeOrPersistAttribute(fsenode, attr, needNewAttributes, actTimestamp); 
         Log.debug(Main.Txt((b ? "Setze":"Entferne") + " Löschflag für"), fsenode.toString());
         
     }
     
-    public void updateAttributes( long fileNo,  long actTimestamp, RemoteFSElem elem ) throws SQLException, DBConnException, PoolReadOnlyException
+   
+    public void updateAttributes( long fileNo,  long actTimestamp, RemoteFSElem elem ) throws SQLException, DBConnException, PoolReadOnlyException, IOException
     {
-        FileSystemElemNode fsenode = getNodeByFileNo( fileNo );
+        FileSystemElemNode fsenode = null;
+    
+        if (fileNo >= 0)
+        {
+            fsenode = getNodeByFileNo( fileNo );
+        }
+        else
+        {
+            fsenode = resolve_fse_node_from_db(elem.getIdx());            
+        }
+        if (fsenode == null)
+            throw new IOException("Node konnte nicht aufgeloset werden: " + fileNo + "/" + elem.getIdx());
         
         if (isReadOnly(fsenode))
             throw new PoolReadOnlyException(pool);
@@ -2178,7 +2299,7 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
 
         // THIS IS THE NEWEST ENTRY FOR THIS FILE
         FileSystemElemAttributes attr = fsenode.getAttributes();
-
+        
         if (qry.hasSearchList())
         {
             if (!qry.matchesSearchListTimestamp( attr ))
@@ -2249,7 +2370,7 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
         attr.setModificationDateMs( elem.getMtimeMs());
         attr.setFsize( elem.getDataSize() );
         attr.setStreamSize( elem.getStreamSize() );
-        attr.setTs( actTimestamp );
+        
         attr.setDeleted(false);
 
         if (elem.isSymbolicLink())
@@ -2262,13 +2383,13 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
             attr.setAclInfoData( elem.getAclinfoData() );
         }
         
-        mergeOrPersistAttribute(fsenode, attr, needNewAttributes);        
+        mergeOrPersistAttribute(fsenode, attr, needNewAttributes, actTimestamp);        
     }
     
-    void mergeOrPersistAttribute(FileSystemElemNode fsenode, FileSystemElemAttributes attr, boolean needNewAttributes) throws SQLException
+    void mergeOrPersistAttribute(FileSystemElemNode fsenode, FileSystemElemAttributes attr, boolean needNewAttributes, long actTimestamp) throws SQLException
     {
         check_open_transaction();
-
+        attr.setTs( actTimestamp );
         if (needNewAttributes)
         {           
             // ADD TO HISTORY BUT AVOID LOADING AN UNLOADED LAZY LIST
@@ -2279,8 +2400,7 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
 
             // Store new
             em_persist(attr);
-            em_merge(fsenode);
-            
+            em_merge(fsenode);            
         }
         else
         {
@@ -2304,10 +2424,9 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
             attr = new FileSystemElemAttributes(fsenode.getAttributes());
         }
         
-        attr.setTs( actTimestamp );
         attr.setDeleted(false);
         
-        mergeOrPersistAttribute(fsenode, attr, needNewAttributes); 
+        mergeOrPersistAttribute(fsenode, attr, needNewAttributes, actTimestamp); 
     }
 
 

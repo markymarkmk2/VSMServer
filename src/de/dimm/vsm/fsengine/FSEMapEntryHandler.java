@@ -10,6 +10,7 @@ import de.dimm.vsm.GeneralPreferences;
 import de.dimm.vsm.Main;
 import de.dimm.vsm.log.Log;
 import de.dimm.vsm.net.interfaces.FileHandle;
+import de.dimm.vsm.records.FileSystemElemAttributes;
 import de.dimm.vsm.records.FileSystemElemNode;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
@@ -72,6 +73,23 @@ public class FSEMapEntryHandler
         Log.err( "open_fh: open failed " + node.getName() );
         return -1;
     }
+    public long open_versioned_fh( FileSystemElemNode node, FileSystemElemAttributes attrs ) throws IOException, PathResolveException, SQLException
+    {
+        long newFileNo = newFilehandleIdx++;
+        synchronized(openFileHandleMap)
+        {
+            FileHandle fh = poolHandler.open_versioned_file_handle(node, attrs);
+            if (fh != null)
+            {
+                openFileHandleMap.put(newFileNo, new FSEMapEntry(node, fh) );
+                //Log.debug( "open_fh: opening " + node.getName() + " -> " + newFileNo );
+                return newFileNo;
+            }
+        }
+        Log.err( "open_fh: open failed " + node.getName() );
+        return -1;
+    }
+   
     public long open_stream( FileSystemElemNode node, int streamInfo, boolean create ) throws IOException, PathResolveException, UnsupportedEncodingException, SQLException
     {
         long newFileNo = newFilehandleIdx++;

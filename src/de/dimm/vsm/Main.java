@@ -5,6 +5,7 @@
 
 package de.dimm.vsm;
 
+import static de.dimm.vsm.LogicControl.getDbPath;
 import de.dimm.vsm.Utilities.DefaultTextProvider;
 import de.dimm.vsm.Utilities.SizeStr;
 import de.dimm.vsm.Utilities.VariableResolver;
@@ -43,7 +44,7 @@ public class Main
 {
 
     static String source_str = "trunk";
-    static String version_str = "1.5.7";
+    static String version_str = "1.6.0";
         
     public static int writeThreads = 1;
     public static int maxOpenFiles = 1024;
@@ -196,7 +197,7 @@ public class Main
             if (!f.exists())
                 f.mkdirs();
 
-            f = new File( DATABASEPATH );
+            f = new File( getDbPath() );
             if (!f.exists())
             {
                 f.mkdirs();
@@ -822,7 +823,7 @@ public class Main
     private boolean checkRebuildDB()
     {
         boolean rebuild = false;
-        File dbrelease = new File(DATABASEPATH + "dbVer.txt");
+        File dbrelease = new File(getDbPath() + "dbVer.txt");
 
         long r = readDBRelease(dbrelease);
 

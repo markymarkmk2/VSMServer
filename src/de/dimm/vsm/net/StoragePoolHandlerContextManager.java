@@ -77,37 +77,13 @@ public class StoragePoolHandlerContextManager extends WorkerParent
     }
 
 
-
-    public StoragePoolWrapper createPoolWrapper( String agentIp, int port, StoragePool pool, boolean rdonly, boolean showDeleted, String subPath, User user, String drive )
+    public StoragePoolWrapper createPoolWrapper( String agentIp, int port, StoragePool pool, StoragePoolQry qry, FileSystemElemNode node, String drive )
     {
         synchronized (handlerMap)
         {
             try
             {
-                long newIdx = handlerMap.size();
-                StoragePoolQry qry = new StoragePoolQry(user, rdonly, -1, showDeleted);
-                StoragePoolWrapper w = new StoragePoolWrapper(newIdx, pool.getIdx(), agentIp, port, qry, true);
-                StoragePoolHandler handler = StoragePoolHandlerFactory.createStoragePoolHandler(pool, qry);
-
-                StoragePoolHandlerContext context = new StoragePoolHandlerContext(handler, drive, agentIp, port);
-                handlerMap.put(w, context);
-                return w;
-            }
-            catch (Exception iOException)
-            {
-                Log.err(Main.Txt("Abbruch in createPoolWrapper") , iOException);
-            }
-            return null;
-        }
-    }
-    public StoragePoolWrapper createPoolWrapper( String agentIp, int port, StoragePool pool, long timestamp, boolean rdonly, boolean showDeleted, FileSystemElemNode node, User user, String drive )
-    {
-        synchronized (handlerMap)
-        {
-            try
-            {
-                long newIdx = handlerMap.size();
-                StoragePoolQry qry = new StoragePoolQry(user, rdonly, timestamp, showDeleted);
+                long newIdx = handlerMap.size();                
                 StoragePoolWrapper w = new StoragePoolWrapper(newIdx, pool.getIdx(), agentIp, port, qry, true);
                 StoragePoolHandler handler = StoragePoolHandlerFactory.createStoragePoolHandler(pool, qry);
                 handler.setPathResolver( new NodePathResolver(node, handler));
@@ -124,14 +100,15 @@ public class StoragePoolHandlerContextManager extends WorkerParent
             return null;
         }
     }
-    public StoragePoolWrapper createPoolWrapper( String agentIp, int port, StoragePool pool, long timestamp, boolean rdonly, boolean showDeleted, String subPath, User user, String drive )
+    
+    public StoragePoolWrapper createPoolWrapper( String agentIp, int port, StoragePool pool, StoragePoolQry qry, String subPath, String drive )
     {
         synchronized (handlerMap)
         {
             try
             {
                 long newIdx = handlerMap.size();
-                StoragePoolQry qry = new StoragePoolQry(user, rdonly, timestamp, showDeleted);
+                //StoragePoolQry qry = new StoragePoolQry(user, rdonly, timestamp, showDeleted);
                 StoragePoolWrapper w = new StoragePoolWrapper(newIdx, pool.getIdx(), agentIp, port, qry, true);
                 StoragePoolHandler handler = StoragePoolHandlerFactory.createStoragePoolHandler(pool, qry);
                 if (handler.isInsideMappingDir( subPath ))
@@ -142,7 +119,7 @@ public class StoragePoolHandlerContextManager extends WorkerParent
                 qry.setUseMappingFilter(false);
                 FileSystemElemNode node = handler.resolve_node( subPath );
                 // Bei schreibenden Mounts das Erstellen des VSM-Pfads zulassen
-                if (node == null && !rdonly)
+                if (node == null && !qry.isReadOnly())
                 {
                     FileSystemElemNode parent = handler.resolve_parent_dir_node( subPath);
                     // Fehlende Parent-Ordner erzeugen
@@ -175,37 +152,7 @@ public class StoragePoolHandlerContextManager extends WorkerParent
             return null;
         }
     }
-    public StoragePoolWrapper createPoolWrapper( String agentIp, int port, StoragePool pool, long ts, String subPath, User user, String drive )
-    {
-        synchronized (handlerMap)
-        {
-            try
-            {
-                long newIdx = handlerMap.size();
-                StoragePoolQry qry = new StoragePoolQry(user, true, ts, false);
-                StoragePoolWrapper w = new StoragePoolWrapper(newIdx, pool.getIdx(), agentIp, port, qry, true);
-                StoragePoolHandler handler = StoragePoolHandlerFactory.createStoragePoolHandler( pool, qry);
-                if (handler.isInsideMappingDir( subPath ))
-                {
-                    subPath = handler.resolveMappingDir(subPath);
-                }
-                // ALL FOLLOWING REQUESTS ARE IN REAL VSM-NAMESPACE
-                qry.setUseMappingFilter(false);
 
-                handler.em_refresh(pool.getRootDir());
-
-                StoragePoolHandlerContext context = new StoragePoolHandlerContext(handler, drive, agentIp, port);
-                handlerMap.put(w, context);
-
-                return w;
-            }
-            catch (Exception iOException)
-            {
-                Log.err(Main.Txt("Abbruch in createPoolWrapper") , iOException);
-            }
-            return null;
-        }
-    }
     public StoragePoolWrapper createPoolWrapper( StoragePoolHandler handler, String agentIp, int port, String drive )
     {
         synchronized (handlerMap)

@@ -223,7 +223,9 @@ public class AutoMountManager extends WorkerParent implements IAgentIdleManager
         boolean rdOnly = mountEntry.isReadOnly();
         boolean showDeleted = mountEntry.isShowDeleted();
 
-        StoragePoolWrapper wrapper = contextMgr.createPoolWrapper( mountEntry.getIp(), mountEntry.getPort(), mountEntry.getPool(), timestamp, rdOnly, showDeleted, mountEntry.getSubPath(), user, mountEntry.getMountPath().getPath() );
+        StoragePoolQry qry = (rdOnly) ? StoragePoolQry.createActualRdOnlyStoragePoolQry(user, showDeleted) : 
+                                        StoragePoolQry.createActualRdWrStoragePoolQry(user, showDeleted);
+        StoragePoolWrapper wrapper = contextMgr.createPoolWrapper( mountEntry.getIp(), mountEntry.getPort(), mountEntry.getPool(), qry, mountEntry.getSubPath(), mountEntry.getMountPath().getPath() );
         wrapper.setCloseOnUnmount( true );
         wrapper.setMountEntry( mountEntry );
         guiServerApi.mountVolume( mountEntry.getIp(), mountEntry.getPort(), wrapper, mountEntry.getMountPath().getPath() );

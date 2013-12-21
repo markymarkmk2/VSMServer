@@ -43,22 +43,6 @@ public class JDBCStoragePoolHandler extends StoragePoolHandler
 //        updateLazyListsHandler( pool.getRootDir());
 //    }
 
-    private JDBCStoragePoolHandler( JDBCEntityManager em, User user, StoragePool pool, boolean readOnly, long snapShotTs ) throws SQLException
-    {
-        this(em, pool, new StoragePoolQry( user, readOnly, snapShotTs, false));
-    }
-
-    public JDBCStoragePoolHandler( JDBCEntityManager em, User user, StoragePool pool, boolean readOnly ) throws SQLException
-    {
-        // ACTUAL FILESYSTEM, CANNOT BE A SNAPSHOTFILESYSTEM
-        this(em, user, pool, readOnly, -1);
-    }
-
-    public JDBCStoragePoolHandler( JDBCEntityManager em, User user, StoragePool pool, long snapShotTs ) throws SQLException
-    {
-        // SNAPSHOT FILESYSTEM, CAN ONLY BE RDONLY
-        this(em, user, pool, /*rdonly*/ true, snapShotTs);
-    }
 
     public void setPersistRunner( HandlePersistRunner persistRunner )
     {

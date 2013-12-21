@@ -32,6 +32,7 @@ public class ShutdownHook extends Thread
             Runnable r = children.get(i);
             r.run();            
         }
+        LogicControl.sleep(2000);
         Main.get_control().shutdown();
         Log.info("VSM wird beendet");
 

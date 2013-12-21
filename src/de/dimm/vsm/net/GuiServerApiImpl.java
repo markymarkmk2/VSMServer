@@ -14,8 +14,6 @@ import de.dimm.vsm.auth.User;
 import de.dimm.vsm.backup.Backup;
 import de.dimm.vsm.backup.hotfolder.MMImportManager;
 import de.dimm.vsm.fsengine.FSEIndexer;
-import de.dimm.vsm.fsengine.JDBCConnectionFactory;
-import de.dimm.vsm.fsengine.JDBCEntityManager;
 import de.dimm.vsm.fsengine.StorageNodeHandler;
 import de.dimm.vsm.fsengine.StoragePoolHandler;
 import de.dimm.vsm.fsengine.VSMFSInputStream;
@@ -26,7 +24,6 @@ import de.dimm.vsm.jobs.JobManager;
 import de.dimm.vsm.lifecycle.NodeMigrationManager;
 import de.dimm.vsm.net.interfaces.GuiServerApi;
 import de.dimm.vsm.net.interfaces.IWrapper;
-import de.dimm.vsm.net.interfaces.UIRecoveryApi;
 import de.dimm.vsm.records.AbstractStorageNode;
 import de.dimm.vsm.records.ArchiveJob;
 import de.dimm.vsm.records.FileSystemElemNode;
@@ -165,8 +162,9 @@ public class GuiServerApiImpl implements GuiServerApi
             
             StoragePoolHandlerContextManager contextMgr = control.getPoolHandlerServlet().getContextManager();
 
+            StoragePoolQry qry = StoragePoolQry.createTimestampStoragePoolQry(user, timestamp.getTime());
             final StoragePoolWrapper poolWrapper = contextMgr.createPoolWrapper(agentIp, agentPort,
-                    pool, timestamp.getTime(), subPath, user, drive);
+                    pool, qry, subPath, drive);
 
             poolWrapper.setCloseOnUnmount(true);
 
@@ -383,45 +381,24 @@ public class GuiServerApiImpl implements GuiServerApi
 
         return ret;
     }
-
     @Override
-    public StoragePoolWrapper openPoolView( StoragePool pool, Date timestamp, String subPath, User user )
+    public StoragePoolWrapper openPoolView( StoragePool pool, StoragePoolQry qry, String subPath )
     {
-        StoragePoolHandlerContextManager contextMgr = control.getPoolHandlerServlet().getContextManager();
-        final StoragePoolWrapper poolWrapper = contextMgr.createPoolWrapper("", 0, pool, timestamp.getTime(), subPath, user, "");
+        StoragePoolHandlerContextManager contextMgr = control.getPoolHandlerServlet().getContextManager();        
+        final StoragePoolWrapper poolWrapper = contextMgr.createPoolWrapper("", 0, pool, qry, subPath, "");
         return poolWrapper;
     }
 
-    @Override
-    public StoragePoolWrapper openPoolView( StoragePool pool, boolean rdonly, String subPath, User user )
-    {
-        StoragePoolHandlerContextManager contextMgr = control.getPoolHandlerServlet().getContextManager();
-        final StoragePoolWrapper poolWrapper = contextMgr.createPoolWrapper("", 0, pool, rdonly, false, subPath, user, "");
-        return poolWrapper;
-    }
-    @Override
-    public StoragePoolWrapper openPoolView( StoragePool pool, boolean rdonly, boolean showDeleted, String subPath, User user )
-    {
-        StoragePoolHandlerContextManager contextMgr = control.getPoolHandlerServlet().getContextManager();
-        final StoragePoolWrapper poolWrapper = contextMgr.createPoolWrapper("", 0, pool, rdonly, showDeleted, subPath, user, "");
-        return poolWrapper;
-    }
 
     @Override
-    public StoragePoolWrapper openPoolView( StoragePool pool, boolean rdonly, FileSystemElemNode node, User user )
+    public StoragePoolWrapper openPoolView( StoragePool pool, StoragePoolQry qry, FileSystemElemNode node )
     {
-        StoragePoolHandlerContextManager contextMgr = control.getPoolHandlerServlet().getContextManager();
-        final StoragePoolWrapper poolWrapper = contextMgr.createPoolWrapper("", 0, pool, -1, rdonly, false, node, user, "");
+        StoragePoolHandlerContextManager contextMgr = control.getPoolHandlerServlet().getContextManager();        
+        final StoragePoolWrapper poolWrapper = contextMgr.createPoolWrapper("", 0, pool, qry, node, "");
         return poolWrapper;
     }
-    @Override
-    public StoragePoolWrapper openPoolView( StoragePool pool, boolean rdonly, boolean showDeleted, FileSystemElemNode node, User user )
-    {
-        StoragePoolHandlerContextManager contextMgr = control.getPoolHandlerServlet().getContextManager();
-        final StoragePoolWrapper poolWrapper = contextMgr.createPoolWrapper("", 0, pool, -1, rdonly, showDeleted, node, user, "");
-        return poolWrapper;
-    }
-
+    
+    
 
     @Override
     public List<RemoteFSElem> listDir( StoragePoolWrapper wrapper, RemoteFSElem path ) throws SQLException
@@ -467,16 +444,29 @@ public class GuiServerApiImpl implements GuiServerApi
         return control.getPoolHandlerServlet().restoreFSElem(wrapper, list, targetIP, targetPort, targetPath, flags, user);
     }
     @Override
+    public boolean restoreVersionedFSElem( IWrapper wrapper, RemoteFSElem path, String targetIP, int targetPort, String targetPath, int flags, User user ) throws PoolReadOnlyException, SQLException, IOException
+    {
+        List<RemoteFSElem> list = new ArrayList<>();
+        list.add(path);
+        return control.getPoolHandlerServlet().restoreVersionedFSElem(wrapper, list, targetIP, targetPort, targetPath, flags, user);
+    }
+    @Override
     public boolean restoreFSElems( IWrapper wrapper, List<RemoteFSElem> paths, String targetIP, int targetPort, String targetPath, int flags, User user ) throws PoolReadOnlyException, SQLException, IOException
     {
         return control.getPoolHandlerServlet().restoreFSElem(wrapper, paths, targetIP, targetPort, targetPath, flags, user);
+    }
+    @Override
+    public boolean restoreVersionedFSElems( IWrapper wrapper, List<RemoteFSElem> paths, String targetIP, int targetPort, String targetPath, int flags, User user ) throws PoolReadOnlyException, SQLException, IOException
+    {
+        return control.getPoolHandlerServlet().restoreVersionedFSElem(wrapper, paths, targetIP, targetPort, targetPath, flags, user);
     }
 
     @Override
     public FileSystemElemNode createFileSystemElemNode( StoragePool pool, String path, String type ) throws IOException, PoolReadOnlyException, PathResolveException
     {
         StoragePoolHandlerContextManager contextMgr = control.getPoolHandlerServlet().getContextManager();
-        final StoragePoolWrapper poolWrapper = contextMgr.createPoolWrapper("", 0, pool, false, false, "", null, "");
+        StoragePoolQry qry = StoragePoolQry.createActualRdWrStoragePoolQry(User.createSystemInternal(), false);
+        final StoragePoolWrapper poolWrapper = contextMgr.createPoolWrapper("", 0, pool, qry, "", "" );
         StoragePoolHandler handler = contextMgr.getHandlerbyWrapper(poolWrapper);
         FileSystemElemNode node = handler.create_fse_node_complete(path, type);
 
@@ -756,7 +746,7 @@ public class GuiServerApiImpl implements GuiServerApi
     {
         StoragePoolHandler sp_handler = control.getPoolHandlerServlet().getPoolHandlerByWrapper(wrapper);
         
-        VSMFSInputStream is = new VSMFSInputStream(sp_handler, path.getIdx());
+        VSMFSInputStream is = new VSMFSInputStream(sp_handler, path.getIdx(), path.getAttrIdx());
         return is;
     }
 
@@ -892,6 +882,13 @@ public class GuiServerApiImpl implements GuiServerApi
     {
         JobInterface ji = FixBootstrapEntries.createFixJobInterface(user, pool);
         Main.get_control().getJobManager().addJobEntry(ji);
+    }
+
+    @Override
+    public List<RemoteFSElem> listVersions( IWrapper wrapper, RemoteFSElem path ) throws SQLException, IOException
+    {
+        StoragePoolHandler sp_handler = control.getPoolHandlerServlet().getPoolHandlerByWrapper(wrapper);
+        return control.getPoolHandlerServlet().get_versions(sp_handler, path);
     }
     
 

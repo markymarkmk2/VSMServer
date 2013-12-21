@@ -51,6 +51,7 @@ public class Restore
     int hash_block_size;
     boolean abort = false;
     List<FileSystemElemNode> nodes;
+    List<FileSystemElemAttributes> attrs;
     
 
     public Restore(StoragePoolHandler poolHandler, FileSystemElemNode node, int flags, StoragePoolQry qry, InetAddress targetIP, int targetPort, RemoteFSElem target) throws IOException
@@ -61,9 +62,16 @@ public class Restore
         setRestoreParam(poolHandler, list, flags, qry, targetIP, targetPort, target);
     }
 
-    public Restore(StoragePoolHandler poolHandler, List<FileSystemElemNode> nodes, int flags, StoragePoolQry qry, InetAddress targetIP, int targetPort, RemoteFSElem target) throws IOException
+    public Restore(StoragePoolHandler poolHandler, List<FileSystemElemNode> nodes, List<FileSystemElemAttributes> fseAttrs, int flags, StoragePoolQry qry, InetAddress targetIP, int targetPort, RemoteFSElem target) throws IOException
     {
         setRestoreParam(poolHandler, nodes, flags, qry, targetIP, targetPort, target);
+        attrs = fseAttrs;
+        if (attrs.size() != nodes.size())
+            throw new IOException("Ungülithe Attributanzahl");
+    }
+    public Restore(StoragePoolHandler poolHandler, List<FileSystemElemNode> nodes, int flags, StoragePoolQry qry, InetAddress targetIP, int targetPort, RemoteFSElem target) throws IOException
+    {
+        setRestoreParam(poolHandler, nodes, flags, qry, targetIP, targetPort, target);        
     }
     public Restore(StoragePoolHandler poolHandler, ArchiveJob job, int flags, StoragePoolQry qry, InetAddress targetIP, int targetPort, RemoteFSElem target) throws IOException
     {
@@ -272,16 +280,11 @@ public class Restore
         {
 
         }
-
-
-
     }
 
     public void run_restore()
     {
         String targetPath = actualContext.target.getPath();
-
-        //String pathOffset = Scheduler.getRemoteElemAbsPath(context.apiEntry, target);
 
         boolean ret = true;
         try
@@ -294,8 +297,16 @@ public class Restore
                 // RELOAD
                 node = actualContext.getPoolhandler().em_find(node.getClass(), node.getIdx());
 
-                // GET CORRECT ATTRIBUTES
-                FileSystemElemAttributes attr = actualContext.poolhandler.getActualFSAttributes(node, actualContext.qry);
+                FileSystemElemAttributes attr;
+                if (attrs == null)
+                {
+                    // GET CORRECT ATTRIBUTES
+                    attr = actualContext.poolhandler.getActualFSAttributes(node, actualContext.qry);
+                }
+                else
+                {
+                    attr = attrs.get(i);
+                }
 
                 restore_complete_node(node, attr, targetPath);
             }

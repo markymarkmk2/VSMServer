@@ -98,11 +98,11 @@ class DDHandleManager
         {
             if (!fh.stream)
             {
-                handleList = fh.buildHashBlockList( fh.node.getAttributes());
+                handleList = fh.buildHashBlockList( fh.attrs);
             }
             else
             {
-                handleList = fh.buildXABlockList( fh.node.getAttributes());
+                handleList = fh.buildXABlockList( fh.attrs);
             }
         }
         else
@@ -117,7 +117,7 @@ class DDHandleManager
             DDHandle dDHandle = it.next();
             existingPosMap.put(dDHandle.pos, dDHandle);
         }
-        fh.origlen = (fh.stream) ? fh.node.getAttributes().getStreamSize() : fh.node.getAttributes().getFsize();        
+        fh.origlen = (fh.stream) ? fh.attrs.getStreamSize() : fh.attrs.getFsize();        
     }
     
     void readExistingBlocks() throws IOException
@@ -133,8 +133,7 @@ class DDHandleManager
             {
                 throw new IOException("cannot read pos map");
             }
-        }
-        
+        }        
     }
 
     DDHandle rereadBlock(DDHandle handle ) throws IOException
@@ -321,10 +320,11 @@ class DDHandleManager
                 continue;
             if (pos + len <= dDHandle.pos || pos >= dDHandle.pos + dDHandle.len)
             {
-                openHandles.remove(dDHandle);
-                openPosMap.remove(Long.valueOf(dDHandle.pos));
+                // CLEAR DATA BUT DO NOT REMOVE
                 dDHandle.close();
-                i--;
+//                openHandles.remove(dDHandle);
+//                openPosMap.remove(Long.valueOf(dDHandle.pos));
+//                i--;
             }
         }
         
@@ -401,6 +401,7 @@ public final class DDFS_WR_FileHandle implements FileHandle, IBackupHelper
     
     protected File fh;
     protected FileSystemElemNode node;
+    protected FileSystemElemAttributes attrs;
     protected StoragePoolHandler spHandler;
     protected AbstractStorageNode fsNode;
     protected boolean directory;
@@ -416,12 +417,13 @@ public final class DDFS_WR_FileHandle implements FileHandle, IBackupHelper
     HashCache hashCache;
     protected FSEIndexer indexer;
     int streamInfo;
-    boolean createNewAttribute;
+    
     int blockSize;
 
     DDHandleManager hm;
     long origlen;
     long maxUnFlushedWritePos;
+    long biggestWrittenBlockPos = 0;
 
     
    // OPEN ALL NECESSARY BLOCKS FOR READ OPERATION, THIS CAN SPAN MORE THAN ONE DEDUP BLOCK (IF POS AND LEN CROSS BLOCK BOUNDARY OR IF LEN > BLOCKLEN OR BOTH)
@@ -430,7 +432,8 @@ public final class DDFS_WR_FileHandle implements FileHandle, IBackupHelper
     {        
         hm.ensure_open(pos, len, rafMode);
     }
-public AbstractStorageNode getFsNode()
+    
+    public AbstractStorageNode getFsNode()
     {
         return fsNode;
     }
@@ -464,7 +467,12 @@ public AbstractStorageNode getFsNode()
    
     protected DDFS_WR_FileHandle( AbstractStorageNode fs_node, StoragePoolHandler sp_handler, FileSystemElemNode node, boolean create, boolean isStream ) throws IOException
     {
+        this(fs_node, sp_handler, node, node.getAttributes(), create, isStream);
+    }
+    protected DDFS_WR_FileHandle( AbstractStorageNode fs_node, StoragePoolHandler sp_handler, FileSystemElemNode node, FileSystemElemAttributes attrs, boolean create, boolean isStream ) throws IOException
+    {
         this.node = node;
+        this.attrs = attrs;
         this.fsNode = fs_node;
         this.spHandler = sp_handler;
         this.directory = node.isDirectory();
@@ -473,13 +481,15 @@ public AbstractStorageNode getFsNode()
         blockSize =  Main.get_int_prop(GeneralPreferences.FILE_HASH_BLOCKSIZE, CS_Constants.FILE_HASH_BLOCKSIZE);
         hm = new DDHandleManager(this);
         
-        // Wenn wir als CreateAlways gestartet worden -> Truncate to 0
-        if (create)
-        {
+        // Wenn wir als create gestartet worden -> Truncate to 0
+       /* if (create)
+        {            
             setNodeSize(0);
-        }
+        }*/
+        // TODO: Optimize
         hm.readExistingBlocks();        
 }
+    
 
     public void setStreamInfo( int streamInfo )
     {
@@ -495,17 +505,17 @@ public AbstractStorageNode getFsNode()
         hm.resizeExistingBlocks( size );
                
         setNodeSize(size);
+        origlen = size;
         
-         try
+        try
         {
-            spHandler.check_open_transaction();
-            spHandler.getEm().em_merge(node.getAttributes());
-            spHandler.check_commit_transaction();
+            setAttributes(size);
         }
         catch (SQLException sQLException)
         {
             throw new IOException("Cannot update size");
         }                         
+        origlen = size;
     }
     
    
@@ -525,9 +535,76 @@ public AbstractStorageNode getFsNode()
             {
                 throw new IOException("Fehler bei checkAndReadBlock", ex);
             }
+        }  
+        if (!actBlock.isUnread() && actBlock.getData() == null)
+            ;
+    }
+    
+    void initStaticData()
+    {
+        if (digest == null)
+        {           
+            digest = new fr.cryptohash.SHA1();
+            
+            hashCache = LogicControl.getStorageNubHandler().getHashCache(getSpHandler().getPool());
+            indexer = LogicControl.getStorageNubHandler().getIndexer(getSpHandler().getPool());
+            if (!indexer.isOpen())
+            {
+                indexer.open();
+            }
+            stat = new StatCounter("DDFS Write");
         }        
     }
 
+    @Override
+    public synchronized void writeBlock( String hashValue, byte[] data, int length, long offset ) throws IOException, PathResolveException, PoolReadOnlyException, UnsupportedEncodingException, SQLException
+    {
+        initStaticData();
+        getSpHandler().check_open_transaction();
+        
+        // Zum Eintragen hier den aktuellen Zeitpunkt verwenden, wir wissen nicht, 
+        // wenn die Attribute geschrieben werden, aber auf jeden Fall später als jetzt
+        long ts = System.currentTimeMillis();
+        
+        DedupHashBlock dhb = check_for_existing_block(hashValue);
+        if (dhb != null)
+        {
+            HashBlock hb = getSpHandler().create_hashentry(node, hashValue, dhb, offset, length, /*reorganize*/ false, ts);
+            node.getHashBlocks().addIfRealized(hb);
+
+            // UPDATE BOOTSTRAP
+            getSpHandler().write_bootstrap_data(dhb, hb);
+            stat.addDedupBlock(dhb);
+            Log.debug("Found DHB " + dhb.toString());
+        }
+        else
+        {
+            if (data == null)
+                throw new IOException("Data fehlt bei write block, hashvalue " + hashValue + " ist unbekannt" );
+            
+            dhb = Backup.createDedupHashBlock(this, node, hashValue, streamInfo, offset, length, isStream(), ts);
+            if (dhb != null)
+            {
+                FileHandle fHandle = getSpHandler().open_dedupblock_handle(dhb, /*create*/ true);
+                fHandle.writeFile( data, length, /*offset*/ 0);
+
+                updateHashBlock( isStream(), hashValue, dhb, offset, length, ts );
+                stat.addTransferBlock();
+               
+                Log.debug("Added DHB " + dhb.toString());
+            }
+            else
+            {
+                // Cannot happen, Exception is thrown before
+                throw new SQLException("Could not create DHB");
+            }
+        }  
+        if (offset + length > biggestWrittenBlockPos)
+        {
+            biggestWrittenBlockPos = offset + length;        
+        }
+    }
+    
     
 
     @Override
@@ -601,57 +678,54 @@ public AbstractStorageNode getFsNode()
         return false;
     }
 
-    private void checkForFlush(boolean immediately) throws IOException
-    {        
+    private void checkForFlush(boolean onClose) throws IOException
+    {                
         boolean doFlush = false;
-        if (!immediately)
+        boolean lenChanged = false;
+        if (!onClose)
         {
             doFlush = hm.needsFlush();
         }
         else
-        {
-            Collection<DDHandle> handles = hm.getHandles();
-            for (Iterator<DDHandle> it = handles.iterator(); it.hasNext();)
-            {
-                DDHandle handle = it.next();
-
-                // Ist beschrieben worden ?
-                if (handle.isDirty())
-                {
-                    doFlush = true;
-                    break;
-                }
-            }
-        }
-
-        if (!doFlush)
-            return;                
-
-        getSpHandler().check_open_transaction();
-        FileSystemElemAttributes newAttr = getNode().getAttributes();
-
-        // Erster schreibender Zugriff, dann alles notwendige anlegen
-        if (digest == null)
-        {           
-            digest = new fr.cryptohash.SHA1();
-            
-            hashCache = LogicControl.getStorageNubHandler().getHashCache(getSpHandler().getPool());
-            indexer = LogicControl.getStorageNubHandler().getIndexer(getSpHandler().getPool());
-            if (!indexer.isOpen())
-            {
-                indexer.open();
-            }
-            stat = new StatCounter("DDFS Write");
-        }
-
-        try
-        {            
+        {    
             long newLen = 0;
             Collection<DDHandle> handles = hm.getHandles();
             for (Iterator<DDHandle> it = handles.iterator(); it.hasNext();)
             {
                 DDHandle handle = it.next();
+                long maxPos = handle.pos + handle.len;
+                if (maxPos > newLen)
+                {
+                    lenChanged = true;
+                }
 
+                // Ist beschrieben worden ?
+                if (handle.isDirty())
+                {
+                    doFlush = true;
+                }
+                if (lenChanged || doFlush)
+                    break;
+            }
+        }
+
+        // Kein Flush und keine Attributsänderung notwendig?
+        if (!doFlush && !lenChanged && biggestWrittenBlockPos == 0)
+            return;                
+
+        getSpHandler().check_open_transaction();
+        FileSystemElemAttributes newAttr = getNode().getAttributes();
+
+        initStaticData();
+
+        try
+        {                        
+            long newLen = biggestWrittenBlockPos;
+            Collection<DDHandle> handles = hm.getHandles();
+            for (Iterator<DDHandle> it = handles.iterator(); it.hasNext();)
+            {
+                DDHandle handle = it.next();
+                
                 long maxPos = handle.pos + handle.len;
                 if (maxPos > newLen)
                     newLen = maxPos;
@@ -660,9 +734,7 @@ public AbstractStorageNode getFsNode()
                 if (!handle.isDirty())
                     continue;
 
-
                 Log.debug("checkForFlush", "Flushing " + handle);
-
                 
                 byte[] hash = digest.digest(handle.getData());
                 String hashValue = CryptTools.encodeUrlsafe(hash);
@@ -687,6 +759,7 @@ public AbstractStorageNode getFsNode()
                     {
                         FileHandle fHandle = getSpHandler().open_dedupblock_handle(dhb, /*create*/ true);
                         fHandle.writeFile(handle.getData(), handle.len, /*offset*/ 0);
+                        fHandle.close();
 
                         updateHashBlock( isStream(), hashValue, dhb, handle.pos, handle.len, ts );
                         stat.addTransferBlock();
@@ -708,39 +781,13 @@ public AbstractStorageNode getFsNode()
                 }
             }
 
-            // New MaxSize
-            
-            if (immediately && newLen > origlen)
+            // New MaxSize            
+            if (onClose && newLen > origlen)
             {
-                newAttr = getNode().getAttributes();
-                long actTs = System.currentTimeMillis();
-                // Nur bei Änderungen, die länger als MIN_FILECHANGE_THRESHOLD_S existieren, wird ein neues Attribut vergeben
-                if (getSpHandler().isFileChangePersitent(node))
-                {
-                    newAttr = new FileSystemElemAttributes(newAttr);
-                    createNewAttribute = true;
-                     // Neuer TS
-                    newAttr.setTs(actTs);
-                }
-                
-                // M-Time setzen, nicht gelöscht
-                newAttr.setDeleted(false);
-                newAttr.setModificationDateMs(actTs);                
-                if (createNewAttribute)
-                {
-                    Log.debug("Creating attribute: " + newAttr);
-                    createNewFseAttribute( node, newAttr,  newLen );
-                }
-                else
-                {
-                    Log.debug("Updating attribute: " + newAttr);
-                    updateFseAttribute( node, newAttr,  newLen );
-                }
-                //getSpHandler().write_bootstrap_data(newAttr);
-                indexer.addToIndexAsync(node.getAttributes(), /*ar-Job*/null);
-                getSpHandler().commit_transaction();
-                maxUnFlushedWritePos = 0;
+                setAttributes( newLen );   
+                origlen = newLen;
             }
+            maxUnFlushedWritePos = 0;
             //getSpHandler().commit_transaction();
         }
         catch (IOException | PathResolveException | PoolReadOnlyException | SQLException exc)
@@ -750,42 +797,70 @@ public AbstractStorageNode getFsNode()
         }
     }
     
-    void updateFseAttribute(FileSystemElemNode fsenode, FileSystemElemAttributes newAttributes, long len) throws SQLException
+    void setAttributes( long newLen) throws SQLException
     {
-//        todo: Beim Write und anschließendem Lesen sind nicht alle Hashblöcke in hbList from Node
+        boolean createNewAttribute = false;
+        FileSystemElemAttributes newAttr = getNode().getAttributes();
+        long actTs = System.currentTimeMillis();
+        // Nur bei Änderungen, die länger als MIN_FILECHANGE_THRESHOLD_S existieren, wird ein neues Attribut vergeben
+        if (getSpHandler().isFileChangePersitent(node))
+        {
+            newAttr = new FileSystemElemAttributes(newAttr);
+            createNewAttribute = true;            
+        }
+
+        // M-Time setzen, nicht gelöscht
+        newAttr.setDeleted(false);
+        newAttr.setModificationDateMs(actTs); 
         if (isStream())
-            fsenode.getAttributes().setStreamSize(len);
+            newAttr.setStreamSize(newLen);
         else
-            fsenode.getAttributes().setFsize(len);
-
-        Log.debug("updateFseAttribute len " +  len + " Node:" + fsenode.getIdx() + " Attr:" + fsenode.getAttributes().getIdx() + " " +  fsenode.getAttributes() );
-        getSpHandler().check_open_transaction();
-        getSpHandler().em_merge(fsenode.getAttributes());
-        getSpHandler().check_commit_transaction();
+            newAttr.setFsize(newLen);
+        
+        Log.debug("Updating attribute: " + newAttr);
+        getSpHandler().mergeOrPersistAttribute(node, newAttr, createNewAttribute, actTs);
+        
+        
+        //getSpHandler().write_bootstrap_data(newAttr);
+        indexer.addToIndexAsync(node.getAttributes(), /*ar-Job*/null);                
     }
-
-    void createNewFseAttribute(FileSystemElemNode fsenode, FileSystemElemAttributes newAttributes, long len) throws SQLException
-    {
-        long ts = newAttributes.getTs();
-        newAttributes.setAccessDateMs( ts);
-
-        newAttributes.setModificationDateMs( ts);
-        if (!isStream())
-            newAttributes.setFsize(len);
-        else
-            newAttributes.setStreamSize( len);
-
-
-        Log.debug("createNewFseAttribute len " +  len + " Node:" + fsenode.getIdx() + " Attr:" + fsenode.getAttributes().getIdx() + " " +  fsenode.getAttributes() );
-
-        getSpHandler().check_open_transaction();
-
-        newAttributes.setFile(node);
-        getSpHandler().em_persist(newAttributes);
-        fsenode.setAttributes(newAttributes);
-        getSpHandler().em_merge(fsenode);
-        getSpHandler().check_commit_transaction();
-    }
+//    
+//    void updateFseAttribute(FileSystemElemNode fsenode, FileSystemElemAttributes newAttributes, long len) throws SQLException
+//    {
+////        todo: Beim Write und anschließendem Lesen sind nicht alle Hashblöcke in hbList from Node
+//        if (isStream())
+//            fsenode.getAttributes().setStreamSize(len);
+//        else
+//            fsenode.getAttributes().setFsize(len);
+//
+//        Log.debug("updateFseAttribute len " +  len + " Node:" + fsenode.getIdx() + " Attr:" + fsenode.getAttributes().getIdx() + " " +  fsenode.getAttributes() );
+//        getSpHandler().check_open_transaction();
+//        getSpHandler().em_merge(fsenode.getAttributes());
+//        getSpHandler().check_commit_transaction();
+//    }
+//
+//    void createNewFseAttribute(FileSystemElemNode fsenode, FileSystemElemAttributes newAttributes, long len) throws SQLException
+//    {
+//        long ts = newAttributes.getTs();
+//        newAttributes.setAccessDateMs( ts);
+//
+//        newAttributes.setModificationDateMs( ts);
+//        if (!isStream())
+//            newAttributes.setFsize(len);
+//        else
+//            newAttributes.setStreamSize( len);
+//
+//
+//        Log.debug("createNewFseAttribute len " +  len + " Node:" + fsenode.getIdx() + " Attr:" + fsenode.getAttributes().getIdx() + " " +  fsenode.getAttributes() );
+//
+//        getSpHandler().check_open_transaction();
+//
+//        newAttributes.setFile(node);
+//        getSpHandler().em_persist(newAttributes);
+//        fsenode.setAttributes(newAttributes);
+//        getSpHandler().em_merge(fsenode);
+//        getSpHandler().check_commit_transaction();
+//    }
 
     void updateHashBlock( boolean isXa, String remote_hash, DedupHashBlock dhb, long offset, int read_len, long ts) throws PoolReadOnlyException, SQLException, IOException, PathResolveException
     {
@@ -1015,13 +1090,12 @@ public AbstractStorageNode getFsNode()
     
     void setNodeSize(long size) throws IOException
     {        
+        Log.debug("setNodeSize " + size);
         if (isStream())
             node.getAttributes().setStreamSize(size);
         else
             node.getAttributes().setFsize(size);        
-        
-       
-        origlen = size;        
+                             
     }
     
     @Override
@@ -1049,6 +1123,15 @@ public AbstractStorageNode getFsNode()
         {
             raf.close();
             raf = null;
+        }
+        // Am Ende muss ein Commit aufgerufen werden wg. SetTime / FileSize
+        try
+        {
+            getSpHandler().commit_transaction();
+        }
+        catch (SQLException sQLException)
+        {
+            Log.err("Fehler beim Committen in Close von " + node.getName(), sQLException);      
         }
     }    
 
@@ -1114,7 +1197,7 @@ public AbstractStorageNode getFsNode()
  @Override
     public synchronized int read( byte[] b, int length, long offset ) throws IOException
     {
-        Log.debug("readFile len " +  length + " Node:" + node.getIdx() + " Attr:" + node.getAttributes().getIdx()  + " " +  node.getAttributes());
+        Log.debug("readFile len " +  length + " offs " + offset + " Node:" + node.getIdx() );
                 
         if (verbose)
         {
@@ -1151,7 +1234,7 @@ public AbstractStorageNode getFsNode()
             // CALC OFFSET INTO BLOCK
             if (dDHandle == null)
             {
-                throw new RuntimeException("Isser doch null??");
+                throw new IOException("no datat at offset " + actReadOffset);
             }
             
             // IS THIS BLOCK CORRECT FOR THIS DATA AREA?
@@ -1184,20 +1267,22 @@ public AbstractStorageNode getFsNode()
     }
 
     
+    public static FileHandle create_versioned_fs_handle( AbstractStorageNode fs_node, StoragePoolHandler sp_handler, FileSystemElemNode node,FileSystemElemAttributes attrs) throws PathResolveException, IOException, SQLException
+    {
+        DDFS_WR_FileHandle fs = new DDFS_WR_FileHandle(fs_node, sp_handler, node, attrs, false, false);
+        return fs;
+    }
+    
     public static FileHandle create_fs_handle( AbstractStorageNode fs_node, StoragePoolHandler sp_handler, FileSystemElemNode node, boolean create) throws PathResolveException, IOException, SQLException
     {
-
         DDFS_WR_FileHandle fs = new DDFS_WR_FileHandle(fs_node, sp_handler, node, create, false);
         return fs;
-
     }
     public static FileHandle create_fs_stream_handle( AbstractStorageNode fs_node, StoragePoolHandler sp_handler, FileSystemElemNode node, int streamInfo, boolean create ) throws PathResolveException, IOException, SQLException
     {
-
         DDFS_WR_FileHandle fs = new DDFS_WR_FileHandle(fs_node, sp_handler, node, create, true);
         fs.setStreamInfo(streamInfo);
         return fs;
-
     } 
 
     private long getNodelLen()

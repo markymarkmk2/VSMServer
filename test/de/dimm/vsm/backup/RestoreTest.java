@@ -8,9 +8,6 @@ package de.dimm.vsm.backup;
 import de.dimm.vsm.net.servlets.AgentApiEntry;
 import de.dimm.vsm.net.interfaces.GuiServerApi;
 import de.dimm.vsm.fsengine.ArrayLazyList;
-import java.nio.file.Path;
-import java.nio.file.FileSystem;
-import java.nio.file.FileSystems;
 import java.io.File;
 import de.dimm.vsm.LogicControl;
 import java.sql.SQLException;
@@ -181,7 +178,7 @@ public class RestoreTest {
             expResult = apiEntry.getApi().list_dir(elem, true);
 
             ClientInfo info = new ClientInfo();
-            ArrayLazyList <Excludes> excl = new ArrayLazyList<Excludes>();
+            ArrayLazyList <Excludes> excl = new ArrayLazyList<>();
             excl.add( new Excludes("exclfile.txt", /*dir*/false, /*fullPath*/false, /*includeM*/false, /*ignoreCase*/true, Excludes.MD_EXACTLY) );
             excl.add( new Excludes("ExclFolder", /*dir*/true, /*fullPath*/false, /*includeM*/false, /*ignoreCase*/false, Excludes.MD_EXACTLY) );
             info.setExclList( excl );

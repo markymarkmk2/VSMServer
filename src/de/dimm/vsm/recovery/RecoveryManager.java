@@ -209,7 +209,7 @@ public class RecoveryManager
         {
             if (storageNode != null)
             {
-                StoragePoolQry qry = new StoragePoolQry( User.createSystemInternal(), false, -1);
+                StoragePoolQry qry = StoragePoolQry.createActualRdWrStoragePoolQry(User.createSystemInternal(), /*showDeleted*/false);
                 spHandler = new JDBCStoragePoolHandler( Main.get_control().get_util_em( storageNode.getPool()), storageNode.getPool(), qry);      
                 spHandler.getEm().setSuppressNotFound(true);
             }

@@ -216,6 +216,12 @@ public class UserDirMapper
                         ret.remove(existElem);
                     }
                 }
+                
+                if (qry.isShowVersions()) {
+                    List<FileSystemElemAttributes> attrList = fileSystemElemNode.getHistory(handler.getEm());
+                    elem.setMultVersions( attrList.size() > 1);    
+                }
+                
                 ret.add(elem);
                 foundNodes.put(fileSystemElemNode.getName(), elem);
             }

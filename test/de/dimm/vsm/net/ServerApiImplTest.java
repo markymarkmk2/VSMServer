@@ -87,12 +87,14 @@ public class ServerApiImplTest
     public void testAlert_list()
     {
         System.out.println("alert_list");
-        List<String> reason = null;
-        String msg = "";
+        List<String> reason = new ArrayList<>();
+        reason.add("1");
+        reason.add("2");
+        String msg = "msg";
         ServerApiImpl instance = new ServerApiImpl();
-        boolean expResult = false;
+        boolean expResult = true;
         boolean result = instance.alert_list(reason, msg);
-        
+        assertEquals(expResult, result);
     }
 
     /**
@@ -102,12 +104,8 @@ public class ServerApiImplTest
     public void testGet_properties()
     {
         System.out.println("get_properties");
-        ServerApiImpl instance = new ServerApiImpl();
-        Properties expResult = null;
+        ServerApiImpl instance = new ServerApiImpl();        
         Properties result = instance.get_properties();
-        assertEquals(expResult, result);
-        // TODO review the generated test code and remove the default call to fail.
-        fail("The test case is a prototype.");
     }
 
     /**

@@ -142,17 +142,17 @@ public class GenericStoragePoolNubHandler
     
     boolean hasPhysicalDBPath( StoragePoolNub nub )
     {
-        return isDiskDB(nub.getJdbcConnectString());
+        return isDiskDB(StoragePoolNubHandler.getEffectiveJdbcConnectString( nub ));
     }
 
     private static String getDatabasePath(StoragePoolNub nub)
     {
         // TODO: DIFFERENT EMBEDDED DATABASES
-        if (!isDiskDB(nub.getJdbcConnectString()))
+        if (!isDiskDB(StoragePoolNubHandler.getEffectiveJdbcConnectString( nub )))
             return null;
 
 //        String jdbcConnectString = "jdbc:derby:" + dbPath + "/VSMParams;create=true";
-        String url = nub.getJdbcConnectString();
+        String url = StoragePoolNubHandler.getEffectiveJdbcConnectString( nub );
         String start = "jdbc:derby:";
         try
         {
@@ -168,32 +168,17 @@ public class GenericStoragePoolNubHandler
 
     protected String getDbPath( StoragePoolNub nub )
     {
-        String s = Main.get_prop(GeneralPreferences.DB_PATH, Main.DATABASEPATH );
-        s = s.replace('\\', '/');
-        if (!s.endsWith("/"))
-            s += "/";
-
-        String dbPath = s + nub.getDbName() + "/" + DB_PARAM_NAME;
+        String dbPath = LogicControl.getDbPath() + nub.getDbName() + "/" + DB_PARAM_NAME;
         return dbPath;
     }
     protected String getDbRootPath( StoragePoolNub nub )
     {
-        String s = Main.get_prop(GeneralPreferences.DB_PATH, Main.DATABASEPATH );
-        s = s.replace('\\', '/');
-        if (!s.endsWith("/"))
-            s += "/";
-
-        String dbPath = s + nub.getDbName();
+        String dbPath = LogicControl.getDbPath() + nub.getDbName();
         return dbPath;
     }
     protected String getIndexPath( StoragePoolNub nub )
     {
-        String s = Main.get_prop(GeneralPreferences.DB_PATH, Main.DATABASEPATH );
-        s = s.replace('\\', '/');
-        if (!s.endsWith("/"))
-            s += "/";
-
-        String dbPath = s + nub.getDbName() + "/Index";
+        String dbPath = LogicControl.getDbPath() + nub.getDbName() + "/Index";
         return dbPath;
     }
 
@@ -202,7 +187,7 @@ public class GenericStoragePoolNubHandler
         // TODO: DIFFERENT EMBEDDED DATABASES
         if (discDb)
         {
-            String dbPath = Main.DATABASEPATH + nub.getDbName();
+            String dbPath = LogicControl.getDbPath() + nub.getDbName();
             File dir = new File( dbPath);
 
 
@@ -229,8 +214,8 @@ public class GenericStoragePoolNubHandler
         String jdbcConnectString;
         String jdbcConnect = getDBConnectString(nub);
         if (jdbcConnect.startsWith("jdbc:derby:"))
-        {            
-            jdbcConnectString = jdbcConnect + Main.DATABASEPATH + dbName;            
+        {         
+            jdbcConnectString = jdbcConnect + LogicControl.getDbPath() + dbName;            
         }
         else
         {
@@ -429,7 +414,7 @@ public class GenericStoragePoolNubHandler
 
     private PoolMapper loadPoolDB( StoragePoolNub storagePoolNub )
     {
-        String jdbcConnect = storagePoolNub.getJdbcConnectString();
+        String jdbcConnect = StoragePoolNubHandler.getEffectiveJdbcConnectString( storagePoolNub );
         if (jdbcConnect == null || jdbcConnect.isEmpty())
             return null;
 
@@ -445,7 +430,7 @@ public class GenericStoragePoolNubHandler
         
         try
         {
-            HashMap<String,String> map = new HashMap<String, String>();
+            HashMap<String,String> map = new HashMap<>();
             map.put("javax.persistence.jdbc.url", jdbcConnect);
 
             if (Main.getRebuildDB())
@@ -655,7 +640,7 @@ public class GenericStoragePoolNubHandler
     private void closeDerbyDB(PoolMapper mp) throws SQLException
     {
         // DriverManager.getConnection("jdbc:derby:MyDbTest;shutdown=true");
-        String cs = mp.nub.getJdbcConnectString();
+        String cs = StoragePoolNubHandler.getEffectiveJdbcConnectString( mp.nub );
         int idx = cs.indexOf(';');
         if (idx > 0)
         {

@@ -6,6 +6,7 @@
 package de.dimm.vsm.fsengine;
 
 import de.dimm.vsm.GeneralPreferences;
+import de.dimm.vsm.LogicControl;
 import de.dimm.vsm.Main;
 import de.dimm.vsm.log.Log;
 import de.dimm.vsm.log.LogManager;
@@ -50,12 +51,7 @@ public class H2HashCache extends HashCache
 
     final String getDbPath(StoragePoolNub nub)
     {
-        String s = Main.get_prop(GeneralPreferences.DB_PATH, Main.DATABASEPATH );
-        s = s.replace('\\', '/');
-        if (!s.endsWith("/"))
-            s += "/";
-
-        String p = s + nub.getDbName() + RELPARAMPATH;
+        String p = LogicControl.getDbPath() + nub.getDbName() + RELPARAMPATH;
         return p;
     }
     public H2HashCache(StoragePoolNub nub,  StoragePool pool)

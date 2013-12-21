@@ -17,6 +17,7 @@ import de.dimm.vsm.fsengine.JDBCStoragePoolHandler;
 import de.dimm.vsm.fsengine.StoragePoolHandler;
 import de.dimm.vsm.jobs.JobInterface;
 import de.dimm.vsm.log.Log;
+import de.dimm.vsm.net.StoragePoolQry;
 import de.dimm.vsm.records.AbstractStorageNode;
 import de.dimm.vsm.records.FileSystemElemAttributes;
 import de.dimm.vsm.records.FileSystemElemNode;
@@ -223,7 +224,8 @@ public class FixBootstrapEntries implements IFix
     {
         Log.info("Fixing bootstrop entries started for pool " + pool.toString());
         startTime = System.currentTimeMillis();
-        spHandler = new JDBCStoragePoolHandler(em, User.createSystemInternal(), pool, false);
+        StoragePoolQry qry = StoragePoolQry.createActualRdWrStoragePoolQry(User.createSystemInternal(), /*showDeleted*/false);
+        spHandler = new JDBCStoragePoolHandler(em, pool, qry);
         spHandler.add_storage_node_handlers();
         
         boolean foundSNode = false;

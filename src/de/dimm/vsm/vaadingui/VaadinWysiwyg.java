@@ -8,6 +8,7 @@ import com.vaadin.terminal.gwt.server.ApplicationServlet;
 import de.dimm.vsm.log.Log;
 import java.io.File;
 import java.io.IOException;
+import java.lang.reflect.InvocationTargetException;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLClassLoader;
@@ -27,7 +28,7 @@ class VaadinInterfaceServlet implements Servlet
     {
         try
         {
-            ArrayList<URL> l = new ArrayList<URL>();
+            ArrayList<URL> l = new ArrayList<>();
 
             File libDir = new File("dist\\lib");
             if (!libDir.exists())
@@ -75,7 +76,7 @@ class VaadinInterfaceServlet implements Servlet
 
             System.out.println("GUI Servlet Version V" + v);
         }
-        catch (Exception servletException)
+        catch (ServletException | ClassNotFoundException | InstantiationException | IllegalAccessException | NoSuchMethodException | SecurityException | IllegalArgumentException | InvocationTargetException servletException)
         {
             Log.err("GUI-Servlet kann nicht geladen werden", servletException);
         }        

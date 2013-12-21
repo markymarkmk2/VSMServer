@@ -5,6 +5,7 @@
 
 package de.dimm.vsm.fsengine;
 
+import de.dimm.vsm.LogicControl;
 import de.dimm.vsm.log.Log;
 import de.dimm.vsm.Main;
 import de.dimm.vsm.auth.User;
@@ -25,7 +26,7 @@ public class StoragePoolHandlerFactory
 
     public static StoragePoolHandler createStoragePoolHandler(StoragePool pool, User user, boolean rdonly) throws IOException
     {
-        return createStoragePoolHandler( Main.get_control().getStorageNubHandler(), pool, user, rdonly);
+        return createStoragePoolHandler( LogicControl.getStorageNubHandler(), pool, user, rdonly);
     }
     public static StoragePoolHandler createStoragePoolHandler(StoragePoolNubHandler nubHandler, StoragePool _pool, User user, boolean rdonly) throws IOException
     {
@@ -35,7 +36,7 @@ public class StoragePoolHandlerFactory
             if ( Main.get_control() != null)
             {    
                 pool = Main.get_control().getStoragePool(_pool.getIdx());
-                Log.debug("Offene DB-Verbindungen", "" + Main.get_control().getStorageNubHandler().getActiveConnections(pool) );
+                Log.debug("Offene DB-Verbindungen", "" + LogicControl.getStorageNubHandler().getActiveConnections(pool) );
             }
             else
             {
@@ -44,8 +45,14 @@ public class StoragePoolHandlerFactory
 // RELOAD FROM LIST
             JDBCConnectionFactory conn = nubHandler.getConnectionFactory(pool);
             JDBCEntityManager em = new JDBCEntityManager(pool.getIdx(), conn);
-
-            JDBCStoragePoolHandler sp_handler = new JDBCStoragePoolHandler( em, user, pool, rdonly );
+                 
+            StoragePoolQry qry;
+            if (rdonly)
+                qry = StoragePoolQry.createActualRdOnlyStoragePoolQry(user, /*showDeleted*/ false);
+            else
+                qry = StoragePoolQry.createActualRdWrStoragePoolQry(user, /*showDeleted*/ false);
+            
+            JDBCStoragePoolHandler sp_handler = new JDBCStoragePoolHandler( em, pool, qry );
 
             if (isPersistRunnerEnabled())
             {
@@ -75,7 +82,7 @@ public class StoragePoolHandlerFactory
 
     public static StoragePoolHandler createStoragePoolHandler(StoragePool pool, StoragePoolQry qry) throws IOException
     {
-        return createStoragePoolHandler( Main.get_control().getStorageNubHandler(), pool, qry);
+        return createStoragePoolHandler( LogicControl.getStorageNubHandler(), pool, qry);
     }
     public static StoragePoolHandler createStoragePoolHandler( StoragePoolNubHandler nubHandler, StoragePool _pool, StoragePoolQry qry ) throws IOException
     {

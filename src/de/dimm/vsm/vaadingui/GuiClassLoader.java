@@ -24,7 +24,6 @@ import java.util.jar.Attributes;
 import java.util.jar.Attributes.Name;
 import java.security.CodeSigner;
 import java.security.PrivilegedAction;
-import java.security.PrivilegedExceptionAction;
 import java.security.AccessController;
 import java.security.AccessControlContext;
 import java.security.SecureClassLoader;
@@ -204,6 +203,7 @@ public class GuiClassLoader extends SecureClassLoader implements Closeable
     *
     * @since 1.7
     */
+    @Override
     public void close() throws IOException {
         SecurityManager security = System.getSecurityManager();
         if (security != null) {
@@ -488,12 +488,14 @@ public class GuiClassLoader extends SecureClassLoader implements Closeable
      * @return a <code>URL</code> for the resource, or <code>null</code>
      * if the resource could not be found, or if the loader is closed.
      */
+    @Override
     public URL findResource(final String name) {
         /*
          * The same restriction to finding classes applies to resources
          */
         URL url = AccessController.doPrivileged(
             new PrivilegedAction<URL>() {
+                @Override
                 public URL run() {
                     return ucp.findResource(name, true);
                 }
@@ -511,6 +513,7 @@ public class GuiClassLoader extends SecureClassLoader implements Closeable
      * @return an <code>Enumeration</code> of <code>URL</code>s
      *         If the loader is closed, the Enumeration will be empty.
      */
+    @Override
     public Enumeration<URL> findResources(final String name)
         throws IOException
     {
@@ -526,6 +529,7 @@ public class GuiClassLoader extends SecureClassLoader implements Closeable
                 do {
                     URL u = AccessController.doPrivileged(
                         new PrivilegedAction<URL>() {
+                            @Override
                             public URL run() {
                                 if (!e.hasMoreElements())
                                     return null;
@@ -539,6 +543,7 @@ public class GuiClassLoader extends SecureClassLoader implements Closeable
                 return url != null;
             }
 
+            @Override
             public URL nextElement() {
                 if (!next()) {
                     throw new NoSuchElementException();
@@ -548,6 +553,7 @@ public class GuiClassLoader extends SecureClassLoader implements Closeable
                 return u;
             }
 
+            @Override
             public boolean hasMoreElements() {
                 return next();
             }
@@ -577,6 +583,7 @@ public class GuiClassLoader extends SecureClassLoader implements Closeable
      * @param codesource the codesource
      * @return the permissions granted to the codesource
      */
+    @Override
     protected PermissionCollection getPermissions(CodeSource codesource)
     {
         PermissionCollection perms = super.getPermissions(codesource);
@@ -633,6 +640,7 @@ public class GuiClassLoader extends SecureClassLoader implements Closeable
             if (sm != null) {
                 final Permission fp = p;
                 AccessController.doPrivileged(new PrivilegedAction<Void>() {
+                    @Override
                     public Void run() throws SecurityException {
                         sm.checkPermission(fp);
                         return null;
@@ -663,6 +671,7 @@ public class GuiClassLoader extends SecureClassLoader implements Closeable
         // Need a privileged block to create the class loader
         GuiClassLoader ucl = AccessController.doPrivileged(
             new PrivilegedAction<GuiClassLoader>() {
+                @Override
                 public GuiClassLoader run() {
                     return new FactoryURLClassLoader(urls, parent, acc);
                 }
@@ -687,6 +696,7 @@ public class GuiClassLoader extends SecureClassLoader implements Closeable
         // Need a privileged block to create the class loader
         GuiClassLoader ucl = AccessController.doPrivileged(
             new PrivilegedAction<GuiClassLoader>() {
+                @Override
                 public GuiClassLoader run() {
                     return new FactoryURLClassLoader(urls, acc);
                 }
@@ -726,6 +736,7 @@ final class FactoryURLClassLoader extends GuiClassLoader {
         super(urls, acc);
     }
 
+    @Override
     public final Class loadClass(String name, boolean resolve)
         throws ClassNotFoundException
     {

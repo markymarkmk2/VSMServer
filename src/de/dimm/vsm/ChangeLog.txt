@@ -1,4 +1,7 @@
-Veränderungen in V1.5.4
+Veränderungen in V1.5.8 
+FIX: Restore von gelöschten Dokumenten sperren
+
+Veränderungen in V1.5.5
 FIX: Slash als Startpfad zulassen
 
 Veränderungen in V1.5.4
