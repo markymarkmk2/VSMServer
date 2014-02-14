@@ -2252,7 +2252,7 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
         attr.setDeleted(b);
         
         mergeOrPersistAttribute(fsenode, attr, needNewAttributes, actTimestamp); 
-        Log.debug(Main.Txt((b ? "Setze":"Entferne") + " Löschflag für"), fsenode.toString());
+        Log.debug((b ? Main.Txt("Setze"):Main.Txt("Entferne")) + " " + Main.Txt("Löschflag für"), fsenode.toString());
         
     }
     

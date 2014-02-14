@@ -299,8 +299,8 @@ public class NodeMigrationManager
         }
         catch (Exception e)
         {
-            Log.err("Abbruch während derMigration", e);
-            status = Main.Txt("Abbruch: " + e.getMessage());
+            Log.err("Abbruch während der Migration", e);
+            status = Main.Txt("Abbruch:") + " " + e.getMessage();
             state = JOBSTATE.FINISHED_ERROR;
         }
         finally
@@ -332,8 +332,8 @@ public class NodeMigrationManager
         
         if ( usedSpace >= freeSpace )
         {
-            throw new IllegalArgumentException(Main.Txt("Auf_den_Zielnodes_ist_nicht_genug_Platz: "
-                    + "Frei " + SizeStr.format(freeSpace) + ", benötigt werden " + SizeStr.format(usedSpace)));
+            throw new IllegalArgumentException(Main.Txt("Auf_den_Zielnodes_ist_nicht_genug_Platz: Frei ") + SizeStr.format(freeSpace) + "," + 
+                    Main.Txt("benötigt werden ") + SizeStr.format(usedSpace));
         }
 
         if ( usedSpace == 0 )
@@ -360,8 +360,8 @@ public class NodeMigrationManager
         long freeSpace = StorageNodeHandler.getFreeSpace(targetNode);
         if ( usedSpace >= freeSpace )
         {
-            throw new IllegalArgumentException(Main.Txt("Auf_dem_Zielnode_ist_nicht_genug_Platz: "
-                    + "Frei " + SizeStr.format(freeSpace) + ", benötigt werden " + SizeStr.format(usedSpace)));
+            throw new IllegalArgumentException(Main.Txt("Auf_dem_Zielnode_ist_nicht_genug_Platz: Frei ") + SizeStr.format(freeSpace) + "," + 
+                    Main.Txt("benötigt werden ") + SizeStr.format(usedSpace));           
         }
         if ( usedSpace == 0 )
         {

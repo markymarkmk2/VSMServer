@@ -21,7 +21,7 @@ import java.util.List;
 public class Log implements DBLogger
 {
     static boolean verbose;
-    static boolean debugEnabled;
+    static boolean debugEnabled = true;
 
     public static boolean isVerbose()
     {
@@ -189,7 +189,9 @@ public class Log implements DBLogger
     {
         String s = null;
         if (fmt != null)
-            s = String.format(fmt, a);
+        {
+            s = format(fmt, a);
+        }
         Log.log(MessageLog.ML_ERROR, key, s, null);
     }
 
@@ -214,7 +216,9 @@ public class Log implements DBLogger
     {
         String s = null;
         if (fmt != null)
-            s = String.format(fmt, a);
+        {
+            s = format(fmt, a);
+        }
 
         log(MessageLog.ML_WARN, key, s, null);
     }
@@ -237,16 +241,27 @@ public class Log implements DBLogger
         String s = fmt;
         if (fmt != null && a != null)
         {
+            s = format(fmt, a);
+        }
+
+        log(MessageLog.ML_DEBUG, key, s, null);
+    }
+    
+    private static String format(String fmt, Object ... a)
+    {
+        String s = fmt;
+        if (fmt != null && a != null)
+        {
             try
             {
                 s = String.format(fmt, a);
             }
             catch (Exception e)
             {
+                System.err.println("String format error: " + fmt);
             }
         }
-
-        log(MessageLog.ML_DEBUG, key, s, null);
+        return s;
     }
 
 
@@ -258,7 +273,9 @@ public class Log implements DBLogger
     {
         String s = null;
         if (fmt != null)
-            s = String.format(fmt, a);
+        {
+            s = format(fmt, a);
+        }
 
         log(MessageLog.ML_INFO, key, s, null);
     }

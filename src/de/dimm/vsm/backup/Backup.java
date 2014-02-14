@@ -863,6 +863,7 @@ public class Backup
             baJobResult.setEndTime( new Date() );
             baJobResult.setOk( globalOk );
             hdl.em_merge(baJobResult);
+            hdl.commit_transaction();
             finished = true;
 
             Log.info("Beendet", ":%s", sched.getName() );
@@ -1128,7 +1129,7 @@ public class Backup
                 Excludes excludes = exclList.get(i);
                 if (Excludes.checkExclude( excludes, remoteFSElem ))
                 {
-                    //Log.debug(Main.Txt("Excludefilter"), excludes.toString() + ": " + remoteFSElem.getPath());
+                    Log.debug(Main.Txt("Excludefilter"), excludes.toString() + ": " + remoteFSElem.getPath());
                     return;
                 }
             }
@@ -1495,7 +1496,7 @@ public class Backup
         FileSystemElemAttributes node = fsenode.getAttributes();
         if (node == null)
         {
-            Log.err(Main.Txt("Node " + fsenode.getIdx() + " hat kein Attribut"));
+            Log.err(Main.Txt("Node") + " " + fsenode.getIdx() + " " + Main.Txt("hat kein Attribut"));
             return true;
         }
         if (remoteFSElem.getMtimeMs() != node.getModificationDateMs())
@@ -1518,7 +1519,7 @@ public class Backup
         FileSystemElemAttributes node = fsenode.getAttributes();
         if (node == null)
         {
-            Log.err(Main.Txt("Node " + fsenode.getIdx() + " hat kein Attribut"));
+            Log.err(Main.Txt("Node") + " " + fsenode.getIdx() + " " + Main.Txt("hat kein Attribut"));
             return true;
         }
 

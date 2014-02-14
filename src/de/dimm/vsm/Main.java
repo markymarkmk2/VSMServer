@@ -68,6 +68,15 @@ public class Main
     public final static String APPNAME = "VSM";
     private static boolean rebuildDB = false;
 
+    private static void checkAdditionArg( String[] args, int i, String errMsg )
+    {
+        if (i >= args.length || args[i] == null || args[i].isEmpty())
+        {
+            System.out.println(errMsg);
+            System.exit(-1);
+        }
+    }
+
     boolean agent_tcp = true;
     static boolean performanceDiagnostic = false;
 
@@ -175,6 +184,8 @@ public class Main
         print_system_property( "user.dir");
 
         create_prefs();
+        
+        textManager.setLang(get_prop(GeneralPreferences.LANGUAGE, "DE"));
 
         
         me = this;
@@ -330,6 +341,7 @@ public class Main
     {
         boolean changeLog = false;
         boolean doStat = false;
+        
         for (int i = 0; i < args.length; i++)
         {
             String string = args[i];
@@ -357,6 +369,41 @@ public class Main
                 System.out.println(log.getChangelog());
                 System.exit(0);
             }
+            if (string.equals("-import-text-db") )
+            {
+                checkAdditionArg(args, i +2, "Importdatei und oder code (utf8 / cp1252) fehlen");
+                String filename = args[i + 1];
+                String code = args[i + 2];
+               
+                try
+                {
+                    TextBaseManager.importTextCsv(filename, code);
+                }
+                catch (Exception exception)
+                {
+                    System.out.println(exception.getMessage());
+                    System.exit(-1);
+                }
+                System.exit(0);
+            }
+            if (string.equals("-export-text-db") )
+            {
+                checkAdditionArg(args, i +2, "Ixportdatei und oder code (utf8 / cp1252) fehlen");
+                
+                String filename = args[i + 1];
+                String code = args[i + 2];
+                try
+                {
+                    TextBaseManager.exportTextCsv(filename, code);
+                }
+                catch (Exception exception)
+                {
+                    System.out.println(exception.getMessage());
+                    System.exit(-1);
+                }
+                System.exit(0);
+            }
+            
         }
         
         // SETUP PATH FOR GUI JAR
@@ -379,6 +426,9 @@ public class Main
             Log.err("Error in while initializing", exception);
         }
         checkJavaVersion();
+        
+        
+        TextBaseManager.setOpenTxtGuiException( get_bool_prop(GeneralPreferences.TXTBASE_EDIT));
 
         main.run();
         try
@@ -407,6 +457,13 @@ public class Main
     {
         if (textManager != null)
             return textManager.Txt(key);
+        
+        return key;
+    }
+    public static String GuiTxt( String key)
+    {
+        if (textManager != null)
+            return textManager.GuiTxt(key);
         
         return key;
     }
