@@ -1,0 +1,689 @@
+EN
+ACL;
+Abbruch beim Connect zu Agent;Abort while connecting agent
+Abbruch beim Initialisieren der StoragePoolMapperListe;Abort while intializing StoragePoolMapperList
+Abbruch in Import;Abort during import
+Abbruch in createPoolWrapper;Abort in createPoolWrapper
+Abbruch in createSearchWrapper;Abort in createSearchWrapper
+Abbruch;Abort
+Abgebrochen;Canceled
+Abgleich der Datenbank schlug fehl;Balance of database failed
+Abgleich_der_Datenbank_von;Balance the database of
+Aborted;
+Absender;Sender
+AccountConnector;
+Achtung;Attention
+Action;
+ActiveDirectory;
+Admin;
+Administrator;
+Agent kann nicht angesprochen werden;Agent cannot be addressed
+Agent kann nicht kontaktiert werden;Could not connect agent
+Aktion ist noch nicht implementiert;Action is not yet implemented
+Aktion;Action
+Aktualisiere;Updating
+Aktuell lesen/schreiben;Current read/write
+Aktuell nur lesen;Current read only
+Aktuelle Anzahl Dateien/Verzeichnise;Current number of files and directories
+Aktuelle Größe Dateisystem;Current size of filesystem
+Alles;Everything
+Allgemeiner-Fehler;General failure
+Anzahl Blöcke insg.;Number of blocks in total
+Anzahl Dateien/Verzeichnise inkl. Historie;Number files/directories incl. history
+Anzahl;Number
+Archiv;Archive
+ArchivJobs_können_nicht_an_Original_restauriert_werden;Archive jobs cannot be restored to original
+Archiviere mit MM;Archiving with MediaManager
+Archiviere mit VSM;Archiving with vStoreManager
+Archivierung wurde abgebrochen;Archiving was aborted
+Archivsuche;Archive search
+Argument;
+Attribute;Attributes
+Auf_dem_Zielnode_ist_nicht_genug_Platz: Frei;Note enough space on target node:
+Auf_den_Zielnodes_ist_nicht_genug_Platz: Frei;Note enough space on target nodes:
+Auftrag;Job
+Auswahl MM Importoptionen;Selection MM Importoptions
+Auswahl treffen;Make a selection
+Auswahl;Selection
+Authentication_failed;Authentication failed
+Authentifizierer;Authenticator
+Authentifizierung;Authentification
+AutoMount;
+Backup volume beendet;Backup volume finished
+Backup wurde abgebrochen;Backup was aborted
+Backup;
+Backup: Mindestens eine Version bleibt nach Ablauf der Gültigkeit erhalten\nArchiv: Dateien werden nach Ablauf der Gültigkeit gelöscht;Backup: At least one version is kept after validity timeout\nArchive: Files are deleted after timeout of validity
+Backupfehler;Backup error
+Backuphistorie;Backup history
+Backupjob-Ergebisse;Backup results
+Beendete Aufgaben entfernen;Remove finished jobs
+Benachrichtigung;Notification
+Benachrichtigungen;Notifications
+Benutzer ID;User ID
+Benutzer;User
+Benutzerfilter (Regexp);User filter
+Berechnen (dauert einige Zeit);Calculate (takes some time)
+Berechnen_der_Datenmenge_von;Calculate the amount of data from
+Bis;To
+Bitte erneut versuchen;Please try again
+Bitte geben Sie die Anzahl Zeilen ein;Please enter the number of lines
+Bitte geben Sie ein gültiges Datum ein;Please enter a valid date
+Bitte geben Sie eine Bezeichnung ein;Please enter a name
+Bitte geben Sie eine IP oder einen DNS-Namen ein;Pleae enter an IP or DNS name
+Bitte geben Sie eine Portnummer;Please enter a port number
+Bitte geben Sie eine eMailadresse ein;Please enter an email address
+Bitte geben Sie eine gültige Portnummer ein;Please enter a valid port number
+Bitte geben Sie eine gültige Tagnummer ein;Please enter a valid day number
+Bitte geben Sie eine gültige Zahl ein;Please enter a valid number
+Bitte geben Sie eine oder mehrere durch Leerzeichen getrennte eMail-Adressen ein;Please enter one or more space separated email addresses
+Bitte geben Sie einen Namen ein;Please enter a name
+Bitte geben Sie einen Pfad an;Please enter a directory
+Bitte geben Sie einen Server ein;Please enter a server
+Bitte geben Sie einen gültigen Pfad an;Please enter a valid path
+Bitte geben Sie gültige Zahl ein;Please enter a valid number
+Bitte löschen Sie zunächst die zugehörigen Volumes;Please first delete the associated volumes
+Bitte prüfen Sie Ihre Eingaben;Please check your entries
+Bitte prüfen Sie, ob der MM-Dienst auf dem Rechner gestartet ist;Please check whether the MediaManager Service is started
+Bitte starten Sie zuerst eine Suche;Please do a search first
+Bitte wählen Sie ein Vaterverzeichnis aus;Please select a parent directory
+Bitte wählen Sie eine Benachrichtigung aus;Please select a notification
+Bitte wählen Sie eine Gruppe aus;Please select a group
+Bitte wählen Sie einen Pfad aus;Please select a path
+Bitte wählen Sie zuerst einen Archivjob aus;Please select an archive job
+Bitte_geben Sie einen Suchbegriff ein;Please enter a search text
+Block_Informationen_für_StoragePool;Block information of StoragePool
+Blocks_checked;
+Blocks_deduped;
+Blocks_transfered;
+Busy;
+CDP ist aktiv mit;CDP is active with
+CDP;
+Cannot recursivly create DirNode;
+Cannot_read_boolean_property;
+Cannot_read_int_property;
+Cannot_read_long_property;
+Cannot_read_properties;
+Cannot_write_license_ticket;
+Cannot_write_properties;
+Checked Data;
+Checked Files;
+Client ist disabled;
+CloneNode synchronisieren;Synchronize CloneNode
+CloneStorageNode;
+Created;
+Das Backup wurde abgebrochen;Backup was aborted
+Das Kopieren schlug fehl;Copying failed
+Das Löschen des Jobs schlug fehl;The deletion of the job failed
+Das Objekt kann nicht gelöscht werden, es wird vermutlich noch verwendet;The object cannot be deleted, it is still in use
+Das_Backup_konnte_nicht_gestartet_werden;The backup could not be started 
+Das_Backup_konnte_nicht_gestoppt_werden;The backup could not be stopped 
+Das_Entleeren_konnte_nicht_gestartet_werden;Emptying could not be started 
+Das_Entleeren_von_Speichernodes_ist_noch_nicht_implementiert;The emptying of storage nodes is not yet implemented 
+Das_Synchronisieren_konnte_nicht_gestartet_werden;Synchronization could not be started
+Das_Umbewegen_konnte_nicht_gestartet_werden;Moving of StorageNode could not be started
+Das_Verzeichnis_konnte_nicht_erzeugt_werden;The directory could not be created
+Dat.;
+DataSize;
+Data_total;
+Database;
+Datei;File
+Datei_Informationen_für;File information for
+Datei_überschreiben;Overwrite file
+Dateien mit insg.;Files with total
+Dateisuche;File search
+Dateisystem anzeigen;Show file system
+Dateisystem ausblenden;Hide file system
+Dateisystem;File system
+Dateisystem_entfernen;Remove file system
+Dateizuordnung;File allocation
+Daten_von;Data from
+Datenbankpfad;DB-path
+Datum;Date
+Deaktiviert;Disabled
+Dedup nur Änderungen;Dedup only modification
+DedupBlöcke;Dedup blocks
+DedupRatio Dateisystem inkl. Historie;Dedup ratio filesystem incl. history
+DedupRatio aktuelles Dateisystem.;Dedup ratio actual file system
+Del;
+Delete;
+Der Agent kann nicht kontaktiert werden;Agent could not be connected
+Der CloneNode wird jetzt mit diesem Node abgeglichen, dies kann ja nach Füllstand dieses Nodes lange dauern;The CloneNode is now matched with this node, this can take some time!
+Der Import schlug fehl;The import failed
+Der Import wurde gestartet;The import was started
+Der Index ist jetzt auf dem neuesten Stand;The index is up to date
+Der Mount schlug fehl;The mount failed
+Der StorageNode konnte nicht initialisiert werden;The StorageNode could not be initialized
+Der StorageNode wurde initialisiert;The StorageNode has been intialized
+Der Sucheintrag ist nicht mehr gültig;The search entry is no longer valid
+Der VSM-Pfad entspricht nicht dem ausgewählten Agenten, Sie könnten dadurch eventuell Daten anderer Agenten überschreiben!;The VSM-path does not match the selected agent, you could overwrite data from other agents! 
+Der_Agent_kann_nicht_kontaktiert_werden;Agent could not be connected
+Der_Löscheintrag_kann_nicht_verändert_werden;The deletion entry cannot be modified
+Der_Node_ist_in_Bearbeitung;The node is in use
+Der_Node_konnte nicht im Dateisystem angelegt werden;The node could not be created in the file system
+Der_Quellnode_ist_leer;Sourcenode is empty
+Der_Quellnode_ist_nicht_online;Sourcenode is not online
+Der_Restore_schlug_fehl;The restore failed
+Der_Restore_wurde_abgebrochen;The restore was aborted
+Der_Restore_wurde_gestartet;The restore was started
+Der_Status_des_Node_kann_nicht_verändert_werden;The status of the node cannot be modified
+Der_Vorgang_wurde_als_Job_angemeldet_und_gestartet;The operation was registered as a job and started 
+Der_Zielnode_ist_nicht_online;The target node is not online
+Details siehe unter Jobs;Details see jobs
+Details zum Import unter Jobs;Details of import see jobs
+DhbCacheHit;
+DhbCacheMiss;
+Diagnose;
+Die Anmeldung ist fehlgeschlagen;Login failed
+Die Ergebnisse wurden bereitgestellt auf;The results were provided to
+Die Zeitpläne wurden aktualisiert;Schedules are intialized
+Dienstag;Tuesday
+Dies ist eine TestMail;This is a test mail
+Diese Funktion darf nur von Administratoren ausgeführt werden;This function may only be executed by administrators
+Dieser Agent ist nicht online;This agent is not online
+Dieser Agent unterstützt dieses Feature nicht;This agent does not support this feature
+Dieser Job wurde nicht korrekt gestartet;This job was not started correctly
+Dieses_Objekt_ist_noch_in_Benutzung;This object is still in use
+Dimension;
+Directory;
+Donnerstag;Thursday
+Download;
+Edit;
+Ein_Zielverzeichnis_konnte_nicht_erstellt_werden;The target directory could not be created
+Eine_Zieldatei_bestand_bereits;A target file existed already
+Einheit;Unit
+Eintrag_konnte_nicht_entfernt_werden;Entry could not be removed
+Einträge;Entries
+End;
+Ende;End
+Endgültig aus dem Dateisystem entfernen;Permanently remove from file system
+Entferne Snapshot;Remove snapshot
+Entferne abgelaufenen StoragePoolContext;Remove expired StoragePoolContexrt
+Entferne abgelaufenen SuchContext;Remove expired SearchContext
+Entferne freien DedupSpeicher;Remove free dedup space
+Entferne;Remove
+Ergebnisse;Results
+Error;
+Erstellt;Created
+Erstellungsdatum;Date of creation
+Erzeuge;Create 
+Erzeuge Snapshot;Create snapshot
+Erzeugt;Created
+Es besteht_eine_gleichnahmige_Datei_auf_dem_Ziel,_wollen_Sie_fortfahren?;There is a file with same name on the target, do you want to proceed?
+Es konnte kein neuer Pool angelegt werden;A new pool could not be created
+Es wurden keine ungenutzten Blöcke gefunden;No unused blocks were found
+Es wurden ungenutzte Blöcke gefunden;Unused blocks were found
+Es_existiert_kein_Zielnode_im_Status_Online;No target node is online
+Estellt;Created
+Exception;
+ExceptionText;
+Excludefilter;
+Excludes;
+Exit;
+FSEA-ID;
+FSEN-ID;
+FTP;
+Fehler beim Ermitteln der Versionen;Error while determining the versions 
+Fehler beim Ermitteln der searchBase;Error while determining the searchBase
+Fehler beim Initalisieren des Nodes;Failed to intialize the node
+Fehler beim Kopieren eines Eintrags;Error while copying an entry
+Fehler beim Lesen von DelList;Error reading from DelList
+Fehler beim Lesen von Verzeichnis;Error reading directory
+Fehler beim Lesen von Verzeichnis, wiederhole;Error reading directory, retrying
+Fehler beim Schließen des Contextes;Error while closing the context
+Fehler beim Schreiben der Bootstrapdaten für neues Attribut;Error writing bootstrap data for new attribute
+Fehler beim Setzen der Rolle für Benutzer;Failed to set role of user
+Fehler beim Setzen des Löschflags;Failed to set the deletion flag
+Fehler beim Sichern des MM-ArchivJobs;Error saving the MediaManager archive job
+Fehler;Error
+Fehlerhafte Jobs;Incorrect Jobs
+Feld;Field
+Fertig;Ready
+Filedata_changed;
+Filedata_transfered;
+Files/s;
+Files/s_transfered;
+Files_total;
+Files_transfered;
+Filesystem;File system
+Filter;
+Finished;
+Flags;
+Format für erlaubte Restorepfade IP:Port/Pfad;Format for allowed restore paths IP:port/path
+Fortschritt;Progress
+Found_valid_license;
+Freie Blöcke entfernen;Delete free blocks
+Freie Blöcke insg.;Free blocks total
+Freitag;Friday
+Gelöscht;Deleted
+Gelöschte Dateien anzeigen;Show deleted files
+Gemountete Volumes;Mounted volumes
+Gesperrt;Disabled
+Group;
+Gruppe;Group
+Gruppen ID;Group ID
+Gruppenkennung;
+Größe Dateisystem inkl. Historie;File system size incl. history
+Größe;Size
+Gültig ab;Valid from
+Gültigkeitsdauer;Period of validity
+Gültigkeitspläne;Retention schedules
+Hilfe;Help
+HotFolder ist aktiv mit;Hotfolder is active with
+HotFolder wird bereinigt;Hotfolder is cleared
+HotFolder;
+Hotfolderobjekte_können_nicht_an_Original_restauriert_werden;Hotfolder objects cannot be restored to original
+ID;
+IMAP;
+IO-Fehler;IO-failure
+IP;
+Id fehlt;ID missing
+Import ist bereits gestartet;Import is started already
+Import wurde abgebrochen;Import was aborted
+Importiere Job;Importing job
+Importieren beendet, lösche JobDaten;Import completed, deleting job data
+Index aktualisieren;Update Index
+Info;
+Information;
+Informationen_für;Information for
+Initialisieren;Initialize
+Ist_beendet;Is finished
+Ist_gestartet;Is ready
+Ja;Yes
+Jahr(e);Year(s)
+Job erzeugt;Job created
+Job gestartet;Job started
+Job;
+Job-Informationen;Job information
+Jobs;
+Kann DB-Verbindung nicht öffnen;Cannot open DB-connect
+Kein Mounteintrag zu ticket gefunden;No entry found for mount entry
+Kein StorageNode für Dedup verfügbar;No StorageNode for Dedup available
+Kein StorageNodes verfügbar;No StorageNode available
+Keine Pools in Datenbank;No Pools in DB
+Keine Storagepools in PoolDB;No Storagepools in PoolDB
+Keine Verzeichnisdaten;No directory data
+Keine beschreibbaren StorageNodes für Pool;No writable StorageNodes for Pool
+Keine beschreibbarer StorageNodes für Dedup bei Pool;No writable StorageNodes for Dedup at pool
+Knoten existiert bereits;Node already exists
+Kompletter Pfad;Complete path
+Komprimierung;Compression
+Kopiere Eintrag;Copying entry
+Kopiere;Copying
+Kopieren_der_Daten_von;Copying data from
+Kopiervorgang_ist_fehlgeschlagen;Copy failed
+LDAP;
+LDAP-Filter;
+LDAP-Userattribute;
+LastAccess;
+LastModification;
+Leere Passworte erlaubt;Empty password allowed
+Lese Clientvolumes;Reading client volumes
+Letzte Änderung;Last modification
+Letzter Login;Last login
+Letztes Zugriffsdatum;Last accesstime
+Liste der Authentifizierer:;List of authenticators:
+Liste der HotFolder-Fehler:;List of hotfolder errors:
+Liste der Hotfolder:;List of hotfolders:
+Liste der Mount-Einträge:;List of mount entries:
+Liste der Retentions:;List of retentions:
+Liste der Rollen:;List of roles:
+Liste der Sicherungspläne:;List of schedules;
+Liste der Snapshots:;List of snapshots;
+Liste der StoragePools:;List of StoragePools;
+Liste der;List of
+Logging;
+Login;
+Login-Domain;
+Logout;
+Lösche StoragePool;Deleting StoragePool
+Lösche ungenutzte Blöcke;Deleting unsused blocks
+Löschen;Delete
+Löschflag für;Delete flag for
+MM-Archiv erfolgreich;MM-Archive successfully
+MM-Archiv fehlerhaft;MM-Archive faulty
+MM-Archiv schlug fehl;MM-Archive failed
+MM-Archiv startet;MM-Archive started
+MM-Archiv;MM-Archive
+MM-ArchivJob kann nicht gelöscht werden;MM-Archive job cannot be deleted
+MailGruppen;Mail groups
+Mailgruppe;Mail group
+Manueller Mount;Manual mount
+MediaManager Archiv imortieren;Import MediaManager archive
+MediaManager kann nicht angesprochen werden;MediaManager could not be connected
+MediaManager wird kontaktiert;Connecting MediaManager
+MediaManager-IP (opt.);
+MediaManager-Pfad (UNC) (opt.);MediaManager path (UNC) (opt)
+MediaManger ist nicht online;MediaManager is not online
+MediaManger ist online;MediaManager is online
+Medientyp;Media type
+Message;
+MessageId;
+Migration_der_Daten_von;Migration data from
+Minuten(n);Minute(s)
+Mit Verify;With verify
+Mittwoch;Wednesday
+Modus;Mode
+Montag;Monday
+Mount schlug fehl;Mount failed
+Mount schlug fehl, Agent ist nicht erreichbar;Mount failed, agent is not available
+MountEintrag;Mount entry
+Mounted;
+Mounteintrag wird gemountet;Mounting mount entry
+Mountentrag ist disabled, wird entfernt;Mount entry is disabled, is removed
+Mountentrag ist offline, wird entfernt;Mount entry is offline, is removed
+Mountpfad;Mount path
+NOK;
+NT-Domain;
+Name fehlt;Name missing
+Name;
+Negiert;Negated
+Nein;No
+Neu;New
+Neue Gruppe;New group
+Neuer HotFolder;New hotfolder
+Neuer Mounteintrag;New mount entry
+Neuer Ordner;New folder
+Neuer Sicherungsplan;New schedule
+Neuer StoragePool;New StoragePool
+Neuer Storagenode;New StorageNode
+New Data;
+New Files;
+New;
+Nicht gestattet;Not allowed
+Nichts unternehmen;Do nothing
+No License was found;
+No Storage for pool defined;
+Node einscannen;Scan node
+Node prüfen;Check node
+Node;
+Nodeinhalt_leeren;Empty node
+Nodeinhalt_umbewegen;Move node content
+Nur Treffer;Only matches
+Nur neue Dateien;Newer files
+Nur_Verzeichnisse;Only directories
+Nur_dateien;Only files
+Nächster Start;Next start
+OK;
+Objekte;Objects
+Objekten;Objects
+Offline;
+Ok;
+Okay;
+Online;
+Operator;
+Option;
+Original;
+POP3;
+Parameter Client öffnen;Open parameter client
+Parameter bearbeiten;Edit parameter
+Parameter lesen;Read parameter
+Parameter ändern;Change parameter
+Parameter;
+Parameterfehler;Parameter error
+Password;
+Passwort;Password
+Pfad des VSM-Dateisystems, der im Zielpfad sichtbar wird;Path of the VSM file system, that is visible in the target path
+Pfad unter dem die gesicherten Daten im VSM-Dateisystem sichtbar sind;Path in which the stored data is visible in the VSM file system
+Pfad;Path
+Pfadauswahl;Path selection
+Physikalische Blöcke prüfen;Check physical blocks
+Physikalische Hashblöcke prüfen;Check physical hash blocks
+Pool prüfen;Check pool
+Pool;
+Pool-Datenbank kann nicht geöffnet werden;Pool-DB could not be opened
+Port;
+Prüfe Zyklusstarts;Check Cyclestarts
+Prüfe;Check
+Prüfen, ob alle logischen Blöcke des Dateisystems physikalisch;Check existency of logical blocks
+Prüffunktionen für;Test functions for
+Prüfung beendet;Check completed
+Quelle;Source
+Quellpfad ist leer oder existiert nicht;Source path is empty or does not exists
+Rechner;Server
+Rechte;Rights
+Recoverystatus prüfen;Check recovery status
+Reg Exp;
+Restauriere Job;Restore Job
+Restore von Jobs im dateisystem nicht implementiert -> Suche;Restore of jobs into file system not implemented -> Search
+Restore von;Restore from
+Restore wurde abgebrochen;Restore was aborted
+Restore;
+Restorepfad;Restore path
+Retention;
+Rollenoptionen;Role options
+Ruhezeit (s);Settle time (s)
+S3;
+SMTP;
+SMTP-Login;
+SMTP-Server;
+SQL-Fehler;SQL failure
+SSL verwenden;Use SSL
+SSL;
+Samstag;Saturday
+Save;
+Schedule ist bereits gestartet;Schedule is already running
+Schließen;Close
+Schreibrechte;Write permissions
+Script starten;Start script
+Searchbase;
+Senden der Notification schlug fehl;Sending notification failed
+Server;
+Setze neue attribute  für;Setting new attributes for
+Setze;Setting
+Sichere CDP;Saving CDP
+Sicherung von Volume;Backup of Volume
+Sicherung;Backup
+Sicherungspläne;Schedules
+Sie haben keine Berechtigung für diesen Programmteil;You have no authorization for this part of the program
+Sie haben keine Berechtigung zum Ändern von Daten;You have no permission to change data
+Sie können den Fortstritt des Auftrags in der JobAnzeige verfolgen;You can follow the progress of the jobs at -> Jobs
+Size;
+Snapshot;
+Snapshots;
+Sonntag;Sunday
+Speed;
+Speed_transfered;
+SpeicherNode;StorageNode
+Speichern;Save
+Speicherorte;Location of StorageNodes
+Speicherplatz Blöcke;Blocks of Storage
+Speicherplatz freie Blöcke;Space of free blocks
+Sprache fehlt;Language missing
+Stack;
+Start;
+Starte CDP Job;Start CDP job
+Starte CDP JobList;Start CDP JobList
+Starte Client-Dienst;Start client service
+Starte Sicherung von Client;Starting backup of client
+Starte Sicherung von Volume;Starting backup of volume
+Starte;Starting
+Startzeit;Start time
+Statistik;Statistic
+Status;
+Status_anzeigen;Show status
+StayLocal;
+Stoppe Client-Dienste;Stopping client services
+StorageNode existiert nicht;StorageNode does not exist
+StorageNode_Quelle_existiert_nicht;StorageNode Source does not exist
+StorageNode_Ziel_existiert_nicht;StorageNode target does not exist
+StorageNodes des aktuellen StoragePools:;StorageNodes of the actual StoragePool:
+StoragePool Zuordnung;StoragePool assignment
+StoragePool ist schreibgeschützt;StoragePool is write-protected
+StoragePool;
+StoragePools;
+Storageknoten;StorageNodes
+StreamSize;
+Stunde(n);Hour(s)
+Suchbegriff;Search term
+Suche starten;Start search
+Suche;Search
+Suchergebnisse_als_Dateisystem_laden;Load search results as file system
+Sucht unbenutzte und zu löschende Blöcke auf dem StorageNode;Looking for unused and deleted blocks on StorsgeNode
+TLS verwenden;Use TLS
+Tag;Day
+Tag(e);Day(s)
+Test Connect;
+Test MM-Verbindung;Check connection to MediaManager
+Test;
+Testmail;
+Text fehlt;Text missing
+TimeStamp;
+Timestamp;
+Typ;Type
+UnMount schlug fehl;Unmount failed
+Unbegrenzt;Unlimited
+Unbekannt;Unknown
+Unbenutzte Blöcke löschen;Delete unused block
+Undelete;
+Unerwartetes Ende in Job;Unexpected end in job
+Ungültige Datenbank;Invalid DB
+Ungültige Tagnummer;Invalid day number
+Ungültiger Gültigkeitszeitpunkt;Invalid time
+Ungültiger Name;Invalid name
+Unknown_property;
+Unterordner mit Datum erzeugen;Create Sub-directory with date
+User kann nicht aufgelöst werden;User cannot be resolved
+User;
+User_konnte_nicht_im_AD_gefunden_werden;User was not found in ActiveDirectory
+Username;
+VFS ist aktiv mit;VFS is active with
+VFS mit Fehler beendet;VFS completed with error
+VFS ohne Fehler beendet;VFS completed without errors
+VSM Dateisystem prüfen;Check VSM file system
+VSM-Agent wird kontaktiert;Connecting VSM agent
+VSM-Dateisystem Auswahl;VSM file system selection
+VSM-Dateisystem prüfen;Check VSM file system
+VSM-Dateisystem und Node prüfen;Check VSM file system and node
+VSM-Dateisystem und Node und Datenprüfen;Check VSM file system, node and data
+VSM-Filesystem Mapping;VSM file system mapping
+VSM-Pfad fehlt;Missing VSM path
+VSM-Pfad;VSM path
+Verarbeitet_wurden;Processed
+Verbindung ist fehlgeschlagen;Connection failed
+Verbindung okay;Connection okay
+Verbindungsabbruch;Abort of connection
+Verschieben;Moving
+Verschlüsselung;Encoding
+Versionen nur lesen;Versions read only
+Versions;
+Verz.;Directories
+Verzeichnis;Directory
+Verzeichnisname;Directory name
+View file system;
+Voll;Full
+Volume ist disabled;Volume diabled
+Volume-Ergebnisse:;Volume results:
+Volumeliste;Volume list
+Volumes gestartet;Volume started
+Volumes mounten;Mount volumes
+Volumes nicht okay;Volumes not okay
+Volumes okay;
+Volumes;
+Von;From
+Wann;When
+Warnung;Warning
+Weiter;Next
+Wert;Value
+Wiederholen;Repeat
+Wildcards mit .* (z.B.) user123.*;Wildcards with .* (eg. user123.*)
+Willkommen;Welcome
+Wird_geleert;Is cleared
+Wird_heruntergefahren;Shutting down
+Woche(n);Week(s)
+Wochen(n);Weeks
+Wollen Sie diese Task pausieren?;Do you want to pause this task?
+Wollen Sie diesen Auftrag vollständig löschen?;Do you want to delete this job completely?
+Wollen Sie diesen Eintrag löschen?;Do you want to delete this entry?
+Wollen Sie diesen Eintrag unmounten?;Do you want to unmount this entry?
+Wollen Sie diesen Job abbrechen?;Do you want to cancel this job?
+Wollen_Sie_auch_die_Datenbank_dieses_Knotens_entfernen;Do you want to remove the database of this node too?
+Wollen_Sie_den_CloneNode_synchronisieren?;Do you want to synchronize the CloneNode?
+Wollen_Sie_den_Inhalt_dieses_Nodes_auf_andere_freie_Nodes_bewegen?;Do you want to move the contents of this node to other free nodes? 
+Wollen_Sie_den_Inhalt_dieses_Nodes_auf_einen_anderen_freien_Node_bewegen?;Do you want to move the contents of this node to another free node?
+Wollen_Sie_die_ausgewählten_Objekte_restaurieren?;Do you want to restore the selected objects?
+Wollen_Sie_diese_Datei_als_gelöscht_markieren?;Do you want to mark the file as deleted?
+Wollen_Sie_diese_Datei_endgültig_entfernen?;Do you want to remove this file permanently?
+Wollen_Sie_diese_Datei_restaurieren?;Do you want to restore this file?
+Wollen_Sie_diese_Datei_wiederherstellen?;Do you want to restore this file?
+Wollen_Sie_diesen_Auftrag_restaurieren?;Do you want to restore this job?
+Wollen_Sie_diesen_Knoten_wirklich_entfernen;Do you really want to delete this node?
+Wollen_Sie_dieses_Verzeichnis_als_gelöscht_markieren?;Do you want to mark the directory as deleted?
+Wollen_Sie_dieses_Verzeichnis_und_alle_darin_enthaltenen_Dateien_endgültig_entfernen?;Do you want to remove this directory including all its files permanently?
+Wollen_Sie_dieses_Verzeichnis_und_alle_darin_enthaltenen_Dateien_restaurieren?;Do you want to restore this directory including all its files?
+Wollen_Sie_dieses_Verzeichnis_wiederherstellen?;Do you want to restore this directory?
+WriteFileRunner kann nicht geschlossen werden;Cannot close WriteFileRunner
+Wurde_geleert;was cleared
+Zeitplan;Schedule
+Zeitpunkt der Sicherung;Date of backup
+Ziel-IP;Target-IP
+Ziel-Pfad fehlt;Missing Target path
+Ziel-Pfad:;Target path:
+Ziel-Port;Target port
+Zielauswahl;Selection Target
+Zielpfad;Target path
+Zu viele Pools in Datenbank;To many pools in DB
+Zu viele Storagepools in PoolDB;To many StoragePools in DB
+Zugriffsrechte;Access rights
+Zurück;Back
+Zusammenfassung;Summary
+Zyklus;Cycle
+Zyklusdauer;Cycle time
+ab Job-Nr.;from Job-ID
+additionText;
+beendet;completed
+beginnt mit;starts with
+beginnt_mit;starts with
+benötigt werden;required
+bis Job-Nr.;to Job-ID
+bitte Aktion auswählen;Please select action
+das Verzeichnis konnte nicht angelegt werden;the directory could not be created
+eMailadressen;E-Mail addresses
+endet mit;ends with
+endet_mit;ends with
+enthält Begriff;contains term
+enthält;contains
+genau;exact
+hat ein leeres Passwort, ist nicht erlaubt für;empty password is not allowed
+hat kein Attribut;has no attribute
+ist_beendet;stopped
+jünger als;younger than
+keine Fehler;no errors
+keine freien Blöcke gefunden;no free blocks found
+moduleName;
+nach;to
+name;
+neu;new
+neuer als;newer than
+ok;
+passt nicht zu Rolle;does not match the role
+stündlich;hourly
+täglich;daily
+um;at
+wird angemeldet;is logged in
+wurde gestartet;was started
+wurde_gestartet;was started
+wöchentlich;weekly
+zur Suche: http://.../search;skip to search: http://.../search
+Ältere Versionen ebenfalls importieren;import older versions too
+Änderungsdatum;modification date
+Überprüfe Retention;Check retention
+Überspringe Eintrag;Skipping entry
+Überspringe deaktivierten StoragePoolNub;Skipping deactivated StoragePoolNub
+Überspringe fehlenden StoragePool;Skipping missing StoragePool
+Überwachter Ordner;Observed directory
+älter als;older than
+RUNNING;
+SLEEPING;
+WAITING;
+NEEDS_INTERACTION;
+FINISHED_ERROR;
+FINISHED_OK;
+FINISHED_OK_REMOVE;
+MANUAL_START;
+ABORTED;
+ABORTING;
+RUNNING;
+SLEEPING;
+WAITING;
+NEEDS_INTERACTION;
+PAUSED;
