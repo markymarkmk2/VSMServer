@@ -10,7 +10,6 @@ import de.dimm.vsm.LogicControl;
 import de.dimm.vsm.Main;
 import de.dimm.vsm.WorkerParent;
 import de.dimm.vsm.fsengine.GenericEntityManager;
-import de.dimm.vsm.net.IAgentIdleManager;
 import de.dimm.vsm.net.interfaces.AgentApi;
 import de.dimm.vsm.records.ClientVolume;
 import de.dimm.vsm.records.Excludes;
@@ -88,7 +87,7 @@ public class CDPManager extends WorkerParent implements IAgentIdleManager
         }
         catch (SQLException sQLException)
         {
-            Log.err("ClientvolumeList nicht lesbar", sQLException);
+            Log.err(Main.Txt("ClientvolumeList nicht lesbar"), sQLException);
             return false;
         }
         
@@ -253,7 +252,7 @@ public class CDPManager extends WorkerParent implements IAgentIdleManager
         }
         catch (SQLException sQLException)
         {
-            Log.err("ClientvolumeList nicht lesbar", sQLException);
+            Log.err(Main.Txt("ClientvolumeList nicht lesbar"), sQLException);
         }        
     }
 
@@ -266,7 +265,7 @@ public class CDPManager extends WorkerParent implements IAgentIdleManager
     @Override
     public String get_task_status()
     {
-        return isPaused() ? " Pause " : " bereit ";
+        return " " + (isPaused() ? Main.Txt("Pause") : Main.Txt("bereit")) + " ";
     }
 
     private void stopCDP( CDPTicketEntry t )
@@ -285,11 +284,11 @@ public class CDPManager extends WorkerParent implements IAgentIdleManager
             api.getApi().stop_cdp(t.ticket);
             t.ticket = null;
             api.close();
-            Log.debug("CDP wurde gestoppt", name );
+            Log.debug(Main.Txt("CDP wurde gestoppt"), name );
         }
         catch (Exception exc)
         {
-            Log.err("CDP kann nicht gestoppt werden", name, exc);
+            Log.err(Main.Txt("CDP kann nicht gestoppt werden"), name, exc);
         }
     }
 
@@ -309,7 +308,7 @@ public class CDPManager extends WorkerParent implements IAgentIdleManager
             }
             catch (UnknownHostException exc)
             {
-                 Log.err("CDP kann nicht gestartet werden werden", name, exc);
+                 Log.err(Main.Txt("CDP kann nicht gestartet werden"), name, exc);
             }
         }
         finally
@@ -338,7 +337,7 @@ public class CDPManager extends WorkerParent implements IAgentIdleManager
                 if (!online)
                 {
                     if (!offlineCheck)
-                        Log.debug("CDP Agent ist nicht erreichbar", name );
+                        Log.debug(Main.Txt("CDP Agent ist nicht erreichbar"), name );
                     offlineCheck = true;
                     t.ticket = null;
                 }
@@ -347,7 +346,7 @@ public class CDPManager extends WorkerParent implements IAgentIdleManager
             catch (Exception ex)
             {
                 if (!offlineCheck)
-                    Log.debug("CDP Agent ist nicht erreichbar", name, ex );
+                    Log.debug(Main.Txt("CDP Agent ist nicht erreichbar"), name, ex );
                 offlineCheck = true;
                 t.ticket = null;
                 return;
@@ -361,7 +360,7 @@ public class CDPManager extends WorkerParent implements IAgentIdleManager
             {
                 if (!offlineCheck)
                 {
-                    Log.debug("CDP konnte nicht gestartet werden, Agent ist nicht erreichbar", name );
+                    Log.debug(Main.Txt("CDP kann nicht gestartet werden") + ", " + Main.Txt("CDP Agent ist nicht erreichbar"), name );
                     offlineCheck = true;
                 }
                 return;
@@ -395,18 +394,18 @@ public class CDPManager extends WorkerParent implements IAgentIdleManager
                     }
                     api.getApi().set_cdp_excludes( t.ticket, clientExcList );
                 }
-                Log.debug("CDP wurde gestartet", name );
+                Log.debug(Main.Txt("CDP wurde gestartet"), name );
 
             }
             else
             {
-                Log.err("CDP konnte nicht initialisiert werden", name + ": " + ticket.getErrorText());
+                Log.err(Main.Txt("CDP konnte nicht initialisiert werden"), name + ": " + ticket.getErrorText());
             }
 
         }
         catch (Exception exc)
         {
-            Log.err("CDP kann nicht gestartet werden", name, exc);
+            Log.err(Main.Txt("CDP kann nicht gestartet werden"), name, exc);
         }
     }
 

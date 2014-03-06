@@ -14,6 +14,7 @@ import de.dimm.vsm.log.LogManager;
 import de.dimm.vsm.backup.Backup;
 import de.dimm.vsm.fsengine.JDBCEntityManager;
 import de.dimm.vsm.mail.NotificationEntry;
+import de.dimm.vsm.txtscan.TxtScan;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 
@@ -44,7 +45,7 @@ public class Main
 {
 
     static String source_str = "trunk";
-    static String version_str = "1.6.0";
+    static String version_str = "1.6.1";
         
     public static int writeThreads = 1;
     public static int maxOpenFiles = 1024;
@@ -403,7 +404,21 @@ public class Main
                 }
                 System.exit(0);
             }
-            
+            if (string.equals("-clean-txt-scan") )
+            {
+                TxtScan.main( null);
+                
+                try
+                {
+                    TextBaseManager.filterTxtScan();
+                }
+                catch (Exception exception)
+                {
+                    System.out.println(exception.getMessage());
+                    System.exit(-1);
+                }
+                System.exit(0);
+            }           
         }
         
         // SETUP PATH FOR GUI JAR
@@ -471,7 +486,7 @@ public class Main
 
     static public String get_prop( String pref_name )
     {
-        if (me != null)
+        if (general_prefs != null)
         {
             return Main.general_prefs.get_prop(pref_name);
         }
@@ -479,7 +494,7 @@ public class Main
     }
     static public String get_prop( String pref_name, int channel )
     {
-        if (me != null)
+        if (general_prefs != null)
         {
             return Main.general_prefs.get_prop(pref_name + "_" + channel);
         }
@@ -488,7 +503,7 @@ public class Main
 
     static public long get_long_prop( String pref_name, long def )
     {
-        if (me != null)
+        if (general_prefs != null)
         {
             String ret = Main.general_prefs.get_prop(pref_name);
             if (ret != null)
@@ -513,7 +528,7 @@ public class Main
 
    static public int get_int_prop( String pref_name, int def )
     {
-        if (me != null)
+        if (general_prefs != null)
         {
             String ret = Main.general_prefs.get_prop(pref_name);
             if (ret != null)
@@ -546,21 +561,21 @@ public class Main
     }
     static public void set_prop( String pref_name, String v )
     {
-        if (me != null)
+        if (general_prefs != null)
         {
             Main.general_prefs.set_prop(pref_name, v);
         }
     }
     static public void set_prop( String pref_name, String v, int channel )
     {
-        if (me != null)
+        if (general_prefs != null)
         {
             Main.general_prefs.set_prop(pref_name + "_" + channel, v);
         }
     }
     static public void set_long_prop( String pref_name, long v )
     {
-        if (me != null)
+        if (general_prefs != null)
         {
             Main.general_prefs.set_prop(pref_name, Long.toString(v));
         }
@@ -570,7 +585,7 @@ public class Main
         String bool_true = "tTjJyY1";
         String bool_false = "fFnN0";
 
-        if (me != null)
+        if (general_prefs != null)
         {
             String ret = Main.general_prefs.get_prop(pref_name);
             if (ret != null)
@@ -592,7 +607,7 @@ public class Main
     }
     static public void set_bool_prop( String pref_name, boolean  v )
     {
-        if (me != null)
+        if (general_prefs != null)
         {
             Main.general_prefs.set_prop(pref_name, v ? "1" : "0");
         }

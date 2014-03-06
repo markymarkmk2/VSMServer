@@ -55,22 +55,22 @@ public class HotFolderManager extends WorkerParent implements VariableResolver, 
         actHotfolder = null;
 
         Main.addNotification( new NotificationEntry(HF_AGENT_OFFLINE, 
-                "Agent $AGENT ist offline", "Der Agent $AGENT für Hotfolder $NAME kann nicht kontaktiert werden", NotificationEntry.Level.WARNING, true));
+                Main.Txt("Agent $AGENT ist offline"), Main.Txt("Der Agent $AGENT für Hotfolder $NAME kann nicht kontaktiert werden"), NotificationEntry.Level.WARNING, true));
 
         Main.addNotification( new NotificationEntry(HF_MM_ARCHIVE_ERROR,
-                "Sicherung über MediaManager schlug fehl", "Hotfolder $NAME kann Element $PATH nicht bei MM sichern", NotificationEntry.Level.ERROR, false));
+                Main.Txt("Sicherung über MediaManager schlug fehl"), Main.Txt("Hotfolder $NAME kann Element $PATH nicht bei MM sichern"), NotificationEntry.Level.ERROR, false));
     
         Main.addNotification( new NotificationEntry(HF_BACKUP_ERR,
-                "Fehler beim Sichern von Hotfolder", "Element $PATH bei Agent $AGENT im Hotfolder $NAME kann nicht gesichert werden", NotificationEntry.Level.ERROR, false));
+                Main.Txt("Fehler beim Sichern von Hotfolder"), Main.Txt("Element $PATH bei Agent $AGENT im Hotfolder $NAME kann nicht gesichert werden"), NotificationEntry.Level.ERROR, false));
 
         Main.addNotification( new NotificationEntry(HF_DELETE_ERR,
-                "Fehler beim Löschen von Hotfolder", "Element $PATH bei Agent $AGENT im Hotfolder $NAME kann nicht gelöscht werden", NotificationEntry.Level.ERROR, false));
+                Main.Txt("Fehler beim Löschen von Hotfolder"), Main.Txt("Element $PATH bei Agent $AGENT im Hotfolder $NAME kann nicht gelöscht werden"), NotificationEntry.Level.ERROR, false));
 
         Main.addNotification( new NotificationEntry(HF_OKAY,
-                "Hotfolderauftrag $PATH beendet", "Element $PATH bei Agent $AGENT im Hotfolder $NAME wurde erfolgreich gesichert", NotificationEntry.Level.INFO, false));
+                Main.Txt("Hotfolderauftrag $PATH beendet"), Main.Txt("Element $PATH bei Agent $AGENT im Hotfolder $NAME wurde erfolgreich gesichert"), NotificationEntry.Level.INFO, false));
 
         Main.addNotification( new NotificationEntry(HF_GROUP_ERROR,
-                "Alle Fehler bei Hotfoldersicherung", "HF_AGENT_OFFLINE,HF_MM_ARCHIVE_ERROR,HF_BACKUP_ERR,HF_DELETE_ERR,BA_GROUP_ERROR", NotificationEntry.Level.GROUP, false));
+                Main.Txt("Alle Fehler bei Hotfoldersicherung"), "HF_AGENT_OFFLINE,HF_MM_ARCHIVE_ERROR,HF_BACKUP_ERR,HF_DELETE_ERR,BA_GROUP_ERROR", NotificationEntry.Level.GROUP, false));
 
     }
 
@@ -310,7 +310,7 @@ public class HotFolderManager extends WorkerParent implements VariableResolver, 
                 catch (Throwable e)
                 {
                     Log.err("Hotfolder kann nicht abgearbeitet werden", e );
-                    Main.fire(HF_BACKUP_ERR, "Hotfolder kann nicht abgearbeitet werden: " +  e.getMessage(), this);
+                    Main.fire(HF_BACKUP_ERR, Main.Txt("Hotfolder kann nicht abgearbeitet werden") + ": " +  e.getMessage(), this);
                     addHFError( hotFolder, elem, e.getMessage());
                 }
             }
@@ -410,7 +410,7 @@ public class HotFolderManager extends WorkerParent implements VariableResolver, 
             catch (Throwable throwable)
             {
                  Log.err("Fehler beim Sichern des Hotfolderelements " + elem.getName(), throwable );
-                 actualContext.setStatus("Fehler beim Sichern des Hotfolderelements " + elem.getName() + ": " + throwable.getMessage() );
+                 actualContext.setStatus(Main.Txt("Fehler beim Sichern des Hotfolderelements") + " " + elem.getName() + ": " + throwable.getMessage() );
                  Main.fire(HF_BACKUP_ERR, actualContext.getStatus(), this );
 
                  actualContext.setResult(false);
@@ -457,7 +457,7 @@ public class HotFolderManager extends WorkerParent implements VariableResolver, 
             }
 
             String summary = actualContext.getStat().buildSummary(  );
-            Main.fire(HF_OKAY, "Zusammenfassung:\n\n" + summary, this );
+            Main.fire(HF_OKAY, Main.Txt("Zusammenfassung") + ":\n\n" + summary, this );
         }
         finally
         {

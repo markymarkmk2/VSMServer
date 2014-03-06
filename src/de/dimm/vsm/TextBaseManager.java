@@ -11,13 +11,16 @@ import de.dimm.vsm.Utilities.TextProvider;
 import de.dimm.vsm.fsengine.JDBCEntityManager;
 import de.dimm.vsm.records.TextBase;
 import de.dimm.vsm.text.MissingTextException;
+import de.dimm.vsm.txtscan.TxtScan;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.io.OutputStreamWriter;
 import java.nio.charset.Charset;
 import java.sql.SQLException;
 import java.util.ArrayList;
@@ -296,6 +299,9 @@ public class TextBaseManager implements TextProvider
                 if (line == null)
                     break;
                 line = line.trim();
+                if (line.isEmpty())
+                    continue;
+                
                 if (line.startsWith("#"))
                     continue;
                 int idx = line.indexOf(';');
@@ -307,7 +313,7 @@ public class TextBaseManager implements TextProvider
                     
                     if (langCode.length() != 2)
                     {
-                        throw new IOException("Ungültiger Ländercode: " + langCode +"\nFormat: je Zeile Ländercode 2-stellig oder Key;Value");
+                        throw new IOException("Ungültiger Ländercode: " + line +"\nFormat: je Zeile Ländercode 2-stellig oder Key;Value");
                     }
                     Log.debug("Aktuelle Sprache: " + langCode);
                     continue;
@@ -323,8 +329,8 @@ public class TextBaseManager implements TextProvider
                 if (langCode == null)
                      throw new IOException("Ländercode fehlt: " + line);                
                 
-                addToTb( langCode, key, val);
-                cnt++;
+                if (addToTb( langCode, key, val))
+                    cnt++;
             }            
         }
         finally
@@ -340,13 +346,14 @@ public class TextBaseManager implements TextProvider
                 }
             }
         }
-        Log.debug("Insg. " + cnt + " neue Texte in Textbank eingelesen ");
+        Log.debug("Insg. " + cnt + " neue Texte in Textbank eingelesen/aktualisiert ");
         
     }
     
-    private static void addToTb( String langCode, String key, String val)  throws IOException, SQLException      
+    private static boolean addToTb( String langCode, String key, String val)  throws IOException, SQLException      
     {            
         // ONESHOT
+        boolean ret = false;
         TextBase newTextBase = new TextBase();
         newTextBase.setLangId(langCode);
         newTextBase.setMessageId(key);
@@ -359,6 +366,7 @@ public class TextBaseManager implements TextProvider
         if (l.isEmpty())
         {
             em.em_persist(newTextBase);
+            ret = true;
         }
         else
         {
@@ -366,9 +374,11 @@ public class TextBaseManager implements TextProvider
             {
                 l.get(0).setMessageText(newTextBase.getMessageText());
                 em.em_merge(l.get(0));
+                ret = true;
             }
         }
         em.commit_transaction();
+        return ret;
     }  
     
     public static void exportTextCsv(String filename, String code) throws IOException, SQLException        
@@ -417,4 +427,53 @@ public class TextBaseManager implements TextProvider
         }
         Log.debug("Insg. " + l.size() + " Texte in " + filename + " geschrieben");                 
     }    
+    
+    public static boolean existsTxt( String key  )
+    {
+
+        try
+        {
+            List<TextBase> l = LogicControl.get_txt_em().createQuery("select x from TextBase x where T1.messageId='" + key + "'", TextBase.class);
+            if (!l.isEmpty())
+                return true;
+        }
+        catch (Exception e)
+        {
+            
+        }
+
+        return false;
+    }
+    
+    public static void filterTxtScan()
+    {
+        
+        List<String> scanlist = TxtScan.readTxtScan();
+        
+        try
+        {
+            File f = new File("txtscanclean.txt");
+            Charset cs = Charset.forName(TxtScan.CODE);
+            try (BufferedWriter fw = new BufferedWriter(new OutputStreamWriter( new FileOutputStream(f), cs)))
+            {
+                for (String string : scanlist)
+                {
+                    if (!existsTxt(string))
+                    {
+                        System.out.println("Not found: " + string );
+                        fw.write( string + "\n"  );                        
+                    }
+                    
+                }                
+            }
+        }
+        catch (IOException iOException)
+        {
+            iOException.printStackTrace();
+            System.exit(1);
+        }
+        
+    }
+    
+
 }

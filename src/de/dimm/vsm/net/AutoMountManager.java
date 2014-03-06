@@ -88,6 +88,14 @@ public class AutoMountManager extends WorkerParent implements IAgentIdleManager
         {
             return User.createSystemInternal();
         }
+        Role role = Main.get_control().getUsermanager().getRole(mountEntry.getUsername() );
+        if (role != null)
+        {
+            User user = User.createSystemInternal();
+            user.setRole( role );
+            return user;
+        }
+        
         User user = Main.get_control().getUsermanager().getUser( mountEntry.getUsername() );
         return user;
     }

@@ -299,8 +299,8 @@ public class NodeMigrationManager
         }
         catch (Exception e)
         {
-            Log.err("Abbruch während der Migration", e);
-            status = Main.Txt("Abbruch:") + " " + e.getMessage();
+            Log.err(Main.Txt("Abbruch während der Migration"), e);
+            status = Main.Txt("Abbruch") + ": " + e.getMessage();
             state = JOBSTATE.FINISHED_ERROR;
         }
         finally

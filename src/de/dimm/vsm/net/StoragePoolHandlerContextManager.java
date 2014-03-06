@@ -115,12 +115,14 @@ public class StoragePoolHandlerContextManager extends WorkerParent
                 {
                     subPath = handler.resolveMappingDir(subPath);
                 }
-                // ALL FOLLOWING REQUESTS ARE IN REAL VSM-NAMESPACE
-                qry.setUseMappingFilter(false);
+                
                 FileSystemElemNode node = handler.resolve_node( subPath );
                 // Bei schreibenden Mounts das Erstellen des VSM-Pfads zulassen
                 if (node == null && !qry.isReadOnly())
                 {
+                    boolean mf = qry.isUseMappingFilter();
+                    // ALL FOLLOWING REQUESTS ARE IN REAL VSM-NAMESPACE
+                    qry.setUseMappingFilter(false);
                     FileSystemElemNode parent = handler.resolve_parent_dir_node( subPath);
                     // Fehlende Parent-Ordner erzeugen
                     if (parent == null && !subPath.equals( "/"))
@@ -132,6 +134,7 @@ public class StoragePoolHandlerContextManager extends WorkerParent
                     {
                         handler.create_fse_node_complete( subPath, FileSystemElemNode.FT_DIR);
                     }
+                    qry.setUseMappingFilter(mf);
                     node = handler.resolve_node( subPath );    
                     if (node == null)
                     {

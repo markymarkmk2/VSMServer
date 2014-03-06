@@ -249,7 +249,7 @@ public class LogicControl
             
             if (maxWait <= 0)
             {
-                Log.err("Der Dienst kann nicht gestoppt werden", wp.getName());
+                Log.err(Main.Txt( "Der Dienst kann nicht gestoppt werden"), wp.getName());
             }
         }
         
@@ -436,7 +436,7 @@ public class LogicControl
         }
         catch (Exception sQLException)
         {
-            Log.err("Rollen können nicht geladen werden", sQLException);
+            Log.err(Main.Txt( "Rollen können nicht geladen werden"), sQLException);
         }
         userManager = new UserManager(roles);
 
@@ -446,7 +446,7 @@ public class LogicControl
         }
         catch (IOException iOException)
         {
-            Log.err("Benachrichtigungen können nicht geladen werden", iOException);
+            Log.err(Main.Txt( "Benachrichtigungen können nicht geladen werden"), iOException);
         }
         
         StringBuffer sb = new StringBuffer();
@@ -465,7 +465,7 @@ public class LogicControl
         }
         if (sb.length() > 0)
         {
-            Log.info("TaskManager lieferte", ": " + sb.toString());
+            Log.info(Main.Txt( "TaskManager lieferte"), ": " + sb.toString());
         }
 
         threadPoolWatcher = new ThreadPoolWatcher("MainPoolWatcher");
@@ -569,7 +569,7 @@ public class LogicControl
         }
         catch (Exception exception)
         {
-            Log.err("Starten des Webservers schlug fehl", exception);
+            Log.err(Main.Txt( "Starten des Webservers schlug fehl"), exception);
         }
     }
     public void restartGui()
@@ -585,7 +585,7 @@ public class LogicControl
         }
         catch (Exception ex)
         {
-            Log.err("Stoppen der Gui schlug fehl", ex);
+            Log.err(Main.Txt( "Stoppen der Gui schlug fehl"), ex);
         }
         try
         {
@@ -604,7 +604,7 @@ public class LogicControl
         }
         catch (Exception ex)
         {
-            Log.err("Neustart der Gui schlug fehl", ex);
+            Log.err(Main.Txt( "Neustart der Gui schlug fehl"), ex);
         }
     }
 
@@ -789,7 +789,7 @@ public class LogicControl
         {
             get_base_util_em().rollback_transaction();
 
-            Log.err("Storagepool kann nicht erzeugt werden",  sQLException);
+            Log.err(Main.Txt( "Storagepool kann nicht erzeugt werden"),  sQLException);
             throw sQLException;
         }
         return null;
@@ -848,7 +848,7 @@ public class LogicControl
 
         if (!api.isOnline())
         {
-            Log.warn("Verbindung kann nicht aufgebaut werden", info.toString());
+            Log.warn(Main.Txt("Verbindung kann nicht aufgebaut werden"), info.toString());
             return null;            
         }
         return api;
@@ -1026,7 +1026,7 @@ public class LogicControl
         }
         catch (Exception e)
         {
-            Log.err("Fehler beim Lesen von Changelog", e);
+            Log.err(Main.Txt("Fehler beim Lesen von Changelog"), e);
         }
         finally
         {

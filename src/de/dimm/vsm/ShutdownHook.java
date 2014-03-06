@@ -26,7 +26,7 @@ public class ShutdownHook extends Thread
         if (shutdownFinished)
             return;
 
-        Log.info("VSM wird heruntergefahren...");
+        Log.info(Main.Txt("VSM wird heruntergefahren..."));
         for (int i = children.size() - 1; i >= 0; i--)
         {
             Runnable r = children.get(i);
@@ -34,7 +34,7 @@ public class ShutdownHook extends Thread
         }
         LogicControl.sleep(2000);
         Main.get_control().shutdown();
-        Log.info("VSM wird beendet");
+        Log.info(Main.Txt("VSM wird beendet"));
 
         shutdownFinished = true;
     }

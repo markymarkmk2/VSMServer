@@ -615,6 +615,7 @@ public class GuiServerApiImpl implements GuiServerApi
         SearchContextManager contextMgr = control.getPoolHandlerServlet().getSearchContextManager();
         
         final StoragePoolWrapper poolWrapper = contextMgr.createPoolWrapper(ip, port, searchWrapper, user, drive);
+        
 
         // OURSELF
         InetAddress adr = Main.getServerAddress();

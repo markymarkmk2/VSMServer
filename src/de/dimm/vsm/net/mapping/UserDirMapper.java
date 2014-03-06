@@ -93,7 +93,7 @@ public class UserDirMapper
                             continue;
                         }
 
-                        RemoteFSElem remoteNode = RemoteFSElem.createDir(dirName);
+                        RemoteFSElem remoteNode = RemoteFSElem.createDir(newPath/*dirName*/);
                         ret.add(remoteNode);
                         //                    remoteNode = RemoteFSElem.createDir(newPath);
                     }

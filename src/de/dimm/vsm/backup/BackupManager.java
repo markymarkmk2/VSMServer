@@ -94,33 +94,33 @@ public class BackupManager extends WorkerParent
         startList = new ArrayList<>();
 
         Main.addNotification( new NotificationEntry(BA_AGENT_OFFLINE,
-                "Agent ist offline", "Der Agent $AGENT für Backup $NAME kann nicht kontaktiert werden", NotificationEntry.Level.WARNING, true));
+                Main.Txt("Agent ist offline"), Main.Txt("Der Agent $AGENT für Backup $NAME kann nicht kontaktiert werden"), NotificationEntry.Level.WARNING, true));
 
         Main.addNotification( new NotificationEntry(BA_ERROR,
-                "Fehler beim Sichern in Backup $NAME", "In Volume $VOLUME bei Agent $AGENT im Backup $NAME traten Fehler auf", NotificationEntry.Level.ERROR, false));
+                Main.Txt("Fehler beim Sichern in Backup $NAME"), Main.Txt("In Volume $VOLUME bei Agent $AGENT im Backup $NAME traten Fehler auf"), NotificationEntry.Level.ERROR, false));
         Main.addNotification( new NotificationEntry(BA_FILE_ERROR,
-                "Fehler beim Sichern in Backup $NAME", "In Volume $VOLUME bei Agent $AGENT im Backup $NAME können folgende Einträge nicht gesichert werden", NotificationEntry.Level.WARNING, false));
+                Main.Txt("Fehler beim Sichern in Backup $NAME"), Main.Txt("In Volume $VOLUME bei Agent $AGENT im Backup $NAME können folgende Einträge nicht gesichert werden"), NotificationEntry.Level.WARNING, false));
 
         Main.addNotification( new NotificationEntry(BA_ABORT,
-                "Abbruch beim Sichern in Backup $NAME", "Die Sicherung von Volume $VOLUME bei Agent $AGENT im Backup $NAME wurde abgebrochen", NotificationEntry.Level.ERROR, false));
+                Main.Txt("Abbruch beim Sichern in Backup $NAME"), Main.Txt("Die Sicherung von Volume $VOLUME bei Agent $AGENT im Backup $NAME wurde abgebrochen"), NotificationEntry.Level.ERROR, false));
 
         Main.addNotification( new NotificationEntry(BA_VOLUME_OKAY,
-                "Volume $VOLUME beendet", "Volume $VOLUME auf $AGENT bei Backup $NAME wurde erfolgreich gesichert", NotificationEntry.Level.INFO, false));
+                Main.Txt("Volume $VOLUME beendet"), Main.Txt("Volume $VOLUME auf $AGENT bei Backup $NAME wurde erfolgreich gesichert"), NotificationEntry.Level.INFO, false));
 
         Main.addNotification( new NotificationEntry(BA_CLIENT_OKAY,
-                "Client $AGENT beendet", "Client $AGENT bei Backup $NAME wurde erfolgreich gesichert", NotificationEntry.Level.INFO, false));
+                Main.Txt("Client $AGENT beendet"), Main.Txt("Client $AGENT bei Backup $NAME wurde erfolgreich gesichert"), NotificationEntry.Level.INFO, false));
 
         Main.addNotification( new NotificationEntry(BA_OKAY,
-                "Backup $NAME erfolgreich beendet", "", NotificationEntry.Level.INFO, false));
+                Main.Txt("Backup $NAME erfolgreich beendet"), "", NotificationEntry.Level.INFO, false));
 
         Main.addNotification( new NotificationEntry(BA_NOT_OKAY,
-                "Backup $NAME nicht erfolgreich beendet", "", NotificationEntry.Level.ERROR, false));
+                Main.Txt("Backup $NAME nicht erfolgreich beendet"), "", NotificationEntry.Level.ERROR, false));
 
         Main.addNotification( new NotificationEntry(BA_SNAPSHOT_FAILED,
-                "Fehler beim Erzeugen des Snapshots in Backup $NAME", "In Volume $VOLUME bei Agent $AGENT im Backup $NAME konnte kein Snapshot erzeugt werden", NotificationEntry.Level.WARNING, false));
+                Main.Txt("Fehler beim Erzeugen des Snapshots in Backup $NAME"), Main.Txt("In Volume $VOLUME bei Agent $AGENT im Backup $NAME konnte kein Snapshot erzeugt werden"), NotificationEntry.Level.WARNING, false));
 
         Main.addNotification( new NotificationEntry(BA_GROUP_ERROR,
-                "Alle Fehler in Backup", "BA_SNAPSHOT_FAILED,BA_AGENT_OFFLINE,BA_ERROR,BA_FILE_ERROR,BA_ABORT,BA_NOT_OKAY", NotificationEntry.Level.GROUP, false));
+                Main.Txt("Alle Fehler in Backup"), "BA_SNAPSHOT_FAILED,BA_AGENT_OFFLINE,BA_ERROR,BA_FILE_ERROR,BA_ABORT,BA_NOT_OKAY", NotificationEntry.Level.GROUP, false));
     }
 
     @Override
@@ -155,7 +155,7 @@ public class BackupManager extends WorkerParent
                 }
                 catch (SQLException sQLException)
                 {
-                    Log.err("fehler beim Ermitteln der Zeitpläne", sQLException);
+                    Log.err("Fehler beim Ermitteln der Zeitpläne", sQLException);
                     return;
                 }
                 for (int i = 0; i < list.size(); i++)
@@ -654,7 +654,7 @@ public class BackupManager extends WorkerParent
             catch (Throwable throwable)
             {
                  Log.err("Fehler beim CDP des Elements " + elem.getName(), throwable );
-                 actualContext.setStatus("Fehler beim CDP des Elements " + elem.getName() + ": " + throwable.getMessage() );
+                 actualContext.setStatus(Main.Txt("Fehler beim CDP des Elements") + " " + elem.getName() + ": " + throwable.getMessage() );
                  actualContext.setResult(false);
             }
         }

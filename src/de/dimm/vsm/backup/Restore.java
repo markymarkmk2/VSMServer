@@ -39,6 +39,7 @@ import java.util.Comparator;
 import java.util.Date;
 import java.util.List;
 import java.util.Properties;
+import org.apache.commons.lang.StringUtils;
 
 /**
  *
@@ -281,6 +282,24 @@ public class Restore
 
         }
     }
+    
+    private void createRecursiveRestorePath(String targetPath) throws IOException
+    {
+        if (targetPath != null && targetPath.length() > 1)
+        {
+            RemoteFSElem elem = RemoteFSElem.createDir( targetPath );
+            if (!actualContext.apiEntry.getApi().exists( elem ))
+            {
+                int idx = targetPath.lastIndexOf( '/');
+                if (idx < 0)
+                    return;
+                
+                createRecursiveRestorePath( targetPath.substring( 0, idx ));
+                
+                actualContext.apiEntry.getApi().create_dir( elem );
+            }
+        }
+    }
 
     public void run_restore()
     {
@@ -307,6 +326,14 @@ public class Restore
                 {
                     attr = attrs.get(i);
                 }
+                
+                
+                RemoteFSElem parentElem = RemoteFSElem.createDir( targetPath );
+                if (!actualContext.apiEntry.getApi().exists( parentElem ))
+                {
+                    createRecursiveRestorePath(targetPath);
+                }
+                
 
                 restore_complete_node(node, attr, targetPath);
             }

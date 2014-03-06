@@ -6,6 +6,7 @@ package de.dimm.vsm.txtscan;
 
 import de.dimm.vsm.jobs.JobInterface;
 import de.dimm.vsm.tasks.TaskInterface;
+import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileInputStream;
@@ -14,6 +15,7 @@ import java.io.FileOutputStream;
 import java.io.FilenameFilter;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
@@ -24,16 +26,16 @@ import java.util.List;
  *
  * @author Administrator
  */
-public class Main
+public class TxtScan
 {
 
    
     static boolean dotest = false;
     static boolean verbose = false;
-    private static String code = "cp1252";
+    public static String CODE = "cp1252";
     static String[] skipFolders = {".svn", "tags"};
     
-    public Main()
+    public TxtScan()
     {
     }
     
@@ -48,14 +50,16 @@ public class Main
     
     public static void main(String[] args)
     {
-        Main main = new Main();  
+        TxtScan main = new TxtScan();  
         if (dotest)
         {
             test();
             System.exit(0);
         }
-        File start = new File("J:\\Develop\\VSM\\V1.0");
-        if (args.length == 1) {
+        // Mac: /Users/mw/Desktop/Develop/VSM/Trunk
+//        File start = new File("J:\\Develop\\VSM\\V1.0");
+        File start = new File("/Users/mw/Desktop/Develop/VSM/Trunk");
+        if (args != null && args.length == 1) {
            
             start = new File(args[0]);
         }
@@ -76,7 +80,7 @@ public class Main
         try
         {
             File f = new File("txtscan.exp");
-            Charset cs = Charset.forName(code);
+            Charset cs = Charset.forName(CODE);
             try (BufferedWriter fw = new BufferedWriter(new OutputStreamWriter( new FileOutputStream(f), cs)))
             {
                 Collections.sort(keys);
@@ -270,5 +274,34 @@ public class Main
                 cnt++;
         }
         return cnt;
+    }
+    
+    public static List<String> readTxtScan()
+    {
+        
+        List<String> keys = new ArrayList<>();
+        
+        try
+        {
+            File f = new File("txtscan.exp");
+            Charset cs = Charset.forName(CODE);
+            try (BufferedReader fw = new BufferedReader(new InputStreamReader( new FileInputStream(f), cs)))
+            {
+                while(true)
+                {
+                    String line = fw.readLine();
+                    if (line == null)
+                        break;
+
+                    keys.add( line );
+                }
+            }
+        }
+        catch (IOException iOException)
+        {
+            iOException.printStackTrace();
+            System.exit(1);
+        }
+        return keys;
     }
 }

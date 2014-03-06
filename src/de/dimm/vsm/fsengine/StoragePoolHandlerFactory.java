@@ -52,7 +52,7 @@ public class StoragePoolHandlerFactory
             else
                 qry = StoragePoolQry.createActualRdWrStoragePoolQry(user, /*showDeleted*/ false);
             
-            JDBCStoragePoolHandler sp_handler = new JDBCStoragePoolHandler( em, pool, qry );
+            JDBCStoragePoolHandler sp_handler = createStoragePoolHandlerbyQry( em, pool, qry );
 
             if (isPersistRunnerEnabled())
             {
@@ -79,6 +79,23 @@ public class StoragePoolHandlerFactory
     {
         return persistRunnerEnabled;
     }
+    
+    private static JDBCStoragePoolHandler createStoragePoolHandlerbyQry(JDBCEntityManager em, StoragePool pool, StoragePoolQry qry) throws SQLException
+    {
+            JDBCStoragePoolHandler sp_handler;
+            
+            if (qry.getUser() != null && !qry.getUser().isAdmin())
+            {
+                sp_handler = new UserMappedStoragePoolHandler( em, pool, qry );
+            }
+            else
+            {
+                sp_handler = new JDBCStoragePoolHandler( em, pool, qry );
+            }
+
+            return sp_handler;
+        
+    }
 
     public static StoragePoolHandler createStoragePoolHandler(StoragePool pool, StoragePoolQry qry) throws IOException
     {
@@ -92,7 +109,8 @@ public class StoragePoolHandlerFactory
             StoragePool pool = Main.get_control().getStoragePool(_pool.getIdx());
             JDBCConnectionFactory conn = nubHandler.getConnectionFactory(pool);
             JDBCEntityManager em = new JDBCEntityManager(pool.getIdx(), conn);
-            JDBCStoragePoolHandler sp_handler = new JDBCStoragePoolHandler( em, pool, qry );
+            JDBCStoragePoolHandler sp_handler = createStoragePoolHandlerbyQry( em, pool, qry );
+                       
             
             if (isPersistRunnerEnabled())
             {

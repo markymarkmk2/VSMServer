@@ -579,7 +579,7 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
         }
         boolean showDeleted = getPoolQry().isShowDeleted();
 
-        List<FileSystemElemNode> childNodes = get_child_nodes(act_dir);
+        List<FileSystemElemNode> childNodes = act_dir.getChildren(getEm());
         
 
         if (childNodes != null)
