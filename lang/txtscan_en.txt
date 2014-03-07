@@ -55,7 +55,7 @@ Backup;
 Backup: Mindestens eine Version bleibt nach Ablauf der Gültigkeit erhalten\nArchiv: Dateien werden nach Ablauf der Gültigkeit gelöscht;Backup: At least one version is kept after validity timeout\nArchive: Files are deleted after timeout of validity
 Backupfehler;Backup error
 Backuphistorie;Backup history
-Backupjob-Ergebisse;Backup results
+Backupjob-Ergebnisse:;Backup results:
 Beendete Aufgaben entfernen;Remove finished jobs
 Benachrichtigung;Notification
 Benachrichtigungen;Notifications
@@ -687,3 +687,73 @@ SLEEPING;
 WAITING;
 NEEDS_INTERACTION;
 PAUSED;
+Benutzer/Rolle;User/Role
+Abbruch beim Connect zu Agent;Abort while connecting agent
+Art;Type
+Abbruch während der Migration;Abort during migration
+Feld;Field
+CDP Agent ist nicht erreichbar;CDP agent is not available
+CDP kann nicht gestartet werden;CDP could not be started
+CDP kann nicht gestoppt werden;CDP could not be stopped
+CDP konnte nicht initialisiert werden;CDP could not be initialised
+CDP wurde gestartet;CDP was sarted
+CDP wurde gestoppt;CDP was stopped
+ClientvolumeList nicht lesbar;ClientvolumeList is not available
+Liste der Texteinträge:;List of text entries:
+Pause;
+Unbekannter User;Unknown user
+bereit;ready
+konnte nicht gefunden werden;could not be found
+RoleTable;
+Abbruch beim Sichern in Backup $NAME;Aborted backup $NAME
+Agent ist offline;Agent is offline
+Alle Fehler in Backup;All errors in backup
+Backup $NAME erfolgreich beendet;Backup $NAME was finished successful
+Backup $NAME nicht erfolgreich beendet;Backup $NAME was not finished successful
+Benachrichtigungen können nicht geladen werden;Notifications cannot be loaded
+Client $AGENT beendet;Client $AGENT was finished
+Client $AGENT bei Backup $NAME wurde erfolgreich gesichert;Client $AGENT was saved successful
+Der Agent $AGENT für Backup $NAME kann nicht kontaktiert werden;Agent $AGENT of backup $BACKUP could not be connected
+Der Dienst kann nicht gestoppt werden;The service could not be stopped
+Die Sicherung von Volume $VOLUME bei Agent $AGENT im Backup $NAME wurde abgebrochen;Backup of volume $VOLUME on agent $AGENT in backup $BACKUP was aborted
+Fehler beim CDP des Elements;Error during CDP of elem
+Fehler beim Erzeugen der Liste;Error while creating list
+Fehler beim Erzeugen der Mountentry-Tabelle;Error while creating mountentry table
+Fehler beim Erzeugen der Retention-Tabelle;Error while creating retention table
+Fehler beim Erzeugen des Snapshots in Backup $NAME;Error while creating snapshot in backup $BACKUP
+Fehler beim Lesen von Changelog;Error while reading changelog
+Fehler beim Sichern in Backup $NAME;Error during backup $BACKUP
+In Volume $VOLUME bei Agent $AGENT im Backup $NAME konnte kein Snapshot erzeugt werden;A snapshot coud not be created for volume $VOLUME in backup $BACKUP on agent $AGENT
+In Volume $VOLUME bei Agent $AGENT im Backup $NAME können folgende Einträge nicht gesichert werden;Following entries could not be saved from volume $VOLUME in backup $BACKUP on agent $AGENT
+In Volume $VOLUME bei Agent $AGENT im Backup $NAME traten Fehler auf;Errors occured on volume $VOLUME in backup $BACKUP on agent $AGENT
+Mounteinträge;Mount entries
+Neustart der Gui schlug fehl;Restart of GUI failed
+Rollen können nicht geladen werden;Roles cannot be loaded
+Starten des Webservers schlug fehl;Start of webservice failed
+Stoppen der Gui schlug fehl;Stopping of GUI failed
+Storagepool kann nicht erzeugt werden;Storagepool cannot be created
+TaskManager lieferte;Taskmanager gave
+VSM wird beendet;VSM is exited
+VSM wird heruntergefahren...;VSM is shutting down...
+Volume $VOLUME auf $AGENT bei Backup $NAME wurde erfolgreich gesichert;Volume $VOLUME in backup $BACKUP on agent $AGENT was finished successful
+Volume $VOLUME beendet;volume $VOLUME was finished
+Agent $AGENT ist offline;Agent $AGENT is offline
+Alle Fehler bei Hotfoldersicherung;All errors for hotfolder
+Der Agent $AGENT für Hotfolder $NAME kann nicht kontaktiert werden;Agent $AGENT of hotfolder $BACKUP could not be connected
+Element $PATH bei Agent $AGENT im Hotfolder $NAME kann nicht gelöscht werden;Element $PATH on agent $AGENT in hotfolder $NAME cannot be deleted
+Element $PATH bei Agent $AGENT im Hotfolder $NAME kann nicht gesichert werden;Element $PATH on agent $AGENT in hotfolder $NAME was not saved
+Element $PATH bei Agent $AGENT im Hotfolder $NAME wurde erfolgreich gesichert;Element $PATH on agent $AGENT in hotfolder $NAME was saved successful
+Fehler beim Löschen von Hotfolder;Error while deleting hotfolder
+Fehler beim Sichern des Hotfolderelements;Error while saving hotfolder elem
+Fehler beim Sichern von Hotfolder;Error while saving hotfolder
+Hotfolder $NAME kann Element $PATH nicht bei MM sichern;Hotfolder $NAME cannot save elem $PATH at MediaManager
+Benachrichtigungsdienst aktualisieren;Update notification service
+Der Benachrichtigungsdienste wurde aktualisiert;The notification service was updated
+Hotfolder kann nicht abgearbeitet werden;hotfolder cannot be processed
+Hotfolderauftrag $PATH beendet;Hotfolder job $PATH finished
+Sicherung über MediaManager schlug fehl;Backup via MediaManager failed
+Optionen;Options
+Fehler beim Erzeugen der MailGruppen-Tabelle;Error creating mail group table
+Deaktiviert;Disabled
+Bitte legen Sie zuerst MailGruppen an;Please create a mail group first
+
