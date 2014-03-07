@@ -756,4 +756,6 @@ Optionen;Options
 Fehler beim Erzeugen der MailGruppen-Tabelle;Error creating mail group table
 Deaktiviert;Disabled
 Bitte legen Sie zuerst MailGruppen an;Please create a mail group first
+Gruppenzugehörigkeit;Group Membership
+Mit Komma getrennte Liste von Gruppen, die zugelassen sind;Comma seperated list of valid groups
 
