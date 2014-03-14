@@ -1,3 +1,14 @@
+Veränderungen in V1.6.2
+UPD: Gruppenliste als Rollenoption
+FIX: Delete von Rollen
+
+Veränderungen in V1.6.1
+UPD: Mehrsprachigkeit
+FIX: UserMapping inaktiv
+
+Veränderungen in V1.6.0
+UPD: Mounteinträge für Gruppen zulassen
+
 Veränderungen in V1.5.8 
 FIX: Restore von gelöschten Dokumenten sperren
 
