@@ -17,11 +17,25 @@ import java.net.MalformedURLException;
  */
 public class LoginApiDispatcher extends GenericApiDispatcher
 {    
+    private static int connTimeout = 5000;
+    private static int txTimeout = 60*1000;
 
     public LoginApiDispatcher(  boolean ssl, String keystore, String keypwd, boolean tcp )
     {
         super(ssl, keystore, keypwd, tcp);
     }
+
+    public static void setConnTimeout( int connTimeout )
+    {
+        LoginApiDispatcher.connTimeout = connTimeout;
+    }
+
+    public static void setTxTimeout( int txTimeout )
+    {
+        LoginApiDispatcher.txTimeout = txTimeout;
+    }
+    
+    
 
     private static LoginApiEntry generate_api( InetAddress addr, int port, boolean ssl, String keystore, String keypwd, boolean tcp )
     {
@@ -34,7 +48,7 @@ public class LoginApiDispatcher extends GenericApiDispatcher
 
         try
         {
-            RemoteCallFactory factory = new RemoteCallFactory(addr, port, path, ssl, tcp);
+            RemoteCallFactory factory = new RemoteCallFactory(addr, port, path, ssl, tcp, connTimeout, txTimeout);
 
             GuiLoginApi api = (GuiLoginApi) factory.create(GuiLoginApi.class);
 

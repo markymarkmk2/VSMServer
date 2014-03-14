@@ -17,12 +17,23 @@ import java.net.MalformedURLException;
  */
 public class AgentApiDispatcher extends GenericApiDispatcher
 {
+    private static int connTimeout = 5000;
+    private static int txTimeout = 60*1000;
 
     public AgentApiDispatcher(  boolean ssl, String keystore, String keypwd, boolean tcp )
     {
         super(ssl, keystore, keypwd, tcp);
     }
 
+    public static void setConnTimeout( int connTimeout )
+    {
+        AgentApiDispatcher.connTimeout = connTimeout;
+    }
+
+    public static void setTxTimeout( int txTimeout )
+    {
+        AgentApiDispatcher.txTimeout = txTimeout;
+    }
 
     private static AgentApiEntry generate_api( InetAddress addr, int port, boolean ssl, String keystore, String keypwd, boolean tcp )
     {
@@ -35,7 +46,7 @@ public class AgentApiDispatcher extends GenericApiDispatcher
 
         try
         {
-            RemoteCallFactory factory = new RemoteCallFactory(addr, port, path, ssl, tcp);
+            RemoteCallFactory factory = new RemoteCallFactory(addr, port, path, ssl, tcp, connTimeout, txTimeout);
             AgentApi api = (AgentApi) factory.create(AgentApi.class);
             agentApiEntry = new AgentApiEntry( api, factory );
         }

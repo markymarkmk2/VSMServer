@@ -23,7 +23,7 @@ public class TestAgent
         try
         {
             InetAddress addr = InetAddress.getLocalHost();
-            RemoteCallFactory factory = new RemoteCallFactory(addr, port, "net", ssl, true);
+            RemoteCallFactory factory = new RemoteCallFactory(addr, port, "net", ssl, true, 2000, 2000);
 
             AgentApi api = (AgentApi) factory.create(AgentApi.class);
 
@@ -108,7 +108,7 @@ public class TestAgent
         try
         {
             InetAddress addr = InetAddress.getLocalHost();
-            RemoteCallFactory factory = new RemoteCallFactory(addr, port, "net", ssl, /*tcp*/ true);
+            RemoteCallFactory factory = new RemoteCallFactory(addr, port, "net", ssl, /*tcp*/ true, 2000, 2000);
 
             AgentApi api = (AgentApi) factory.create(AgentApi.class);
 
