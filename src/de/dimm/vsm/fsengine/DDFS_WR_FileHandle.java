@@ -799,6 +799,8 @@ public final class DDFS_WR_FileHandle implements FileHandle, IBackupHelper
     
     void setAttributes( long newLen) throws SQLException
     {
+        initStaticData();        
+        
         boolean createNewAttribute = false;
         FileSystemElemAttributes newAttr = getNode().getAttributes();
         long actTs = System.currentTimeMillis();
