@@ -208,4 +208,9 @@ public class SearchContext
     {
         return BS;
     }
+
+    public long getTs()
+    {
+        return lastUsage.getTime();
+    }
 }
