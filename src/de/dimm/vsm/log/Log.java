@@ -387,7 +387,7 @@ public class Log implements DBLogger
             }
             if (li != null && !li.isEmpty())
             {
-                orsb.append("%' or messageId in (");
+                orsb.append(" or messageId in (");
                 for (int i = 0; i < li.size(); i++)
                 {
                     TextBase textBase = li.get(i);
@@ -536,6 +536,7 @@ public class Log implements DBLogger
                     System.out.println("Error in Listlog: " + e.getMessage() );
                     return new MessageLog[0];
                 }
+                blockOffset += blockLen;
             }
             return list.toArray( new MessageLog[0]);
         }
