@@ -5,6 +5,7 @@
 package de.dimm.vsm.net;
 
 import de.dimm.vsm.Exceptions.PoolReadOnlyException;
+import de.dimm.vsm.GeneralPreferences;
 import de.dimm.vsm.LogicControl;
 import de.dimm.vsm.Main;
 import de.dimm.vsm.WorkerParent;
@@ -30,7 +31,8 @@ import java.util.Set;
  */
 public class SearchContextManager extends WorkerParent
 {
-
+    int lastCnt = -1;
+    private int maxHandlers = 50;
     final Map<SearchWrapper, SearchContext> handlerMap;
 
     public static long EXPIRE_MS = 3600*1000l;  // 1h
@@ -38,7 +40,8 @@ public class SearchContextManager extends WorkerParent
     public SearchContextManager()
     {
         super( "SearchContextManager" );
-        handlerMap = new HashMap<SearchWrapper, SearchContext>();        
+        handlerMap = new HashMap<>();  
+        maxHandlers = Main.get_int_prop(GeneralPreferences.MAX_OPEN_POOLHANDLERS, maxHandlers); 
 
     }
 
@@ -257,7 +260,6 @@ public class SearchContextManager extends WorkerParent
         finished = true;
     }
 
-    int lastCnt = -1;
     private void checkExpired()
     {
         synchronized( handlerMap )
@@ -279,7 +281,24 @@ public class SearchContextManager extends WorkerParent
                     break;
                 }
             }
+            while (handlerMap.size() > maxHandlers)
+            {
+                Entry<SearchWrapper,SearchContext> oldestEntry = null;
+                for (Entry<SearchWrapper, SearchContext> entry : vals)
+                {
+                    if (oldestEntry == null || oldestEntry.getValue().getTs() > entry.getValue().getTs())
+                    {
+                        oldestEntry = entry;
+                    }
+                }
+                if (oldestEntry == null)
+                    break;
+                
+                Log.debug("SearchContext is removed because HandlerMap is full " + handlerMap.size() + "/" + maxHandlers + ": " + oldestEntry.getKey().qry.getUser());
+                oldestEntry.getValue().close();
+                handlerMap.remove(oldestEntry.getKey());
+            }            
         }
     }
-
+    
 }
