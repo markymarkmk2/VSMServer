@@ -1,5 +1,7 @@
 Veränderungen in V1.6.2
 UPD: Gruppenliste als Rollenoption
+UPD: NameResolving in Filesystemviewer
+FIX: Begrenzen der Anzahl offener Suchanfragen
 FIX: Delete von Rollen
 
 Veränderungen in V1.6.1
