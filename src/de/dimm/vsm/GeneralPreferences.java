@@ -101,6 +101,7 @@ public class GeneralPreferences extends Preferences
     public static final String FIX_BOOTSTRAP = "FixBootstrap";
     public static final String BOOTSTRAPFIX_OVERWRITE = "BootstrapFixOverwrite";
     public static final String TXTBASE_EDIT = "TextBaseEdit";
+    public static final String MAX_OPEN_POOLHANDLERS = "MaxOpenPoolHandlers";
     
     /** Creates a new instance of Preferences */
     public GeneralPreferences()
@@ -172,6 +173,7 @@ public class GeneralPreferences extends Preferences
         prop_names.add( JDBC_URL );
         prop_names.add( BOOTSTRAPFIX_OVERWRITE );
         prop_names.add( TXTBASE_EDIT );
+        prop_names.add( MAX_OPEN_POOLHANDLERS );
 
 
 
