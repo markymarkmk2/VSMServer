@@ -1005,9 +1005,9 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
         return null;
     }
 
-    public void mkdir( String pathName ) throws IOException, PoolReadOnlyException, PathResolveException
+    public FileSystemElemNode mkdir( String pathName ) throws IOException, PoolReadOnlyException, PathResolveException
     {
-        create_fse_node_complete( pathName, FileSystemElemNode.FT_DIR );
+        return create_fse_node_complete( pathName, FileSystemElemNode.FT_DIR );
     }
 
 
