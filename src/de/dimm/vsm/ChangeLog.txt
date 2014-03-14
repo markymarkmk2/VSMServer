@@ -1,6 +1,7 @@
 Veränderungen in V1.6.2
 UPD: Gruppenliste als Rollenoption
 UPD: NameResolving in Filesystemviewer
+UPD: Timeout in der Kommunikation zw. Agent und Server
 FIX: Begrenzen der Anzahl offener Suchanfragen
 FIX: Delete von Rollen
 

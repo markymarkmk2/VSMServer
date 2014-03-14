@@ -32,7 +32,7 @@ import java.util.Set;
 public class SearchContextManager extends WorkerParent
 {
     int lastCnt = -1;
-    private int maxHandlers = 50;
+    private int maxHandlers = 100;
     final Map<SearchWrapper, SearchContext> handlerMap;
 
     public static long EXPIRE_MS = 3600*1000l;  // 1h

@@ -70,7 +70,7 @@ public class StoragePoolHandlerContextManager extends WorkerParent
     final HashMap<StoragePoolWrapper, StoragePoolHandlerContext> handlerMap;
 
     public static long EXPIRE_MS = 3600*1000l;  // 1h
-    private int maxHandlers = 50;
+    private int maxHandlers = 100;
     int lastCnt = -1;
 
     public StoragePoolHandlerContextManager()
