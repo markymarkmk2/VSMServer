@@ -528,5 +528,12 @@ public class UiApiServlet  extends HessianServlet implements GuiServerApi
         return entry.getApi().restoreVersionedFSElems(wrapper, path, targetIP, targetPort, targetPath, flags, user);
     }
 
+    @Override
+    public boolean isWrapperValid( IWrapper wrapper )
+    {
+         return entry.getApi().isWrapperValid(wrapper);
+    }
+    
+
 
 }

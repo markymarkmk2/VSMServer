@@ -460,6 +460,12 @@ public class GuiServerApiImpl implements GuiServerApi
     {
         return control.getPoolHandlerServlet().restoreVersionedFSElem(wrapper, paths, targetIP, targetPort, targetPath, flags, user);
     }
+    
+    @Override
+    public boolean isWrapperValid( IWrapper wrapper)
+    {
+        return StoragePoolHandlerServlet.getPoolHandlerByWrapper(wrapper) != null;        
+    }
 
     @Override
     public FileSystemElemNode createFileSystemElemNode( StoragePool pool, String path, String type ) throws IOException, PoolReadOnlyException, PathResolveException
@@ -625,17 +631,26 @@ public class GuiServerApiImpl implements GuiServerApi
             AgentApiEntry apiEntry = LogicControl.getApiEntry(ip, port);
 
             Boolean ret = apiEntry.getApi().mountVSMFS(adr, Main.getServerPort(), poolWrapper/*, timestamp, subPath, user*/, drive);
+            if (ret)
+            {
 
-            poolWrapper.setPhysicallyMounted(ret);
+                poolWrapper.setPhysicallyMounted(ret);
 
-            Log.info("Mount abgeschlossen", ip + ":" + port + "/" + drive);
+                Log.info("Mount abgeschlossen", ip + ":" + port + "/" + drive);
 
-            return poolWrapper;
+                return poolWrapper;
+            }
+            else
+            {
+                Log.err("Mount schlug fehl");
+            }
         }
         catch (Exception exc)
         {
-            Log.err("Mount wurde abgebrochen", exc);
+             Log.err("Mount wurde abgebrochen", exc);
         }
+        control.getPoolHandlerServlet().getContextManager().removePoolWrapper(poolWrapper);
+       
         return null;
     }
 
@@ -746,6 +761,10 @@ public class GuiServerApiImpl implements GuiServerApi
     public InputStream openStream( IWrapper wrapper, RemoteFSElem path )
     {
         StoragePoolHandler sp_handler = control.getPoolHandlerServlet().getPoolHandlerByWrapper(wrapper);
+        if (sp_handler == null)
+        {
+            return null;
+        }
         
         VSMFSInputStream is = new VSMFSInputStream(sp_handler, path.getIdx(), path.getAttrIdx());
         return is;
