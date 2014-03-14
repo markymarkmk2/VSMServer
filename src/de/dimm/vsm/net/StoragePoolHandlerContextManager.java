@@ -5,22 +5,26 @@
 
 package de.dimm.vsm.net;
 
+import de.dimm.vsm.Exceptions.PathResolveException;
+import de.dimm.vsm.Exceptions.PoolReadOnlyException;
+import de.dimm.vsm.GeneralPreferences;
 import de.dimm.vsm.LogicControl;
 import de.dimm.vsm.Main;
 import de.dimm.vsm.WorkerParent;
-import de.dimm.vsm.auth.User;
 import de.dimm.vsm.fsengine.StoragePoolHandler;
 import de.dimm.vsm.fsengine.StoragePoolHandlerFactory;
 import de.dimm.vsm.log.Log;
 import de.dimm.vsm.records.FileSystemElemNode;
 import de.dimm.vsm.records.StoragePool;
 import java.io.IOException;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map.Entry;
 import java.util.Set;
+
 
 class StoragePoolHandlerContext
 {
@@ -50,6 +54,11 @@ class StoragePoolHandlerContext
     {
         handler.close_entitymanager();
     }
+
+    long getTs()
+    {
+        return lastUsage.getTime();
+    }
 }
 
 /**
@@ -61,13 +70,14 @@ public class StoragePoolHandlerContextManager extends WorkerParent
     final HashMap<StoragePoolWrapper, StoragePoolHandlerContext> handlerMap;
 
     public static long EXPIRE_MS = 3600*1000l;  // 1h
+    private int maxHandlers = 50;
+    int lastCnt = -1;
 
     public StoragePoolHandlerContextManager()
     {
         super("StoragePoolHandlerContextManager");
-        handlerMap = new HashMap<StoragePoolWrapper, StoragePoolHandlerContext>();
-
-        // TODO : BACKGROUND TASK TO CLEANUP UNUSED ENTRIES
+        handlerMap = new HashMap<>();
+        maxHandlers = Main.get_int_prop(GeneralPreferences.MAX_OPEN_POOLHANDLERS, maxHandlers);        
     }
 
     @Override
@@ -75,7 +85,6 @@ public class StoragePoolHandlerContextManager extends WorkerParent
     {
         return false;
     }
-
 
     public StoragePoolWrapper createPoolWrapper( String agentIp, int port, StoragePool pool, StoragePoolQry qry, FileSystemElemNode node, String drive )
     {
@@ -148,7 +157,7 @@ public class StoragePoolHandlerContextManager extends WorkerParent
                 handlerMap.put(w, context);
                 return w;
             }
-            catch (Exception iOException)
+            catch (IOException | SQLException | PoolReadOnlyException | PathResolveException iOException)
             {
                 Log.err(Main.Txt("Abbruch in createPoolWrapper") , iOException);
             }
@@ -250,7 +259,7 @@ public class StoragePoolHandlerContextManager extends WorkerParent
     public List<StoragePoolWrapper> getPoolWrappers( String agentIp, int port )
     {
 
-        ArrayList<StoragePoolWrapper> list = new ArrayList<StoragePoolWrapper>();
+        ArrayList<StoragePoolWrapper> list = new ArrayList<>();
         synchronized (handlerMap)
         {
         Set<Entry<StoragePoolWrapper,StoragePoolHandlerContext>> vals = handlerMap.entrySet();
@@ -269,7 +278,7 @@ public class StoragePoolHandlerContextManager extends WorkerParent
     }
     public List<StoragePoolWrapper> getPoolWrappers( String agentIp, int port, StoragePool pool )
     {
-        ArrayList<StoragePoolWrapper> list = new ArrayList<StoragePoolWrapper>();
+        ArrayList<StoragePoolWrapper> list = new ArrayList<>();
         synchronized (handlerMap)
         {
         Set<Entry<StoragePoolWrapper,StoragePoolHandlerContext>> vals = handlerMap.entrySet();
@@ -290,7 +299,7 @@ public class StoragePoolHandlerContextManager extends WorkerParent
     }
     public List<StoragePoolWrapper> getPoolWrappers()
     {
-        ArrayList<StoragePoolWrapper> list = new ArrayList<StoragePoolWrapper>();
+        ArrayList<StoragePoolWrapper> list = new ArrayList<>();
         synchronized (handlerMap)
         {
         Set<Entry<StoragePoolWrapper,StoragePoolHandlerContext>> vals = handlerMap.entrySet();
@@ -309,8 +318,6 @@ public class StoragePoolHandlerContextManager extends WorkerParent
         return true;
     }
 
-
-
     @Override
     public  void run()
     {
@@ -324,8 +331,6 @@ public class StoragePoolHandlerContextManager extends WorkerParent
         }
         finished = true;
     }
-
-    int lastCnt = -1;
 
     private void checkExpired()
     {    
@@ -349,8 +354,27 @@ public class StoragePoolHandlerContextManager extends WorkerParent
                     break;
                 }
             }
+            
+            while (handlerMap.size() > maxHandlers)
+            {
+                Entry<StoragePoolWrapper,StoragePoolHandlerContext> oldestEntry = null;
+                for (Entry<StoragePoolWrapper, StoragePoolHandlerContext> entry : vals)
+                {
+                    if (oldestEntry == null || oldestEntry.getValue().getTs() > entry.getValue().getTs())
+                    {
+                        oldestEntry = entry;
+                    }
+                }
+                if (oldestEntry == null)
+                    break;
+                
+                Log.debug("StoragePoolWrapper is removed because HandlerMap is full " + handlerMap.size() + "/" + maxHandlers + ": " + oldestEntry.getKey().qry.getUser());
+                oldestEntry.getValue().closePoolHandler();
+                handlerMap.remove(oldestEntry.getKey());
+            }
         }
     }
+    
     public void touch( StoragePoolWrapper poolWrapper)
     {
         synchronized( handlerMap )
@@ -362,6 +386,7 @@ public class StoragePoolHandlerContextManager extends WorkerParent
             }
         }        
     }
+    
     void updateContext( StoragePoolWrapper poolWrapper, String agentIp, int agentPort, String drive )
     {
         synchronized( handlerMap )
@@ -381,5 +406,4 @@ public class StoragePoolHandlerContextManager extends WorkerParent
             }
         }
     }
-
 }
