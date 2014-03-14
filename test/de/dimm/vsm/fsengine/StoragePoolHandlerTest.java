@@ -72,10 +72,11 @@ public class StoragePoolHandlerTest
             User user = User.createSystemInternal();
             JDBCConnectionFactory conn = nubHandler.getConnectionFactory(pool);
             JDBCEntityManager em = new JDBCEntityManager(pool.getIdx(), conn);
+            // Reload from DB for Cache filling
+            pool = em.em_find(StoragePool.class, pool.getIdx());
             System.out.println("Open DB Connections: " + nubHandler.getActiveConnections(pool));
             StoragePoolQry qry = StoragePoolQry.createActualRdWrStoragePoolQry(user, /*del*/false);
             ret = new JDBCStoragePoolHandler(em, pool, qry);
-
         }
         catch (SQLException sQLException)
         {
@@ -147,6 +148,7 @@ public class StoragePoolHandlerTest
         try
         {
             pool = nubHandler.mountPoolDatabase(nub, jdbcConnectString, rebuild);
+            
 
             // REBUILD ONLY ONCE, THIS SPEEDS UP TEST
             if (rebuild)
@@ -175,8 +177,8 @@ public class StoragePoolHandlerTest
             sp_handler.check_open_transaction();
             pool.setName("UnitTestPool1");
             sp_handler.em_merge(pool);
-            sp_handler.commit_transaction();
-
+            sp_handler.commit_transaction();           
+            
             try
             {
                 AbstractStorageNode pfs_node = sp_handler.createSingleResultQuery("select T1 from AbstractStorageNode T1 where T1.name='" + fs_node.getName() + "'", AbstractStorageNode.class);
@@ -782,7 +784,10 @@ public class StoragePoolHandlerTest
 
         try
         {
-            instance.mkdir(tmp_file);
+            node = instance.mkdir("/Dir");
+            assertTrue("Created new dir ", node != null);
+            node = instance.mkdir(tmp_file);
+            assertTrue("Created new dir ", node != null);
         }
         catch (IOException iOException)
         {
