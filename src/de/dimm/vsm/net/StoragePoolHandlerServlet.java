@@ -726,7 +726,7 @@ public class StoragePoolHandlerServlet extends HessianServlet implements Storage
         return handler.remove_job(job);
     }
 
-    StoragePoolHandler getPoolHandlerByWrapper( IWrapper _wrapper )
+    public static StoragePoolHandler getPoolHandlerByWrapper( IWrapper _wrapper )
     {
         if (_wrapper instanceof SearchWrapper)
         {
