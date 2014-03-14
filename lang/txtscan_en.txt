@@ -758,4 +758,7 @@ Deaktiviert;Disabled
 Bitte legen Sie zuerst MailGruppen an;Please create a mail group first
 Gruppenzugehörigkeit;Group Membership
 Mit Komma getrennte Liste von Gruppen, die zugelassen sind;Comma seperated list of valid groups
+Liste der Rollen in Reihenfolge der Abarbeitung:;List of roles in order of execution:
+Die Ergebnisse stehen nicht mehr zur Verfügung;The results are not available
+Das Mounten des Volumes schlug fehl;Mounting the volume failed
 
