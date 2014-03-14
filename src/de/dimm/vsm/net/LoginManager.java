@@ -24,6 +24,7 @@ import java.util.List;
 import java.util.Properties;
 import java.util.Set;
 import javax.naming.NamingException;
+import org.apache.commons.lang.StringUtils;
 
 /**
  *
@@ -290,6 +291,7 @@ public class LoginManager extends WorkerParent implements GuiLoginApi
                         catch (NamingException namingException)
                         {
                             Log.warn("Authentifizierungsdaten können nicht ermittelt werden", namingException.getExplanation(), namingException);
+                            
                             continue;
                         }
                         finally
@@ -299,10 +301,17 @@ public class LoginManager extends WorkerParent implements GuiLoginApi
 
                         user.setGroups(groupsThisUser);
 
+                        Log.debug("Gruppen für Benutzer", userName + ": " + groupsThisUser.size());
+                        if (!checkRoleOptions(user)) 
+                        {
+                            auth.close_user_context();
+                        }
                         Log.debug(Main.Txt("Benutzer") + " " + userName + " " + Main.Txt("wird angemeldet"), role.getName());
 
 
-                        Log.debug("Gruppen für Benutzer", userName + ": " + groupsThisUser.size());
+                        
+                        
+                       
 
                         Main.get_control().getUsermanager().addUser(userName, user);
 
@@ -344,6 +353,31 @@ public class LoginManager extends WorkerParent implements GuiLoginApi
     public Properties getProperties()
     {
         return new Properties();
+    }
+
+    private boolean checkRoleOptions( User user )
+    {
+        Role role = user.getRole();
+        for (RoleOption ro : role.getRoleOptions()) {
+            if (ro.getToken() != null && ro.getToken().equals(RoleOption.RL_GROUP)) 
+            {
+                if (StringUtils.isEmpty(ro.getOptionStr()))
+                {
+                    Log.err("Ungültige Gruppenliste " + ro.getOptionStr(), role.getName());
+                        return false;
+                }
+                String[] groups = ro.getOptionStr().split(",");
+                for (int i = 0; i < groups.length; i++)
+                {
+                    String group = groups[i].trim().toLowerCase();
+                    if (user.isMemberOfGroup(group))
+                    {
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
     }
     
 }
