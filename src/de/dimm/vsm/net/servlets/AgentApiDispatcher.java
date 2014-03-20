@@ -4,6 +4,8 @@
  */
 package de.dimm.vsm.net.servlets;
 
+import de.dimm.vsm.GeneralPreferences;
+import de.dimm.vsm.Main;
 import de.dimm.vsm.log.Log;
 import de.dimm.vsm.net.RemoteCallFactory;
 import de.dimm.vsm.net.interfaces.AgentApi;
@@ -17,22 +19,13 @@ import java.net.MalformedURLException;
  */
 public class AgentApiDispatcher extends GenericApiDispatcher
 {
-    private static int connTimeout = 5000;
-    private static int txTimeout = 60*1000;
+    private static final int AGENT_CONN_TIMEOUT = 10;
+    private static final int AGENT_TX_TIMEOUT = 30*60;
+   
 
     public AgentApiDispatcher(  boolean ssl, String keystore, String keypwd, boolean tcp )
     {
         super(ssl, keystore, keypwd, tcp);
-    }
-
-    public static void setConnTimeout( int connTimeout )
-    {
-        AgentApiDispatcher.connTimeout = connTimeout;
-    }
-
-    public static void setTxTimeout( int txTimeout )
-    {
-        AgentApiDispatcher.txTimeout = txTimeout;
     }
 
     private static AgentApiEntry generate_api( InetAddress addr, int port, boolean ssl, String keystore, String keypwd, boolean tcp )
@@ -44,6 +37,13 @@ public class AgentApiDispatcher extends GenericApiDispatcher
     {
         AgentApiEntry agentApiEntry = null;
 
+        int connTimeout = Main.get_int_prop(GeneralPreferences.AGENT_CONN_TIMEOUT, AGENT_CONN_TIMEOUT) * 1000;
+        int txTimeout = Main.get_int_prop(GeneralPreferences.AGENT_TX_TIMEOUT, AGENT_TX_TIMEOUT) * 1000;
+        if (connTimeout <= 0)
+            connTimeout = AGENT_CONN_TIMEOUT*1000;
+        if (txTimeout <= 0)
+            txTimeout = AGENT_TX_TIMEOUT*1000;
+        
         try
         {
             RemoteCallFactory factory = new RemoteCallFactory(addr, port, path, ssl, tcp, connTimeout, txTimeout);
