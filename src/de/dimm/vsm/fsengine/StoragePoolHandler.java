@@ -2763,6 +2763,10 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
 
             for (int i = 0; i < mapList.size(); i++) {
                 User.VsmFsEntry vsmFsEntry = mapList.get(i);
+                // Mapping auf Pool begrenzt?
+                if (!vsmFsEntry.isPool(pool))
+                    continue;
+                
                 if (vsmFsEntry.getuPath().startsWith(path) || path.startsWith( vsmFsEntry.getuPath()))
                     return true;
             }
@@ -2778,6 +2782,10 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
 
             for (int i = 0; i < mapList.size(); i++) {
                 User.VsmFsEntry vsmFsEntry = mapList.get(i);
+                // Mapping auf Pool begrenzt?
+                if (!vsmFsEntry.isPool(pool))
+                    continue;
+                
                 if (path.startsWith( vsmFsEntry.getuPath())) {
                     String restpath = path.substring(vsmFsEntry.getuPath().length());
                     return vsmFsEntry.getvPath() + restpath;

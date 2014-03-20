@@ -39,6 +39,10 @@ public class UserMappedStoragePoolHandler extends JDBCStoragePoolHandler {
 
                 for (int i = 0; i < mapList.size(); i++) {
                     User.VsmFsEntry vsmFsEntry = mapList.get(i);
+                    // Mapping auf Pool begrenzt?
+                    if (!vsmFsEntry.isPool(pool))
+                        continue;
+                    
                     FileSystemElemNode mapNode = resolve_elem_by_path(vsmFsEntry.getvPath());
                     if( mapNode != null)
                     {

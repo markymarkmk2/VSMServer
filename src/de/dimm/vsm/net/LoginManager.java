@@ -296,6 +296,7 @@ public class LoginManager extends WorkerParent implements GuiLoginApi
                         }
                         finally
                         {
+                            // Zugriff auf LDAP/AD/SMTP/POP nicht mehr notwendig
                             auth.close_user_context();
                         }
 
@@ -304,14 +305,11 @@ public class LoginManager extends WorkerParent implements GuiLoginApi
                         Log.debug("Gruppen für Benutzer", userName + ": " + groupsThisUser.size());
                         if (!checkRoleOptions(user)) 
                         {
-                            auth.close_user_context();
+                            Log.debug("User "+ userName + " does not match RoleOptions of role " + role.getName());                            
+                            continue;
                         }
+                        
                         Log.debug(Main.Txt("Benutzer") + " " + userName + " " + Main.Txt("wird angemeldet"), role.getName());
-
-
-                        
-                        
-                       
 
                         Main.get_control().getUsermanager().addUser(userName, user);
 
@@ -357,10 +355,13 @@ public class LoginManager extends WorkerParent implements GuiLoginApi
 
     private boolean checkRoleOptions( User user )
     {
+        boolean ret = true;
         Role role = user.getRole();
         for (RoleOption ro : role.getRoleOptions()) {
             if (ro.getToken() != null && ro.getToken().equals(RoleOption.RL_GROUP)) 
             {
+                // Wir haben ein GruppenFilter, also default == falsch
+                ret = false;
                 if (StringUtils.isEmpty(ro.getOptionStr()))
                 {
                     Log.err("Ungültige Gruppenliste " + ro.getOptionStr(), role.getName());
@@ -372,12 +373,13 @@ public class LoginManager extends WorkerParent implements GuiLoginApi
                     String group = groups[i].trim().toLowerCase();
                     if (user.isMemberOfGroup(group))
                     {
+                        // Erster Treffer -> Return true
                         return true;
                     }
                 }
             }
         }
-        return false;
+        return ret;
     }
     
 }

@@ -41,6 +41,10 @@ public class UserDirMapper
             for (int i = 0; i < mapList.size(); i++)
             {
                 User.VsmFsEntry vsmFsEntry = mapList.get(i);
+                // Mapping auf Pool begrenzt?
+                if (!vsmFsEntry.isPool(handler.getPool()))
+                    continue;
+                
                 // INSIDE THIS MAPPING ENTRY?
                 if (!vsmFsEntry.getuPath().startsWith(path) && !path.startsWith(vsmFsEntry.getuPath()))
                 {
