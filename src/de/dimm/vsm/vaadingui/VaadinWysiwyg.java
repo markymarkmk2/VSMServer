@@ -4,8 +4,12 @@
  */
 package de.dimm.vsm.vaadingui;
 
+import com.vaadin.Application;
 import com.vaadin.terminal.gwt.server.ApplicationServlet;
 import de.dimm.vsm.log.Log;
+import de.dimm.vsm.vaadin.AppServlet;
+import de.dimm.vsm.vaadin.VSMClientApplication;
+import de.dimm.vsm.vaadin.VSMSearchApplication;
 import java.io.File;
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
@@ -113,6 +117,19 @@ class VaadinInterfaceServlet implements Servlet
     @Override
     public void service( ServletRequest req, ServletResponse res ) throws ServletException, IOException
     {
+     //   VSMCMain.setMe( ((AppServlet)app). );
+        AppServlet vapp = (AppServlet)app;
+        Application aapp = vapp.getApp();
+        if (aapp instanceof VSMClientApplication)
+        {
+            VSMClientApplication vaapp = (VSMClientApplication)aapp;
+            vaapp.getMain().setMe();
+        }
+        if (aapp instanceof VSMSearchApplication)
+        {
+            VSMSearchApplication vaapp = (VSMSearchApplication)aapp;
+            vaapp.getMain().setMe();
+        }
         app.service(req, res);
     }
 

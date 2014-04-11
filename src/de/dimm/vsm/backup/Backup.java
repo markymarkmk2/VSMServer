@@ -135,9 +135,7 @@ public class Backup
         }
         abort = false;
 
-        withBootstrap = Main.get_bool_prop(GeneralPreferences.WITH_BOOTSTRAP, true);
-
-        
+        withBootstrap = Main.get_bool_prop(GeneralPreferences.WITH_BOOTSTRAP, true);        
     }
 
     private void baNotify( String key, String extraText, VariableResolver vr )
@@ -1121,6 +1119,12 @@ public class Backup
 
     public static void backupRemoteFSElem( final GenericContext context, final RemoteFSElem remoteFSElem, final FileSystemElemNode node, boolean recursive, final boolean onlyNewer ) throws PoolReadOnlyException, SQLException, Throwable
     {
+        Log.trace("Entering <" + remoteFSElem.getPath() + ">" );
+        _backupRemoteFSElem(context, remoteFSElem, node, recursive, onlyNewer);
+        Log.trace("Leaving  <" + remoteFSElem.getPath() + ">" );
+    }
+    private static void _backupRemoteFSElem( final GenericContext context, final RemoteFSElem remoteFSElem, final FileSystemElemNode node, boolean recursive, final boolean onlyNewer ) throws PoolReadOnlyException, SQLException, Throwable
+    {
         List<Excludes> exclList = context.getExcludes();
         if (exclList != null)
         {
@@ -1403,6 +1407,8 @@ public class Backup
         // ELEM DOESNT EXIST IN DB?
         if (dbNode == null)
         {
+            Log.trace("Creating <" + remoteFSElem.getName() + ">" );
+
             context.setStatus(Main.Txt("Erzeuge ") + remoteFSElem.getPath() );
 
             if (remoteFSElem.isLazyAclInfo())
@@ -1445,6 +1451,8 @@ public class Backup
 
         if (do_update)
         {
+            Log.trace("Updating <" + remoteFSElem.getName() + ">" );
+            
             context.setStatus(Main.Txt("Aktualisiere ") + remoteFSElem.getPath() );
 
             // RELOAD MISSING LAZY ACL
@@ -1475,7 +1483,6 @@ public class Backup
                 {
                     context.getIndexer().addToIndexAsync(dbNode.getAttributes(), context.getArchiveJob());
                 }
-
             }
             
             // ADD ARCHIVE LINK

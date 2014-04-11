@@ -13,6 +13,7 @@ import de.dimm.vsm.records.TextBase;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
+import org.apache.log4j.Level;
 
 /**
  *
@@ -20,18 +21,31 @@ import java.util.List;
  */
 public class Log implements DBLogger
 {
-    static boolean verbose;
     static boolean debugEnabled = true;
+    static boolean traceEnabled = false;
+    
 
-    public static boolean isVerbose()
-    {
-        return verbose;
+    public static void setTraceEnabled( boolean traceEnabled ) {
+        Log.traceEnabled = traceEnabled;
+        if (traceEnabled)
+            VSMFSLogger.getLog().setLevel(Level.TRACE);
+        else
+        {
+            if (debugEnabled)
+            {
+                VSMFSLogger.getLog().setLevel(Level.DEBUG);
+            }
+            else
+            {
+                VSMFSLogger.getLog().setLevel(Level.WARN);
+            }
+        }
     }
 
-    public static void setVerbose( boolean v )
-    {
-        verbose = v;
+    public static boolean isTraceEnabled() {
+        return traceEnabled;
     }
+    
     
     public static boolean isDebugEnabled()
     {
@@ -41,6 +55,14 @@ public class Log implements DBLogger
     public static void setDebugEnabled( boolean debugEnabled )
     {
         Log.debugEnabled = debugEnabled;
+        if (debugEnabled)
+        {
+            VSMFSLogger.getLog().setLevel(Level.DEBUG);
+        }
+        else
+        {
+            VSMFSLogger.getLog().setLevel(Level.WARN);
+        }
     }
 
     @Override
@@ -56,11 +78,11 @@ public class Log implements DBLogger
     public static void log( int level, String key, String addText, Throwable t, int user)
     {
         String caller = "?";
-        String debug_caller;
-
-        if (level == MessageLog.ML_DEBUG && !isDebugEnabled())
+        
+        if (level >= MessageLog.ML_DEBUG && !isDebugEnabled())
             return;
-
+        if (level >= MessageLog.ML_TRACE && !isTraceEnabled())
+            return;
 
         try
         {
@@ -76,7 +98,7 @@ public class Log implements DBLogger
                 }
 
                 caller = el.getClassName() + "." + el.getMethodName();
-                debug_caller = caller + " " + el.getFileName() + ":" + el.getLineNumber();
+                //debug_caller = caller + " " + el.getFileName() + ":" + el.getLineNumber();
             }
 
 
@@ -94,68 +116,76 @@ public class Log implements DBLogger
             if (addText != null)
                 msg += " " + addText;
 
-            try
+            if (level <= MessageLog.ML_DEBUG )
             {
-                LogicControl.get_log_em().check_open_transaction();
-                LogicControl.get_log_em().em_persist(log);
-                LogicControl.get_log_em().commit_transaction();
+                try
+                {
+                    LogicControl.get_log_em().check_open_transaction();
+                    LogicControl.get_log_em().em_persist(log);
+                    LogicControl.get_log_em().commit_transaction();
+                }
+                catch (SQLException sQLException)
+                {
+                    System.out.println("Error adding to MessageLog-DB: " + sQLException.getMessage());
+                }
             }
-            catch (SQLException sQLException)
+            switch (level)
             {
-                System.out.println("Error adding to MessageLog-DB: " + sQLException.getMessage());
-            }
-            finally
-            {
-                if (level == MessageLog.ML_ERROR)
+                case MessageLog.ML_ERROR:
                 {
                     if (t != null)
                     {
                         VSMFSLogger.getLog().error(msg, t);
-
                     }
                     else
                     {
                         VSMFSLogger.getLog().error(msg);
-
                     }
+                    break;
                 }
-                else if (level == MessageLog.ML_WARN)
+                case MessageLog.ML_WARN:
                 {
                     if (t != null)
                     {
                         VSMFSLogger.getLog().warn(msg, t);
-
                     }
                     else
                     {
                         VSMFSLogger.getLog().warn(msg);
-
                     }
+                    break;
                 }
-                else if (level == MessageLog.ML_INFO)
+                case MessageLog.ML_INFO:
                 {
                     VSMFSLogger.getLog().info(msg);
+                    break;
                 }
-                else if (level == MessageLog.ML_DEBUG)
+                case MessageLog.ML_DEBUG:
                 {
                     if (t != null)
                     {
                         VSMFSLogger.getLog().debug(msg, t);
-
                     }
                     else
                     {
                         VSMFSLogger.getLog().debug(msg);
                     }
-
-                   /* msg = MessageLog.getDateString(log.getCreation()) + " "
-                            + MessageLog.getErrLevelName(log.getErrLevel()) + " "
-                            + msg;
-
-                    System.err.println(msg);*/
+                    break;
                 }
-
+                case MessageLog.ML_TRACE:
+                {
+                    if (t != null)
+                    {
+                        VSMFSLogger.getLog().trace(msg, t);
+                    }
+                    else
+                    {
+                        VSMFSLogger.getLog().trace(msg);
+                    }
+                    break;
+                }
             }
+            
         }
         catch (Exception e)
         {
@@ -245,6 +275,38 @@ public class Log implements DBLogger
         }
 
         log(MessageLog.ML_DEBUG, key, s, null);
+    }
+    
+    public static void trace( String key, Throwable t)
+    {
+        if (!isTraceEnabled())
+            return;
+        log(MessageLog.ML_TRACE, key, null, t);
+    }
+    public static void trace( String key)
+    {
+        if (!isTraceEnabled())
+            return;
+        trace( key, null, (Object[])null );
+    }
+    public static void trace( String key, String add)
+    {
+        if (!isTraceEnabled())
+            return;
+        trace( key, add, (Object[])null );
+    }
+    public static void trace( String key, String fmt, Object ... a)
+    {
+        if (!isTraceEnabled())
+            return;
+        
+        String s = fmt;
+        if (fmt != null && a != null)
+        {
+            s = format(fmt, a);
+        }
+
+        log(MessageLog.ML_TRACE, key, s, null);
     }
     
     private static String format(String fmt, Object ... a)

@@ -1112,5 +1112,14 @@ public class LogicControl
         }
         return null;
     }
+    
+    public void setTrace( Boolean b)
+    {
+        Log.setTraceEnabled(b.booleanValue());
+    }
+    public Boolean getTrace()
+    {
+        return Log.isTraceEnabled();
+    }
 
 }

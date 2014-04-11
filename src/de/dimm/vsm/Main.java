@@ -45,7 +45,7 @@ public class Main
 {
 
     static String source_str = "trunk";
-    static String version_str = "1.6.4";
+    static String version_str = "1.6.5";
         
     public static int writeThreads = 1;
     public static int maxOpenFiles = 1024;
@@ -353,7 +353,7 @@ public class Main
             if (string.equals("-v"))
             {
                 performanceDiagnostic = true;
-                Log.setVerbose(true);
+                Log.setTraceEnabled(true);
             }
             if (string.equals("-stats"))
             {

@@ -1,3 +1,11 @@
+Veränderungen in V1.6.5
+UPD: Trace nach stdout
+FIX: UserSessionData in ThreadLocal  
+
+Veränderungen in V1.6.4
+UPD: Usermapping rekursiv
+FIX: Usermapping offline
+
 Veränderungen in V1.6.2
 UPD: Gruppenliste als Rollenoption
 UPD: NameResolving in Filesystemviewer
