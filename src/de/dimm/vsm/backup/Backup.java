@@ -1119,9 +1119,11 @@ public class Backup
 
     public static void backupRemoteFSElem( final GenericContext context, final RemoteFSElem remoteFSElem, final FileSystemElemNode node, boolean recursive, final boolean onlyNewer ) throws PoolReadOnlyException, SQLException, Throwable
     {
-        Log.trace("Entering <" + remoteFSElem.getPath() + ">" );
+        if (Log.isTraceEnabled())
+            Log.trace("Entering <" + context.getBasePath() + remoteFSElem.getPath() + ">" );
         _backupRemoteFSElem(context, remoteFSElem, node, recursive, onlyNewer);
-        Log.trace("Leaving  <" + remoteFSElem.getPath() + ">" );
+        if (Log.isTraceEnabled())
+            Log.trace("Leaving  <" + context.getBasePath() + remoteFSElem.getPath() + ">" );
     }
     private static void _backupRemoteFSElem( final GenericContext context, final RemoteFSElem remoteFSElem, final FileSystemElemNode node, boolean recursive, final boolean onlyNewer ) throws PoolReadOnlyException, SQLException, Throwable
     {
@@ -1407,7 +1409,8 @@ public class Backup
         // ELEM DOESNT EXIST IN DB?
         if (dbNode == null)
         {
-            Log.trace("Creating <" + remoteFSElem.getName() + ">" );
+            if (Log.isTraceEnabled())
+                Log.trace("Creating <" + context.getBasePath() + remoteFSElem.getName() + ">" );
 
             context.setStatus(Main.Txt("Erzeuge ") + remoteFSElem.getPath() );
 
@@ -1451,7 +1454,8 @@ public class Backup
 
         if (do_update)
         {
-            Log.trace("Updating <" + remoteFSElem.getName() + ">" );
+            if (Log.isTraceEnabled())
+                Log.trace("Updating <" + context.getBasePath() + remoteFSElem.getName() + ">" );
             
             context.setStatus(Main.Txt("Aktualisiere ") + remoteFSElem.getPath() );
 
