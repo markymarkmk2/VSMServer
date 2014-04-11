@@ -1830,7 +1830,7 @@ public class Backup
         }
         catch (ClientAccessFileException e)
         {
-            Log.err( "Datei wurde nicht gesichert",e.getMessage());
+            Log.debug( "Datei wurde nicht gesichert",e.getMessage());
             context.setStatus(VSMCMain.Txt("Entferne") + " " + remoteFSElem.getPath() );
             context.poolhandler.remove_fse_node(node, true);
             context.apiEntry.getApi().get_properties();
