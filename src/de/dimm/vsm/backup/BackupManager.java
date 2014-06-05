@@ -133,6 +133,8 @@ public class BackupManager extends WorkerParent
     // THIS HAS TO BE CALLED AT END OF EVERY BACKUP AND AFTER PARAMETER
     public void updateStartList()
     {
+        Log.debug("updateStartList");
+        
         List<StoragePool> pools = LogicControl.getStorageNubHandler().listStoragePools();
 
         synchronized(startList)
@@ -164,15 +166,18 @@ public class BackupManager extends WorkerParent
                     if (schedule.getDisabled())
                         continue;
 
-
                     try
                     {
                         ScheduleStart start = calcNextStart(schedule, now);
 
                         if (start != null)
                         {
+                            Log.debug("Neuer Start " + start.toString());
                             startList.add(start);
-
+                        }
+                        else
+                        {
+                            Log.debug("Kein Start für " + schedule.getName());
                         }
                     }
                     catch (Exception e)
@@ -184,6 +189,11 @@ public class BackupManager extends WorkerParent
         }
     }
 
+    private static boolean isScheduleOnDayBoundary(Schedule schedule)
+    {
+        return ((86400*1000l) % schedule.getCycleLengthMs()) == 0;
+    }
+    
     static ScheduleStart calcNextStart( Schedule schedule, long now )
     {
         GregorianCalendar baseCal = new GregorianCalendar();
@@ -194,21 +204,20 @@ public class BackupManager extends WorkerParent
         {
 
             baseCal.setTime(schedule.getScheduleStart());
-
-            // SPEED UP: IF WE ARE ON DAY BOUNDARY, THEN WE CAN START ON THIS DAY MINUS ONE DAY (OFFSET BAY BE LARGER THAN CYCLE)
-            if ( baseCal.getTimeInMillis() < now  && 86400*1000 % schedule.getCycleLengthMs() == 0)
+                                   
+            // SPEED UP: IF WE ARE ON DAY BOUNDARY, THEN WE CAN START ON THIS DAY MINUS ONE DAY (OFFSET MAY BE LARGER THAN CYCLE)
+            if ( baseCal.getTimeInMillis() < now && isScheduleOnDayBoundary(schedule))
             {
                 int h = baseCal.get(GregorianCalendar.HOUR_OF_DAY);
                 int m = baseCal.get(GregorianCalendar.MINUTE);
                 int s = baseCal.get(GregorianCalendar.SECOND);
-                baseCal.setTimeInMillis( System.currentTimeMillis() );
+                baseCal.setTimeInMillis( now );
                 baseCal.set(GregorianCalendar.HOUR_OF_DAY, h);
                 baseCal.set(GregorianCalendar.MINUTE, m);
-                baseCal.set(GregorianCalendar.SECOND, s);
+                baseCal.set(GregorianCalendar.SECOND, s - 1); // WG. DER FEHLENDEN MS SICHERHEITSHALBER EINE SEK ZURÜCK
                 baseCal.set(GregorianCalendar.MILLISECOND, 0);
                 baseCal.add(GregorianCalendar.DAY_OF_YEAR, -1);
             }
-
 
             long startTime = baseCal.getTimeInMillis();
             int n;
@@ -217,13 +226,11 @@ public class BackupManager extends WorkerParent
             for (n = 0;;n++)
             {
                 long check = startTime +  n * schedule.getCycleLengthMs();
-
-                ScheduleStart actS = new ScheduleStart(check, schedule);
-
                 if (check > now)
                 {
-                    if (start == null || start.nextStart > check)
-                        start = actS;
+                    ScheduleStart actS = new ScheduleStart(check, schedule);
+                    start = actS;
+                    Log.debug("Nächster Start " + actS.toString());
                     break;
                 }
             }
@@ -262,11 +269,30 @@ public class BackupManager extends WorkerParent
                     continue;
                 }
 
-                baseCal.setTime(schedule.getScheduleStart());
-                ScheduleStart baseTimeStart = new ScheduleStart( baseCal.getTimeInMillis(), schedule);
-
-
                 int n;
+                baseCal.setTime(new Date(schedule.getScheduleStart().getTime()));
+                long startTime;
+                
+                // SPEED UP: IF WE ARE ON DAY BOUNDARY, THEN WE CAN START ON THIS DAY MINUS ONE DAY (OFFSET MAY BE LARGER THAN CYCLE)
+                if ( baseCal.getTimeInMillis() < now && isScheduleOnDayBoundary(schedule))
+                {
+                    int h = baseCal.get(GregorianCalendar.HOUR_OF_DAY);
+                    int m = baseCal.get(GregorianCalendar.MINUTE);
+                    int s = baseCal.get(GregorianCalendar.SECOND);
+                    baseCal.setTimeInMillis( now );
+                    baseCal.set(GregorianCalendar.HOUR_OF_DAY, h);
+                    baseCal.set(GregorianCalendar.MINUTE, m);
+                    baseCal.set(GregorianCalendar.SECOND, s - 1);
+                    baseCal.set(GregorianCalendar.MILLISECOND, 0);
+                    baseCal.add(GregorianCalendar.DAY_OF_YEAR, -1);
+                    startTime = baseCal.getTimeInMillis();
+                } 
+                else
+                {                
+                    long cycles = (now - schedule.getScheduleStart().getTime()) / schedule.getCycleLengthMs();
+                    baseCal.setTime(new Date(schedule.getScheduleStart().getTime() + (cycles-1)*schedule.getCycleLengthMs()));
+                    startTime = baseCal.getTimeInMillis();
+                }
 
                 // FIND THE FIRST CYCLEENTRY IN THE FUTURE
                 for (n = 0;;n++)
@@ -276,8 +302,7 @@ public class BackupManager extends WorkerParent
                     if (days < 0)
                         days = 0;
 
-                    // ADD CYCLE
-                    long startTime = baseCal.getTimeInMillis();
+                    // ADD CYCLE                    
                     baseCal.setTimeInMillis(startTime +  n * schedule.getCycleLengthMs());
 
                     baseCal.set(GregorianCalendar.HOUR_OF_DAY, offsetStartS / 3600);
@@ -293,7 +318,10 @@ public class BackupManager extends WorkerParent
                     if (check > now)
                     {
                         if (start == null || start.nextStart > check)
+                        {
                             start = actS;
+                            Log.debug("Nächster Start " + actS.toString());
+                        }
                         break;
                     }
                 }
@@ -329,6 +357,9 @@ public class BackupManager extends WorkerParent
             long now = System.currentTimeMillis();
             if (now - lastCheck < 5*1000)
                 continue;
+            
+            // Einmal täglich Startliste neu berechnen
+            updateStartListDaily();
 
             setStatusTxt(Main.Txt("Prüfe Zyklusstarts"));
             lastCheck = now;
@@ -338,30 +369,42 @@ public class BackupManager extends WorkerParent
                 for (int i = 0; i < startList.size(); i++)
                 {
                     ScheduleStart scheduleStart = startList.get(i);
+                    
+                    long realStartWindow = startWindowS * 1000;
+                    // Startwindow muss kleiner als Cycle sein!!
+                    if (realStartWindow > scheduleStart.sched.getCycleLengthMs()/2)
+                        realStartWindow = scheduleStart.sched.getCycleLengthMs()/2;
+                        
 
-                    // ARE WE INSIDE STARTWINDOW?
-                    if (scheduleStart.nextStart > now && scheduleStart.nextStart < (now + startWindowS*1000))
-                    {
+                    // ARE WE INSIDE STARTWINDOW BEGINNING AT NOW?
+                    if (scheduleStart.nextStart > (now  - realStartWindow) && scheduleStart.nextStart < now)
+                    {                        
                         // ASK FOR FLAG
                         if (!scheduleStart.started)
                         {
+                            Log.debug("Betrete Startfenster " + scheduleStart.toString());
+                            scheduleStart.started = true;
+                            
                             // AND DB RESULT
-                            if (!checkDbSchedWasStarted( scheduleStart.sched, startWindowS, now))
+                            if (!checkDbSchedWasStarted( scheduleStart.sched, realStartWindow, now))
+                            {                               
+                                setStatusTxt(Main.Txt("Starte") + " " + scheduleStart.sched.toString());
+                                startSchedule(scheduleStart.sched, User.createSystemInternal());                                
+                            }
+                            else
                             {
-                                scheduleStart.started = true;
-                                setStatusTxt(Main.Txt("Starte") + scheduleStart.sched.toString());
-                                startSchedule(scheduleStart.sched, User.createSystemInternal());
+                                Log.debug("Job wurde bereits gestartet " + scheduleStart.toString());
                             }
                         }
                     }
-                    
-                    // CATCH STARTED JOB AND RECALC NEW START TIME
-                    if ( scheduleStart.started && scheduleStart.nextStart < (now - startWindowS*1000))
+                    // CATCH STARTED JOB AND RECALC NEW START TIME AFTER ELAPS OF STARTWINDOW
+                    else if ( scheduleStart.started && scheduleStart.nextStart < (now - realStartWindow))
                     {
                         // WE RECALC IF JOB WAS STARTED
-                        ScheduleStart nextScheduleStart = calcNextStart(scheduleStart.sched, now);
+                        ScheduleStart nextScheduleStart = calcNextStart(scheduleStart.sched, System.currentTimeMillis());
                         scheduleStart.nextStart = nextScheduleStart.nextStart;
                         scheduleStart.started = false;
+                        Log.debug("Neuer Startzeitpunkt " + scheduleStart.toString());
                     }
                 }
             }
@@ -408,7 +451,7 @@ public class BackupManager extends WorkerParent
         return jobr;
     }
 
-    private static boolean checkDbSchedWasStarted( Schedule sched, long startWindowS, long startTime )
+    private static boolean checkDbSchedWasStarted( Schedule sched, long startWindowMs, long startTime )
     {
         BackupJobResult jobr = getLastResult( sched );
         if (jobr == null)
@@ -416,7 +459,7 @@ public class BackupManager extends WorkerParent
 
         // CHECK IF WE HAVE A START INSIDE THE LAST MINUTE (startWindowS)
         long diff = startTime - jobr.getStartTime().getTime();
-        if (diff >= 0 && diff < startWindowS * 1000)
+        if (diff >= 0 && diff < startWindowMs)
             return true;
 
         return false;
@@ -678,6 +721,30 @@ public class BackupManager extends WorkerParent
         }
 
         return actualContext;
+    }
+
+    private boolean doUpdateStartList = false;
+    
+    private void updateStartListDaily() {
+        
+        GregorianCalendar baseCal = new GregorianCalendar();
+
+        int h = baseCal.get(GregorianCalendar.HOUR_OF_DAY);
+        int m = baseCal.get(GregorianCalendar.MINUTE);
+
+        // At 00:00 recalc Startlist
+        if ( h == 0 && m == 0)
+        {
+            doUpdateStartList = true;
+        }
+        else
+        {
+            if (doUpdateStartList)
+            {
+                doUpdateStartList = false;
+                updateStartList();
+            }
+        }        
     }
 
    

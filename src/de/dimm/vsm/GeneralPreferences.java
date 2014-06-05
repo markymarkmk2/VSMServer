@@ -104,6 +104,7 @@ public class GeneralPreferences extends Preferences
     public static final String MAX_OPEN_POOLHANDLERS = "MaxOpenPoolHandlers";
     public static final String AGENT_CONN_TIMEOUT = "AgentConnTimeout";
     public static final String AGENT_TX_TIMEOUT = "AgentTxTimeout";
+    public static final String MAX_CONNECTIONS = "MaxConnections";
     
     /** Creates a new instance of Preferences */
     public GeneralPreferences()
@@ -178,6 +179,7 @@ public class GeneralPreferences extends Preferences
         prop_names.add( MAX_OPEN_POOLHANDLERS );
         prop_names.add( AGENT_CONN_TIMEOUT );
         prop_names.add( AGENT_TX_TIMEOUT );
+        prop_names.add( MAX_CONNECTIONS );
 
 
 

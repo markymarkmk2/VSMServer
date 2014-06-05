@@ -88,7 +88,7 @@ public class Backup
     private static boolean testModeFull = false;
 
 
-    public static final int DEFAULT_START_WINDOW_S = 60;
+    public static final int DEFAULT_START_WINDOW_S = 600;
 
     public static JobInterface createbackupJob( Schedule sched, User user )
     {        
@@ -711,6 +711,8 @@ public class Backup
         hdl.em_persist(baJobResult, /*noCache*/true);
         boolean globalOk = false;
 
+        Log.info("Gestartet:", "%s", sched.getName() );
+        
         try
         {
             // RELOAD FROM DB
@@ -864,7 +866,7 @@ public class Backup
             hdl.commit_transaction();
             finished = true;
 
-            Log.info("Beendet", ":%s", sched.getName() );
+            Log.info("Beendet:", "%s", sched.getName() );
             overallCounter.check_stat(true);
             return true;
         }

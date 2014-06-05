@@ -45,7 +45,7 @@ public class Main
 {
 
     static String source_str = "trunk";
-    static String version_str = "1.6.5";
+    static String version_str = "1.6.6";
         
     public static int writeThreads = 1;
     public static int maxOpenFiles = 1024;
@@ -226,6 +226,7 @@ public class Main
 
         setDerbyProperties();
 
+        JDBCEntityManager.MAX_CONNECTIONS = get_int_prop(GeneralPreferences.MAX_CONNECTIONS, JDBCEntityManager.MAX_CONNECTIONS);
 
         control = new LogicControl(this);
 
