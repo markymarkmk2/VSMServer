@@ -1122,10 +1122,10 @@ public class Backup
     public static void backupRemoteFSElem( final GenericContext context, final RemoteFSElem remoteFSElem, final FileSystemElemNode node, boolean recursive, final boolean onlyNewer ) throws PoolReadOnlyException, SQLException, Throwable
     {
         if (Log.isTraceEnabled())
-            Log.trace("Entering <" + context.getBasePath() + remoteFSElem.getPath() + ">" );
+            Log.trace("Entering", "<" + context.getBasePath() + remoteFSElem.getPath() + ">" );
         _backupRemoteFSElem(context, remoteFSElem, node, recursive, onlyNewer);
         if (Log.isTraceEnabled())
-            Log.trace("Leaving  <" + context.getBasePath() + remoteFSElem.getPath() + ">" );
+            Log.trace("Leaving", "<" + context.getBasePath() + remoteFSElem.getPath() + ">" );
     }
     private static void _backupRemoteFSElem( final GenericContext context, final RemoteFSElem remoteFSElem, final FileSystemElemNode node, boolean recursive, final boolean onlyNewer ) throws PoolReadOnlyException, SQLException, Throwable
     {
