@@ -106,6 +106,10 @@ public class GeneralPreferences extends Preferences
     public static final String AGENT_TX_TIMEOUT = "AgentTxTimeout";
     public static final String MAX_CONNECTIONS = "MaxConnections";
     
+    public static final String DATABASE_SERVER = "DatabaseServer";
+    public static final String DATABASE_PORT = "DatabasePort";
+    public static final String NUB_DATABASEPORT = "DatabasePortNub";
+    
     /** Creates a new instance of Preferences */
     public GeneralPreferences()
     {
@@ -180,6 +184,8 @@ public class GeneralPreferences extends Preferences
         prop_names.add( AGENT_CONN_TIMEOUT );
         prop_names.add( AGENT_TX_TIMEOUT );
         prop_names.add( MAX_CONNECTIONS );
+        prop_names.add( DATABASE_SERVER );
+        prop_names.add( DATABASE_PORT );
 
 
 
@@ -223,6 +229,9 @@ public class GeneralPreferences extends Preferences
             return true;
         if (s.startsWith("SMTP"))
             return true;
+        if (s.startsWith( NUB_DATABASEPORT))
+            return true;
+        
         return super.check_prop(s);
     }
     
