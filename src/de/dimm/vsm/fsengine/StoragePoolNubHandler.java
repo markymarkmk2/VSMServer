@@ -147,6 +147,16 @@ public class StoragePoolNubHandler
 
 //        String jdbcConnectString = "jdbc:derby:" + dbPath + "/VSMParams;create=true";
         String url = getEffectiveJdbcConnectString( nub );
+        
+        // Network
+        String networkUrl[] = url.split( "//");
+        if (networkUrl.length == 3) {
+            String[] urlParts = networkUrl[2].split(";");
+            String db = "/" + urlParts[0];
+            return db;
+        }
+                    
+        
         String start = "jdbc:derby:";
         try
         {
@@ -162,17 +172,24 @@ public class StoragePoolNubHandler
 
     protected String getDbPath( StoragePoolNub nub )
     {
-        String dbPath = LogicControl.getDbPath() + "db_" + nub.getIdx() + RELPARAMPATH;
+        String dbPath = getDbRootPath(nub) + RELPARAMPATH;
+        
         return dbPath;
     }
     protected String getDbRootPath( StoragePoolNub nub )
     {
         String dbPath = LogicControl.getDbPath() + "db_" + nub.getIdx();
+        String networkUrl[] = dbPath.split( "//");
+        if (networkUrl.length == 3) {
+            String[] urlParts = networkUrl[2].split(";");
+            String db = "/" + urlParts[0];
+            return db;
+        }
         return dbPath;
     }
     protected String getIndexPath( StoragePoolNub nub )
     {
-        String dbPath = LogicControl.getDbPath() + "db_" + nub.getIdx() + "/Index";
+        String dbPath = getDbRootPath(nub) + "/Index";
         return dbPath;
     }
 
@@ -254,7 +271,12 @@ public class StoragePoolNubHandler
         }
 
         // REGISTER NEW SETTINGS
-        jdbcConnectString = "jdbc:derby:" + dbPath + RELPARAMPATH;
+        String relDbPath = dbPath;
+        if (relDbPath.contains( "//"))
+        {
+            relDbPath = relDbPath.substring( relDbPath.lastIndexOf( "//") + 1 );
+        }
+        jdbcConnectString = "jdbc:derby:" + relDbPath + RELPARAMPATH;
         nub.setJdbcConnectString(jdbcConnectString);
         nub.setPoolIdx(pool.getIdx());
 
@@ -373,7 +395,7 @@ public class StoragePoolNubHandler
                 }
 
                 String path = getDbPath(storagePoolNub);
-                File dbPath = new File(path);dbPath.getAbsolutePath();
+                File dbPath = new File(path);
                 if (!dbPath.exists())
                 {
                     Log.info(Main.Txt("Überspringe fehlenden StoragePool"), ": " + storagePoolNub.getIdx() + "/" + storagePoolNub.getPoolIdx());
@@ -411,8 +433,25 @@ public class StoragePoolNubHandler
         String defaultDbPath = ":" + Main.DATABASEPATH;
         if (jdbcConnect.contains(defaultDbPath))
         {
-            jdbcConnect = jdbcConnect.replaceFirst(defaultDbPath, ":" + LogicControl.getDbPath());
+            // DB-Pathmapping
+            jdbcConnect = jdbcConnect.replaceFirst(defaultDbPath, ":" + LogicControl.getDbPath());                   
         }
+        // NetworkMapping
+        if (jdbcConnect.startsWith( "jdbc:derby:") && Main.get_prop( GeneralPreferences.DATABASE_SERVER) != null) {
+            String port = Main.get_prop( GeneralPreferences.NUB_DATABASEPORT + "_" + storagePoolNub.getIdx(),
+                    Main.get_prop( GeneralPreferences.DATABASE_PORT, "1527")  );
+            
+           String dbName = jdbcConnect.substring( "jdbc:derby:".length() );
+           jdbcConnect =  "jdbc:derby:" + "//" +  Main.get_prop( GeneralPreferences.DATABASE_SERVER)
+                   + ":" +  port + "/";
+           
+           if (!dbName.startsWith( "/")) {
+               File wrkDir = new File(".").getAbsoluteFile();
+               dbName = wrkDir.getAbsolutePath() +  "/" + dbName;
+           }
+           jdbcConnect += dbName;
+        }
+        
         return jdbcConnect;
     }
 
