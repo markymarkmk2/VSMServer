@@ -19,7 +19,7 @@ import de.dimm.vsm.fsengine.GenericEntityManager;
 import de.dimm.vsm.fsengine.JDBCEntityManager;
 import de.dimm.vsm.fsengine.StoragePoolHandler;
 import de.dimm.vsm.fsengine.StoragePoolHandlerFactory;
-import de.dimm.vsm.fsengine.StoragePoolNubHandler;
+import de.dimm.vsm.fsengine.DerbyStoragePoolNubHandler;
 import de.dimm.vsm.jobs.JobEntry;
 import de.dimm.vsm.jobs.JobInterface;
 import de.dimm.vsm.jobs.JobManager;
@@ -340,6 +340,7 @@ public class BackupManager extends WorkerParent
     @Override
     public void run()
     {
+        is_started = true;
         long lastCheck = System.currentTimeMillis();
         
         long startWindowS = Main.get_int_prop(GeneralPreferences.BA_START_WINDOW_S, Backup.DEFAULT_START_WINDOW_S);
@@ -410,6 +411,7 @@ public class BackupManager extends WorkerParent
             }
             setStatusTxt("");
         }
+        finished =true;
     }
 
     @Override
@@ -532,7 +534,7 @@ public class BackupManager extends WorkerParent
     {
         StoragePool pool = mountEntry.getPool();
 
-        StoragePoolNubHandler nubHandler = LogicControl.getStorageNubHandler();
+        DerbyStoragePoolNubHandler nubHandler = LogicControl.getStorageNubHandler();
 
         User user = User.createSystemInternal();
         StoragePoolHandler sp_handler = StoragePoolHandlerFactory.createStoragePoolHandler( nubHandler, pool, user, /*rdonly*/false);
@@ -558,7 +560,7 @@ public class BackupManager extends WorkerParent
     {
         StoragePool pool = sched.getPool();
 
-        StoragePoolNubHandler nubHandler = LogicControl.getStorageNubHandler();
+        DerbyStoragePoolNubHandler nubHandler = LogicControl.getStorageNubHandler();
 
         User user = User.createSystemInternal();
         StoragePoolHandler sp_handler = StoragePoolHandlerFactory.createStoragePoolHandler( nubHandler, pool, user, /*rdonly*/false);

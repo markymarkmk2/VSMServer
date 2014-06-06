@@ -64,6 +64,7 @@ public class LoginManager extends WorkerParent implements GuiLoginApi
     @Override
     public void run()
     {
+        is_started = true;
         int last_minute_checked = -1;
         GregorianCalendar cal = new GregorianCalendar();
 
@@ -84,6 +85,7 @@ public class LoginManager extends WorkerParent implements GuiLoginApi
                 continue;
             }
         }
+        finished =true;
     }
 
     @Override

@@ -78,9 +78,10 @@ public abstract class GenericContext implements IBackupHelper
         this.poolhandler = poolhandler;
         this.hash_block_size = Main.get_int_prop(GeneralPreferences.FILE_HASH_BLOCKSIZE, CS_Constants.FILE_HASH_BLOCKSIZE);
         indexer = LogicControl.getStorageNubHandler().getIndexer(poolhandler.getPool());
-        stat = new StatCounter("");
+        
         result = false;
         basePath = getClientInfoRootPath( apiEntry.getAddr() ,apiEntry.getPort());
+        stat = new StatCounter(basePath);
         
         
         result = true;

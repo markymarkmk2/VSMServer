@@ -108,7 +108,8 @@ public class GeneralPreferences extends Preferences
     
     public static final String DATABASE_SERVER = "DatabaseServer";
     public static final String DATABASE_PORT = "DatabasePort";
-    public static final String NUB_DATABASEPORT = "DatabasePortNub";
+    public static final String DATABASE_PATH = "DatabasePath";
+    
     
     /** Creates a new instance of Preferences */
     public GeneralPreferences()
@@ -184,9 +185,7 @@ public class GeneralPreferences extends Preferences
         prop_names.add( AGENT_CONN_TIMEOUT );
         prop_names.add( AGENT_TX_TIMEOUT );
         prop_names.add( MAX_CONNECTIONS );
-        prop_names.add( DATABASE_SERVER );
-        prop_names.add( DATABASE_PORT );
-
+        
 
 
 
@@ -229,7 +228,11 @@ public class GeneralPreferences extends Preferences
             return true;
         if (s.startsWith("SMTP"))
             return true;
-        if (s.startsWith( NUB_DATABASEPORT))
+        if (s.startsWith( DATABASE_SERVER))
+            return true;
+        if (s.startsWith( DATABASE_PATH))
+            return true;
+        if (s.startsWith( DATABASE_PORT))
             return true;
         
         return super.check_prop(s);

@@ -14,6 +14,7 @@ import de.dimm.vsm.backup.jobinterface.CDPJobInterface;
 import de.dimm.vsm.backup.jobinterface.VfsJobInterface;
 import de.dimm.vsm.jobs.JobInterface.JOBSTATE;
 import de.dimm.vsm.lifecycle.NodeMigrationManager.MigrationJob;
+import de.dimm.vsm.log.Log;
 import de.dimm.vsm.net.CdpTicket;
 import de.dimm.vsm.records.AbstractStorageNode;
 import de.dimm.vsm.records.HotFolder;
@@ -203,7 +204,7 @@ public class JobManager extends WorkerParent
                     {
                         job.run();
                     }
-                }, "JobEntry");
+                }, job.getClass().getSimpleName());
                 entry.setThread(workerThr);
                 workerThr.start();
             }
@@ -244,6 +245,7 @@ public class JobManager extends WorkerParent
     @Override
     public void run()
     {
+        is_started = true;
         while (!isShutdown())
         {
             LogicControl.sleep(500);
@@ -276,6 +278,42 @@ public class JobManager extends WorkerParent
                 }
             }
         }
+        Log.debug("JobManager is shutting down...");
+        
+        // We are in Shutdown -> Stop all pending jobs
+        for (JobEntry entry: list)
+        {
+            Log.debug("Aborting Job on shutdown", entry.toString());
+            entry.getJob().abortJob();            
+        }
+        
+        boolean allStopped = false;
+        int maxWaitS=10;
+        while (maxWaitS > 0)
+        {
+            allStopped = true;
+            for (JobEntry entry: list)
+            {
+                if (entry.getJob().getJobState() == JobInterface.JOBSTATE.ABORTED) {
+                    entry.close();
+                    list.remove(entry);
+                    allStopped = false;
+                    break;
+                }
+                if (entry.getJobStatus() != JOBSTATE.FINISHED_OK &&
+                    entry.getJobStatus() != JOBSTATE.FINISHED_ERROR)
+                {
+                    allStopped = false;
+                    break;
+                }
+            }
+            if (allStopped)
+                break;
+            
+            maxWaitS--;
+            LogicControl.sleep(1000);
+        }
+        Log.debug("JobManager is shutdown");
         finished = true;
     }
 

@@ -9,6 +9,7 @@
 
 package de.dimm.vsm;
 
+import de.dimm.vsm.log.Log;
 import de.dimm.vsm.log.LogManager;
 import de.dimm.vsm.tasks.InteractionEntry;
 import de.dimm.vsm.tasks.TaskInterface;
@@ -86,7 +87,9 @@ public abstract class WorkerParent implements TaskInterface
             @Override
             public void run()
             {
+                Log.debug("Starting Worker", name);
                 me.run();
+                Log.debug("Finished Worker", name);
             }
         }, getName());
 

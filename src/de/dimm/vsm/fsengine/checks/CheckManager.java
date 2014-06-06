@@ -260,6 +260,8 @@ public class CheckManager  extends WorkerParent{
 
     @Override
     public void run() {
+        is_started = true;
+        finished = true;
         
     }
 }

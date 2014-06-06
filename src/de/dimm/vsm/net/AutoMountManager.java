@@ -319,13 +319,16 @@ public class AutoMountManager extends WorkerParent implements IAgentIdleManager
     public void stopIdle()
     {
         // STOP ON SHUTDOWN
+        Log.debug("AutoMountManager is stopping");
         unmountAllMounted();
+        Log.debug("AutoMountManager is stopped");
     }
 
     // IS HANDLED INSIDE AgentIdleManager
     @Override
     public void run()
     {
+        is_started = true;
         while (!isShutdown())
         {
             LogicControl.sleep( 1 * 1000 );

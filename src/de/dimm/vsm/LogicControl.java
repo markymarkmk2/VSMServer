@@ -18,7 +18,7 @@ import de.dimm.vsm.backup.hotfolder.HotFolderManager;
 import de.dimm.vsm.fsengine.JDBCConnectionFactory;
 import de.dimm.vsm.fsengine.JDBCEntityManager;
 import de.dimm.vsm.fsengine.PoolMapper;
-import de.dimm.vsm.fsengine.StoragePoolNubHandler;
+import de.dimm.vsm.fsengine.DerbyStoragePoolNubHandler;
 import de.dimm.vsm.fsengine.checks.CheckManager;
 import de.dimm.vsm.fsengine.checks.ICheck;
 import de.dimm.vsm.jobs.JobManager;
@@ -125,7 +125,7 @@ public class LogicControl
     ArrayList<WorkerParent> workerList;
     TaskPreferences taskPrefs;
 
-    private static StoragePoolNubHandler storagePoolNubHandler;
+    private static DerbyStoragePoolNubHandler storagePoolNubHandler;
     ThreadPoolWatcher threadPoolWatcher;
 
     public ThreadPoolWatcher getThreadPoolWatcher()
@@ -145,7 +145,7 @@ public class LogicControl
     }
     public static String getDbPath()
     {
-        String path = Main.get_prop(GeneralPreferences.DB_PATH, Main.DATABASEPATH );
+        String path = Main.get_prop(GeneralPreferences.DATABASE_PATH, Main.DATABASEPATH );
         path = path.replace('\\', '/');
         if (!path.endsWith("/"))
             path = path + "/";
@@ -198,13 +198,13 @@ public class LogicControl
             throw new RuntimeException("Initialisation error!");
     }
 
-    public static StoragePoolNubHandler getStorageNubHandler()
+    public static DerbyStoragePoolNubHandler getStorageNubHandler()
     {
         return storagePoolNubHandler;
     }
 
     // USED FOR TEST
-    public static void setStorageNubHandler( StoragePoolNubHandler nubHandler )
+    public static void setStorageNubHandler( DerbyStoragePoolNubHandler nubHandler )
     {
         storagePoolNubHandler = nubHandler;
     }
@@ -229,7 +229,23 @@ public class LogicControl
     {
         netServer.stop_server();
         sslNetServer.stop_server();
+                
+        jobManager.setShutdown(true);
+           
+        int maxWait = 1000;
+        while (jobManager.isStarted() && !jobManager.isFinished() && maxWait > 0)
+        {
+            sleep(100);
+            maxWait--;
+        }
+        if (jobManager.isFinished())
+            jobManager.close();
 
+        if (maxWait <= 0)
+        {
+            Log.err(Main.Txt( "Der Dienst kann nicht gestoppt werden"), jobManager.getName());
+        }
+        
         for (int i = workerList.size() - 1; i >= 0; i--)
         {
             WorkerParent wp = workerList.get(i);
@@ -238,7 +254,7 @@ public class LogicControl
         for (int i = workerList.size() - 1; i >= 0; i--)
         {
             WorkerParent wp = workerList.get(i);
-            int maxWait = 1000;
+            maxWait = 1000;
             while (wp.isStarted() && !wp.isFinished() && maxWait > 0)
             {
                 sleep(100);
@@ -364,7 +380,7 @@ public class LogicControl
 
         if (storagePoolNubHandler == null)
         {
-            storagePoolNubHandler = new StoragePoolNubHandler();
+            storagePoolNubHandler = new DerbyStoragePoolNubHandler();
             // LOAD POOL-DATABASES FROM NUB-DB
             storagePoolNubHandler.initMapperList();
         }

@@ -22,7 +22,7 @@ import de.dimm.vsm.backup.Backup;
 import de.dimm.vsm.fsengine.JDBCStoragePoolHandler;
 import de.dimm.vsm.fsengine.StoragePoolHandler;
 import de.dimm.vsm.fsengine.StoragePoolHandlerFactory;
-import de.dimm.vsm.fsengine.StoragePoolNubHandler;
+import de.dimm.vsm.fsengine.DerbyStoragePoolNubHandler;
 import de.dimm.vsm.jobs.InteractionEntry;
 import de.dimm.vsm.jobs.JobInterface;
 import de.dimm.vsm.log.Log;
@@ -84,7 +84,7 @@ public class MMImportManager
 
     void open() throws IOException, SQLException, Exception
     {
-        StoragePoolNubHandler nubHandler = Main.get_control().getStorageNubHandler();
+        DerbyStoragePoolNubHandler nubHandler = Main.get_control().getStorageNubHandler();
 
         StoragePool pool = nubHandler.getStoragePool( hotFolder.getPoolIdx());
 

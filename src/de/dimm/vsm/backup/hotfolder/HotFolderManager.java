@@ -15,7 +15,7 @@ import de.dimm.vsm.backup.Backup;
 import de.dimm.vsm.fsengine.GenericEntityManager;
 import de.dimm.vsm.fsengine.StoragePoolHandler;
 import de.dimm.vsm.fsengine.StoragePoolHandlerFactory;
-import de.dimm.vsm.fsengine.StoragePoolNubHandler;
+import de.dimm.vsm.fsengine.DerbyStoragePoolNubHandler;
 import de.dimm.vsm.jobs.JobInterface;
 import de.dimm.vsm.mail.NotificationEntry;
 import de.dimm.vsm.net.IAgentIdleManager;
@@ -37,7 +37,7 @@ import java.util.List;
  */
 public class HotFolderManager extends WorkerParent implements VariableResolver, IAgentIdleManager
 {  
-    StoragePoolNubHandler nubHandler;
+    DerbyStoragePoolNubHandler nubHandler;
     ArchiveJobContext actualContext;
     HotFolder actHotfolder;
     private static final String HF_AGENT_OFFLINE = "HF_AGENT_OFFLINE";
@@ -47,7 +47,7 @@ public class HotFolderManager extends WorkerParent implements VariableResolver, 
     private static final String HF_OKAY = "HF_OKAY";
     private static final String HF_GROUP_ERROR = "HF_GROUP_ERROR";
 
-    public HotFolderManager(StoragePoolNubHandler nubHandler)
+    public HotFolderManager(DerbyStoragePoolNubHandler nubHandler)
     {
         super("HotFolderManager");
         this.nubHandler = nubHandler;
@@ -130,7 +130,7 @@ public class HotFolderManager extends WorkerParent implements VariableResolver, 
     @Override
     public void stopIdle()
     {
-        
+        Log.debug("HFManager is stopped");
     }
     @Override
     public void doIdle() 
@@ -152,11 +152,10 @@ public class HotFolderManager extends WorkerParent implements VariableResolver, 
     @Override
     public void run()
     {
-        
+        is_started = true;
         while (!isShutdown())
         {
             LogicControl.sleep(1000);
-
         }
         
         finished = true;

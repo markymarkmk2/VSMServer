@@ -36,6 +36,7 @@ public class CDPJobInterface implements JobInterface
     List<CdpEvent> evList;
     Date start = new Date();
     JobInterface.JOBSTATE js;
+    private boolean finished;
 
     public CDPJobInterface( BackupManager mgr, AgentApiEntry api, Schedule sched, ClientInfo info, ClientVolume volume, CdpEvent ev )
     {
@@ -86,6 +87,12 @@ public class CDPJobInterface implements JobInterface
             js = jOBSTATE;
         }
     }
+
+    public boolean isFinished() {
+        return finished;
+    }
+    
+    
 
     @Override
     public InteractionEntry getInteractionEntry()
@@ -187,6 +194,7 @@ public class CDPJobInterface implements JobInterface
                 }
             }
         }
+        finished = true;
     }
 
     @Override

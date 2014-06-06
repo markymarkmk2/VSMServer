@@ -39,6 +39,7 @@ public class DBWorker extends WorkerParent
     @Override
     public void run()
     {
+        is_started = true;
         while (!isShutdown())
         {
             LogicControl.sleep(60*1000);

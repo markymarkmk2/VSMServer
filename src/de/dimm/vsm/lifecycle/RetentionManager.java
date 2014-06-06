@@ -17,7 +17,7 @@ import de.dimm.vsm.fsengine.GenericEntityManager;
 import de.dimm.vsm.fsengine.LazyList;
 import de.dimm.vsm.fsengine.StoragePoolHandler;
 import de.dimm.vsm.fsengine.StoragePoolHandlerFactory;
-import de.dimm.vsm.fsengine.StoragePoolNubHandler;
+import de.dimm.vsm.fsengine.DerbyStoragePoolNubHandler;
 import de.dimm.vsm.records.DedupHashBlock;
 import de.dimm.vsm.records.FileSystemElemAttributes;
 import de.dimm.vsm.records.FileSystemElemNode;
@@ -81,9 +81,9 @@ public class RetentionManager extends WorkerParent
     };
     final String qryFieldStr = "f.idx as fidx, a.fsize as fsize, a.modificationDateMs as mtime, a.name as fname, a.idx as aidx, a.ts as ts";
 
-    StoragePoolNubHandler nubHandler;
+    DerbyStoragePoolNubHandler nubHandler;
 
-    public RetentionManager(StoragePoolNubHandler nubHandler)
+    public RetentionManager(DerbyStoragePoolNubHandler nubHandler)
     {
         super("RetentionManager");
        // em = LogicControl.createEntityManager();
@@ -108,7 +108,8 @@ public class RetentionManager extends WorkerParent
     
     @Override
     public void run()
-    {        
+    {      
+        is_started = true;
         GregorianCalendar cal = new GregorianCalendar();
         int last_checked = cal.get(GregorianCalendar.HOUR_OF_DAY);
 
@@ -163,6 +164,7 @@ public class RetentionManager extends WorkerParent
             }
             setStatusTxt("");
         }
+        finished = true;
     }
 
     private boolean isStringArgType( Retention retention )

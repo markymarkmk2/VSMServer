@@ -41,6 +41,12 @@ class CDPTicketEntry
         if (obj instanceof CDPTicketEntry)
         {
             CDPTicketEntry t = (CDPTicketEntry)obj;
+            if (t.volume.getClinfo() != null && volume.getClinfo() != null)
+            {
+                if (t.volume.getClinfo().getSched().getPool().getIdx() != volume.getClinfo().getSched().getPool().getIdx())
+                    return false;
+            }
+                
             return (t.volume.getIdx() == volume.getIdx());
         }
         return super.equals(obj);
@@ -199,13 +205,16 @@ public class CDPManager extends WorkerParent implements IAgentIdleManager
     public void stopIdle()
     {
         // STOP ON SHUTDOWN
-        stopAllStarted();  
+        Log.debug("CDPManager is stopping");
+        stopAllStarted(); 
+        Log.debug("CDPManager is stopped");        
     }
 
     // IS HANDLED INSIDE AgentIdleManager
     @Override
     public void run()
     {
+        is_started = true;
         while (!isShutdown())
         {
             LogicControl.sleep(1*1000);

@@ -7,9 +7,10 @@ package de.dimm.vsm.net;
 import de.dimm.vsm.LogicControl;
 import de.dimm.vsm.Main;
 import de.dimm.vsm.WorkerParent;
-import de.dimm.vsm.fsengine.StoragePoolNubHandler;
+import de.dimm.vsm.fsengine.DerbyStoragePoolNubHandler;
 import java.util.ArrayList;
 import java.util.List;
+import org.catacombae.jfuse.util.Log;
 
 
 
@@ -22,7 +23,7 @@ public class AgentIdleManager extends WorkerParent
 
     List<IAgentIdleManager> idleList;
 
-    public AgentIdleManager(StoragePoolNubHandler nubHandler)
+    public AgentIdleManager(DerbyStoragePoolNubHandler nubHandler)
     {
         super("AgentIdleManager");
         idleList = new ArrayList<IAgentIdleManager>();
@@ -70,7 +71,7 @@ public class AgentIdleManager extends WorkerParent
             iAgentIdleManager.startIdle();
         }
         
-        
+        is_started = true;
         while (!isShutdown())
         {
             LogicControl.sleep(1000);
@@ -93,6 +94,7 @@ public class AgentIdleManager extends WorkerParent
         {
             iAgentIdleManager.stopIdle();
         }
+        Log.debug("AgentIdleManager is finished");
         
         finished = true;
     }

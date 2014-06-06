@@ -13,6 +13,7 @@ import de.dimm.vsm.backup.Backup.BackupJobInterface;
 import de.dimm.vsm.backup.BackupManager;
 import de.dimm.vsm.fsengine.GenericEntityManager;
 import de.dimm.vsm.jobs.JobInterface;
+import de.dimm.vsm.jobs.JobInterface.JOBSTATE;
 import de.dimm.vsm.jobs.JobManager;
 import de.dimm.vsm.net.interfaces.ServerApi;
 import de.dimm.vsm.records.ClientInfo;
@@ -23,7 +24,6 @@ import de.dimm.vsm.records.StoragePool;
 import java.io.IOException;
 import java.util.List;
 import java.util.Properties;
-import org.apache.commons.lang.StringUtils;
 
 /**
  *
@@ -191,10 +191,10 @@ public class ServerApiImpl implements ServerApi
 
                 job = bm.createCDPJob(api, sched, info, vol, fileList);
 
-                job.setJobState(JobInterface.JOBSTATE.MANUAL_START);
+                job.setJobState(JobInterface.JOBSTATE.RUNNING);
                 Main.get_control().getJobManager().addJobEntry(job);
 
-                job.run();            
+                //job.run();            
             }
 
         }
@@ -205,7 +205,18 @@ public class ServerApiImpl implements ServerApi
         finally
         {
             // REMOVE JOB AND CLOSE API
-            Main.get_control().getJobManager().removeJobEntry(job);
+            if (job != null)
+            {
+                while (job.getJobState() != JOBSTATE.ABORTED && job.getJobState() != JOBSTATE.ABORTING
+                        && job.getJobState() != JOBSTATE.FINISHED_ERROR
+                        && job.getJobState() != JOBSTATE.FINISHED_OK 
+                        && job.getJobState() != JOBSTATE.FINISHED_OK_REMOVE)
+                {
+                    LogicControl.sleep(100);
+                }
+
+                Main.get_control().getJobManager().removeJobEntry(job);
+            }
 
             if (api != null)
             {
