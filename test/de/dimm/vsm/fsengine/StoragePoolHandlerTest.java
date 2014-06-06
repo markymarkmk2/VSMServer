@@ -32,11 +32,11 @@ import org.junit.BeforeClass;
 import org.junit.Test;
 import static org.junit.Assert.*;
 
-class TestStoragePoolNubHandler extends StoragePoolNubHandler
+class TestStoragePoolNubHandler extends DerbyStoragePoolNubHandler
 {
 
     @Override
-    protected String getIndexPath( StoragePoolNub nub )
+    public String getIndexPath( StoragePoolNub nub )
     {
         return StoragePoolHandlerTest.jdbcConnectString + "/Index";
     }
@@ -57,9 +57,9 @@ public class StoragePoolHandlerTest
     static FileSystemElemNode dir_node;
     static FileSystemElemNode file_node;
     public static final int TESTCNT = 1000;
-    static StoragePoolNubHandler nubHandler;
+    static DerbyStoragePoolNubHandler nubHandler;
 
-    public static StoragePoolNubHandler getNubHandler()
+    public static DerbyStoragePoolNubHandler getNubHandler()
     {
         return nubHandler;
     }

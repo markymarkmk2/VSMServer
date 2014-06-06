@@ -117,7 +117,7 @@ public class FSEIndexerTest
     @Test
     public void testSomeMethod()
     {
-        StoragePoolNubHandler handler = StoragePoolHandlerTest.getNubHandler();
+        DerbyStoragePoolNubHandler handler = StoragePoolHandlerTest.getNubHandler();
 
         StoragePoolHandler sp_handler = StoragePoolHandlerTest.getSp_handler();
         FSEIndexer fsi = handler.getIndexer(sp_handler.getPool());
@@ -199,7 +199,7 @@ public class FSEIndexerTest
         slist.add(new SearchEntry("test", null, SearchEntry.ARG_NAME, SearchEntry.OP_EQUAL, false, false, true, null));
 
         StoragePoolHandler instance = StoragePoolHandlerTest.getSp_handler();
-        StoragePoolNubHandler handler = StoragePoolHandlerTest.getNubHandler();
+        DerbyStoragePoolNubHandler handler = StoragePoolHandlerTest.getNubHandler();
 
         FSEIndexer fsi = handler.getIndexer(instance.getPool());
 

@@ -62,6 +62,7 @@ public class BackupManagerTest {
         baseCal.set( GregorianCalendar.MINUTE, 0);
         baseCal.set( GregorianCalendar.SECOND, 0);
         baseCal.set(GregorianCalendar.MILLISECOND, 0);
+        baseCal.add(GregorianCalendar.YEAR, -14);
 
         // BASE IS 00:00:00
         sched.setScheduleStart( baseCal.getTime() );
@@ -92,6 +93,13 @@ public class BackupManagerTest {
         
         // NEXT START SHOULD BE IN HALF AN HOUR
         assertEquals((st.nextStart - now)/1000, 3600/2);
+        
+        sched.setCycleLengthMs(24*3600*1000l);
+        st = BackupManager.calcNextStart(sched, now);        
+        // NEXT START SHOULD BE IN HALF AN HOUR
+        assertEquals((st.nextStart - now)/1000, -3600/2 + 12*3600 + 3600);
+        
+        
 
         // NOW CHECK IF START TIME IS JUST OUT OF STARTWINDOW
         checkCal.set( GregorianCalendar.HOUR_OF_DAY, 13);
@@ -118,6 +126,7 @@ public class BackupManagerTest {
         st = BackupManager.calcNextStart(sched, now);
 
         // NEXT START SHOULD BE 3:59:59
+        
         assertEquals((st.nextStart - now) / 1000, 4*60 + 59);
 
         job.setDayNumber(3);

@@ -29,7 +29,7 @@ import de.dimm.vsm.backup.RestoreTest;
 import de.dimm.vsm.fsengine.FS_FileHandle;
 import de.dimm.vsm.fsengine.StoragePoolHandler;
 import de.dimm.vsm.fsengine.StoragePoolHandlerTest;
-import de.dimm.vsm.fsengine.StoragePoolNubHandler;
+import de.dimm.vsm.fsengine.DerbyStoragePoolNubHandler;
 import de.dimm.vsm.net.RemoteFSElem;
 import de.dimm.vsm.net.StoragePoolQry;
 import de.dimm.vsm.records.FileSystemElemNode;
@@ -267,7 +267,7 @@ public class RetentionManagerTest {
 
 
         StoragePoolHandler pool_handler = StoragePoolHandlerTest.getSp_handler();
-        StoragePoolNubHandler nubHandler = StoragePoolHandlerTest.getNubHandler();
+        DerbyStoragePoolNubHandler nubHandler = StoragePoolHandlerTest.getNubHandler();
 
         String ba_path = "z:\\unittest\\retentiondata";
         String restore_path = "z:\\unittest\\unittestrestore";
