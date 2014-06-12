@@ -1,3 +1,6 @@
+Veränderungen in V1.6.8
+UPD: Preload von Prepared Statements
+
 Veränderungen in V1.6.7
 UPD: Verteilte Datenbanken mit dedizierten DB-Servern
 

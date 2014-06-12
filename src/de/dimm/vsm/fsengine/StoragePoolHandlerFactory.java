@@ -93,8 +93,7 @@ public class StoragePoolHandlerFactory
                 sp_handler = new JDBCStoragePoolHandler( em, pool, qry );
             }
 
-            return sp_handler;
-        
+            return sp_handler;        
     }
 
     public static StoragePoolHandler createStoragePoolHandler(StoragePool pool, StoragePoolQry qry) throws IOException

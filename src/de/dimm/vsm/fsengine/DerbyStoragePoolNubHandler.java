@@ -551,16 +551,19 @@ public class DerbyStoragePoolNubHandler extends AbstractStoragePoolNubHandler
             {
                 Log.debug("Es existiert bereits ein gleicher DB-Server, DB-Server wird verwendet", jdbcConnect );
             }
-            DerbyDBServer server;
-            try {
-                server = new EmbeddedDerbyDBServer(storagePoolNub, jdbcConnect);
+            else
+            {
+                DerbyDBServer server;
+                try {
+                    server = new StandaloneDerbyDBServer(storagePoolNub, jdbcConnect);
+                }
+                catch (Exception exception) {
+                    Log.err("Kann DB-Server nicht starten", jdbcConnect, exception );
+                    return null;
+                }
+                serverMap.put(jdbcConnect, server);
+                server.start();
             }
-            catch (Exception exception) {
-                Log.err("Kann DB-Server nicht starten", jdbcConnect, exception );
-                return null;
-            }
-            serverMap.put(jdbcConnect, server);
-            server.start();
         }
         
         Log.debug("Lade Pool DB", jdbcConnect);
@@ -586,8 +589,7 @@ public class DerbyStoragePoolNubHandler extends AbstractStoragePoolNubHandler
             em.check_open_transaction();
             try (Connection c = poolManager.createConnection()) {
                 DBChecker.check_pool_db_changes(c);
-            }
-            em.initPs();
+            }            
 
             // MUST CONTAIN EXACTLY ONE POOL
             List<StoragePool> list = em.createQuery("select T1 from StoragePool T1", StoragePool.class);

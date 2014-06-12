@@ -5,7 +5,6 @@
 package de.dimm.vsm.fsengine;
 
 import de.dimm.vsm.log.Log;
-import de.dimm.vsm.auth.User;
 import de.dimm.vsm.net.StoragePoolQry;
 import de.dimm.vsm.records.DedupHashBlock;
 import de.dimm.vsm.records.StoragePool;
