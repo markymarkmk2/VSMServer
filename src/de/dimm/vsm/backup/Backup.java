@@ -24,7 +24,7 @@ import de.dimm.vsm.Utilities.ZipUtilities;
 import de.dimm.vsm.auth.User;
 import de.dimm.vsm.fsengine.ArrayLazyList;
 import de.dimm.vsm.fsengine.GenericEntityManager;
-import de.dimm.vsm.fsengine.HashCache;
+import de.dimm.vsm.fsengine.hashcache.HashCache;
 import de.dimm.vsm.fsengine.JDBCEntityManager;
 import de.dimm.vsm.fsengine.JDBCStoragePoolHandler;
 import de.dimm.vsm.jobs.InteractionEntry;
@@ -71,6 +71,8 @@ import java.util.Properties;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.FutureTask;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 
 
@@ -110,6 +112,8 @@ public class Backup
         }
         return false;                
     }
+
+   
 
    // List<Schedule> schedules;
     Schedule sched;
@@ -709,6 +713,8 @@ public class Backup
         baJobResult.setBackupVolumeResults( new ArrayLazyList<BackupVolumeResult>());
 
         hdl.em_persist(baJobResult, /*noCache*/true);
+        hdl.commit_transaction();
+        
         boolean globalOk = false;
 
         Log.info("Gestartet:", "%s", sched.getName() );
@@ -804,6 +810,7 @@ public class Backup
                     Log.info(Main.Txt("Sicherung von Volume") + " " + clientVolume.toString() + " beendet " + (baVolumeResult.isOk()? "(OK)": "(NOK)") );
                     
                     hdl.em_merge(baVolumeResult);
+                    hdl.commit_transaction();
 
                     baJobResult.getBackupVolumeResults().addIfRealized(baVolumeResult);
 
@@ -1031,8 +1038,15 @@ public class Backup
                 node = context.poolhandler.em_find(FileSystemElemNode.class, node.getIdx());
             }
 
-
-            backupRemoteFSElem(context, clientVolume.getVolumePath(), node, /*recursive*/true, clientInfo.isOnlyNewer());
+            if (abort)
+            {
+                context.setAbort(true);
+            }
+            else
+            {
+                // Hier ist der Einstieg in die Context-Static Methoden
+                backupRemoteFSElem(context, clientVolume.getVolumePath(), node, /*recursive*/true, clientInfo.isOnlyNewer());
+            }
 
             if (context.isAbort())
             {
@@ -1896,6 +1910,7 @@ public class Backup
         FileSystemElemNode node;
 
         // FIRST DB STUFF: CREATE DATABASE NODE
+        
         try
         {
             node = context.poolhandler.create_fse_node(abs_path, remoteFSElem, actTimestamp);
@@ -1907,6 +1922,7 @@ public class Backup
             Log.err("Node konnte nicht erzeugt werden", remoteFSElem.toString(), iOException);
             return null;
         }
+        
 
 //        // READ AND SET EXTENDED ATTRIBUTE
 //        String adata = read_attribute_data(context, remoteFSElem, node);
@@ -1914,7 +1930,8 @@ public class Backup
 //        {
 //            node.getAttributes().setXattribute(adata);
 //        }
-        
+        long s = System.currentTimeMillis();
+        long f;
 
         // NOW UPDATE NEW NODE DATA TO DB
         try
@@ -1922,6 +1939,7 @@ public class Backup
             // CREATE IN REAL FS
             List<AbstractStorageNode> s_nodes = context.poolhandler.register_fse_node_to_db(node);
 
+            f = System.currentTimeMillis();
             context.poolhandler.instantiate_in_fs(s_nodes, node);
 
         }
@@ -1933,7 +1951,9 @@ public class Backup
             return null;
         }
         
+        
 
+        context.stat.addCreationTime(f-s);
 
         // WRITE FILE DATA
         if (remoteFSElem.isFile())
@@ -1959,7 +1979,7 @@ public class Backup
                 write_stream_data_dedup( context, remoteFSElem, node, actTimestamp );
             }
         }
-        
+        long g = System.currentTimeMillis();
 
         // WRITE BOOTSTRAPDATA
         try
@@ -1971,6 +1991,9 @@ public class Backup
             Log.err("Schreiben der Bootstrapdaten schlug fehl", node.toString(), iOException );
         }
 
+        long h = System.currentTimeMillis();
+        
+        context.stat.addBootstrapTime(g - s);
 
         return node;
     }
@@ -2535,6 +2558,225 @@ public class Backup
             }
         }
     }
+    
+    // Holt den Hash zu einer Position / Blocklen einer Datei
+    private static String get_hash_from_db(  GenericContext context, FileSystemElemNode node, long offset, int read_len ) throws SQLException {
+        try {
+            // Alle vom Offset lesen, kann auch leer sein
+            List<HashBlock> hashBlocks = context.poolhandler.getEm().createQuery("select T1 from HashBlock T1 where T1.fileNode_idx=" + node.getIdx() + " and T1.blockOffset=" +offset, HashBlock.class);
+            if (hashBlocks.isEmpty())
+                return null;
+            
+            // Wenn mehr als eine dann neueste nach vorn, doppelte weg
+            if (hashBlocks.size() > 1)
+            {
+                hashBlocks = remove_older_hashblocks(hashBlocks);
+            }
+            
+            // Auf len prüfen
+            HashBlock newestBlock = hashBlocks.get(0);
+            if (newestBlock.getBlockLen() != read_len)
+                return null;
+            
+            // Sanity check
+            if (newestBlock.getBlockOffset() != offset)
+            {
+                Log.err( "Fehler beim ermitteln der Hashwertoffsetswerte von Node", "Pos: " + offset + " Len: " + read_len + " Node: " + node.toString());
+                return null;
+            }
+            
+            // Found it -> right offset, right len
+            return newestBlock.getHashvalue();            
+        }
+        catch (SQLException ex) {
+             Log.err( "Fehler beim Lesen der Hashwerts von Node", "Pos: " + offset + " Len: " + read_len + " Node: " + node.toString(), ex);
+             throw ex;
+        }        
+    }    
+
+    static private boolean update_remote_data_entry_to_pool_lazy_load(  final GenericContext context, FileSystemElemNode node, RemoteFSElem remoteFSElem, long ts )
+    {
+        RemoteFSElemWrapper remote_handle = null;
+        try
+        {
+            // OPEN REMOTE HANDLE
+            remote_handle = context.apiEntry.getApi().open_data(remoteFSElem, AgentApi.FL_RDONLY);
+
+            if (remote_handle == null)
+                throw new ClientAccessFileException("Cannot open remote file handle " + remoteFSElem.toString());
+            
+
+            long len = remoteFSElem.getDataSize();
+            long offset;
+                       
+
+            long blockCnt = 0;
+
+            int block_number = -1;
+            while((long)(block_number+1) * context.hash_block_size < len)
+            {
+                // GO THROUGH ALL BLOCKS
+                boolean transfer_block = false;
+
+                block_number++;
+
+                // TO PREVENT OVERFLOW OF INT MATH DO THIS IN TWO STEPS
+                offset = block_number;
+                offset *= context.hash_block_size;
+
+                int read_len = context.hash_block_size;
+                if (read_len + offset > len)
+                    read_len = (int) (len - offset);
+
+                blockCnt++;
+                if (blockCnt % 50 == 0)
+                {
+                    context.stat.check_stat();
+                }
+
+                String local_hash;
+                String remote_hash;
+                final RemoteFSElemWrapper call_remote_handle = remote_handle;
+                final long call_offset = offset;
+                final int call_read_len = read_len;
+                
+                FutureTask<String> fRemote = new FutureTask<>( new Callable<String>()
+                {
+                    @Override
+                    public String call() throws Exception
+                    {
+                        return context.apiEntry.getApi().read_hash(call_remote_handle, call_offset, call_read_len, CS_Constants.HASH_ALGORITHM);
+                    }
+                });
+
+                context.remoteListDirexecutor.execute(fRemote);                
+
+                // DIRECT ADDRESSING TRY
+                local_hash = get_hash_from_db( context, node, offset, read_len );
+
+
+                // DO WE HAVE A LOCAL HASH FOR THIS BLOCK?
+                if (local_hash == null || local_hash.length() == 0)
+                {
+                    // NO, TRANSFER COMPLETE BLO
+                    transfer_block = true;
+                }
+
+
+            // READ REMOTE HASH IF NECESSARY
+               remote_hash = fRemote.get();                
+
+               if (remote_hash == null)
+                   throw new IOException("Cannot retrieve remote hash from offset " + offset + " len " + read_len + " of remote file " + remoteFSElem.toString());
+
+               if (check_hashes_differ( remote_hash, local_hash ))
+                   transfer_block = true;
+                
+
+                // IF WE REACHED THIS WE HAVE FOUND AND CHECKED REMOTE AND LOCAL HASH OF SAME BLOCKPOSITION AND LENGTH
+                // BOTH BLOCKS ARE IDENTICAL -> SKIP THIS BLOCK
+                if (!transfer_block)
+                {
+                    context.stat.addCheckBlockSize(read_len);
+                    continue;
+                }
+
+                // CHECK FOR EXISTING BLOCK (DEDUP)
+                DedupHashBlock block;
+
+                try
+                {
+                    block = check_for_existing_block(context, remote_hash, checkDHBExistance);
+//                    if (block != null && context.getBugFixHash() != null)
+//                    {
+//                        remote_hash = context.getBugFixHash();
+//                    }
+                }
+                catch (PathResolveException pathResolveException)
+                {
+                    // DID WE FIND A BLOCK WITH NO FS ENTRY?
+                    Log.err("Verlorener Hashblock wird wiederbelebt", remote_hash, pathResolveException);
+                    block = reviveHashBlock(  context, node, remote_handle, remote_hash, remoteFSElem.getStreaminfo(), offset, read_len );
+                }
+
+                if (block != null)
+                {
+                    // OKAY, WE FOUND EARLIER BLOCK, REGISTER HASHBLOCK FOR THIS FILE AND LEAVE
+                    HashBlock hb = context.poolhandler.create_hashentry(node, remote_hash, block, offset, read_len, /*reorganize*/ true, ts);
+                    node.getHashBlocks().addIfRealized(hb);
+
+                    // UPDATE BOOTSTRAP
+                    write_bootstrap_data(context, block, hb);
+
+                    context.stat.addDedupBlock(block);
+                    continue;
+                }
+
+                // OKAY, BLOCK DIFFERS OR IS NOT EXISTANT AND THERE WAS NO EXISTING DEDUPBLOCK FOUND
+                transfer_block_and_update_db(context, node, remote_handle, remote_hash, remoteFSElem.getStreaminfo(), offset, read_len, /*xa*/false, ts);
+
+                context.stat.addTransferBlock();
+                context.stat.addTransferLen( read_len );
+
+                if (context.isAbort())
+                {
+                    throw new Exception("Backup wurde abgebrochen");
+                }
+
+            }
+            return true;
+
+        }
+        catch (ClientAccessFileException e)
+        {
+            // Detect Deleted Entries
+            boolean existsRemote = context.apiEntry.getApi().exists(remoteFSElem);
+            if (!existsRemote)
+            {
+                try
+                {
+                    context.getPoolhandler().setDeleted(node, true, ts);
+                    return true;
+                }
+                catch (SQLException | DBConnException | PoolReadOnlyException iOException)
+                {
+                    Log.debug( "Fehler beim Löschen von Node", node.toString(), iOException);
+                }
+            }
+            else
+            {
+                Log.err( "Fehler beim Update von Node", node.toString() + ": " + e.getMessage());
+            }
+            return false;
+        }
+        catch(SQLNonTransientConnectionException e)
+        {
+            // Platte kapuut, voll etc, da kommen wir nicht mehr heile raus
+             context.setAbort(true);
+             Log.err( "Datenbank ist geschlossen bei node", node.toString(), e);
+             return false;
+        }        
+        catch (Exception e)
+        {
+            Log.err( "Fehler beim Update von Node", node.toString(), e);
+            return false;
+           // context.poolhandler.remove_fse_node(node);
+        }
+        finally
+        {
+            try
+            {
+                if (remote_handle != null)
+                {
+                    context.apiEntry.getApi().close_data(remote_handle);
+                }
+            }
+            catch (IOException e)
+            {
+                Log.err( "Fehler beim Schließen von Node", node.toString(), e);
+            }
+        }
+    }    
 
     private static boolean update_remote_xa_entry_to_pool( GenericContext context, FileSystemElemNode node, RemoteFSElem remoteFSElem, long ts )
     {
@@ -2711,7 +2953,17 @@ public class Backup
 
         if( remoteFSElem.isFile() )
         {
-            ret = update_remote_data_entry_to_pool( context, node, remoteFSElem, ts );
+            boolean doLazyLoadHash = remoteFSElem.getDataSize() / 1000000 > Main.get_long_prop(GeneralPreferences.HASH_LAZY_LOAD_TRESHOLD_MB, Long.MAX_VALUE);
+            
+            // Dateien > 100M werden seriell mit hashvergleich gesichert
+            if (doLazyLoadHash)
+            {
+                ret = update_remote_data_entry_to_pool_lazy_load(context, node, remoteFSElem, ts );
+            }
+            else
+            {
+                 ret = update_remote_data_entry_to_pool( context, node, remoteFSElem, ts );
+            }
         }
         else
         {

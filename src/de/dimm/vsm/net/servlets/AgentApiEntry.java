@@ -9,8 +9,10 @@ import de.dimm.vsm.log.Log;
 import de.dimm.vsm.net.RemoteCallFactory;
 import de.dimm.vsm.net.interfaces.AgentApi;
 import java.io.IOException;
+import java.lang.reflect.UndeclaredThrowableException;
 import java.net.ConnectException;
 import java.net.InetAddress;
+import java.net.SocketException;
 import java.net.SocketTimeoutException;
 import java.util.Properties;
 
@@ -24,6 +26,7 @@ public class AgentApiEntry
     private boolean online;
     RemoteCallFactory factory;
     Properties agentProps;
+    private int MAX_CHECK_ONLINE_TO = 5000;
 
     public AgentApiEntry( AgentApi api, RemoteCallFactory factory )
     {
@@ -67,14 +70,23 @@ public class AgentApiEntry
 
     public boolean check_online(boolean mithMsg)
     {
+        int oldCo = 0;
+        int oldTo = 0;
         try
         {
+            oldCo = factory.getConnTimeout();
+            oldTo = factory.getTxTimeout();
+            factory.setConnectTimeout(MAX_CHECK_ONLINE_TO);
+            factory.setTxTimeout(MAX_CHECK_ONLINE_TO);
+            
             agentProps = api.get_properties();
             online = true;
             return true;
         }
-        catch (Exception e)
+        catch (Throwable e)
         {
+            if (e instanceof UndeclaredThrowableException)
+                e = ((UndeclaredThrowableException)e).getUndeclaredThrowable();
             if (!(e instanceof ConnectException))
             {
                 try
@@ -84,8 +96,11 @@ public class AgentApiEntry
                     online = true;
                     return true;
                 }
-                catch (Exception e2)
+                catch (Throwable e2)
                 {
+                    if (e2 instanceof UndeclaredThrowableException)
+                        e2 = ((UndeclaredThrowableException)e2).getUndeclaredThrowable();
+                    
                     if (mithMsg)
                     {
                         if (e2 instanceof ConnectException)
@@ -97,6 +112,20 @@ public class AgentApiEntry
                     }
                 }
             }
+        }
+        finally
+        {
+            if (oldTo > 0)
+            {
+                try {
+                    factory.setConnectTimeout(oldCo);
+                    factory.setTxTimeout(oldTo);
+                }
+                catch (Exception socketException) {
+                    Log.err("Fehler beim Setzen oldTo", socketException);
+                }
+            }
+            
         }
         online = false;
         return false;

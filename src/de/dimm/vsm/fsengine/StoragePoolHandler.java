@@ -4,6 +4,7 @@
  */
 package de.dimm.vsm.fsengine;
 
+import de.dimm.vsm.fsengine.hashcache.HashCache;
 import de.dimm.vsm.net.SearchEntry;
 import de.dimm.vsm.net.StoragePoolQry;
 import de.dimm.vsm.Exceptions.DBConnException;
@@ -1906,6 +1907,7 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
     {
         BootstrapHandle handle = open_bootstrap_handle(node);
         handle.write_bootstrap( node );  // THIS INCLUDES ATTRIBUTES
+        node.getLinks().realize(getEm());
         for (PoolNodeFileLink pnfl : node.getLinks())
         {
             handle = open_bootstrap_handle(pnfl);

@@ -72,7 +72,10 @@ import java.util.List;
 import javax.persistence.EntityManager;
 import javax.persistence.EntityManagerFactory;
 import javax.persistence.Persistence;
+import org.apache.commons.pool2.impl.GenericObjectPoolConfig;
 import org.eclipse.jetty.servlet.ServletHolder;
+import redis.clients.jedis.Jedis;
+import redis.clients.jedis.JedisPool;
 
 
 /**
@@ -127,11 +130,19 @@ public class LogicControl
 
     private static DerbyStoragePoolNubHandler storagePoolNubHandler;
     ThreadPoolWatcher threadPoolWatcher;
+    
+    JedisManager jedisManager;
 
     public ThreadPoolWatcher getThreadPoolWatcher()
     {
         return threadPoolWatcher;
     }
+
+    public JedisManager getJedisManager() {
+        return jedisManager;
+    }
+    
+    
 
     public static String getKeyPwd()
     {
@@ -269,10 +280,15 @@ public class LogicControl
             }
         }
         
+        threadPoolWatcher.shutdown_thread_pools(10*1000);
+        
         // DATABASES
         storagePoolNubHandler.shutdown();
-
-
+        
+        // HashCache
+        jedisManager.shutDown();
+        
+        
         // WE NEED THIS TILL THE END
         try
         {
@@ -376,7 +392,12 @@ public class LogicControl
     }    
     void init( boolean agent_tcp) throws SQLException
     {
+        threadPoolWatcher = new ThreadPoolWatcher("MainPoolWatcher");
+        
         notificationServer = SmtpNotificationServer.createSmtpNotificationServer();
+        
+        jedisManager = new JedisManager();        
+        jedisManager.startup();
 
         if (storagePoolNubHandler == null)
         {
@@ -484,7 +505,7 @@ public class LogicControl
             Log.info(Main.Txt( "TaskManager lieferte"), ": " + sb.toString());
         }
 
-        threadPoolWatcher = new ThreadPoolWatcher("MainPoolWatcher");
+        
 
 
     }

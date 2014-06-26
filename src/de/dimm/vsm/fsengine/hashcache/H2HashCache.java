@@ -3,8 +3,9 @@
  * and open the template in the editor.
  */
 
-package de.dimm.vsm.fsengine;
+package de.dimm.vsm.fsengine.hashcache;
 
+import de.dimm.vsm.fsengine.hashcache.DBHashCache;
 import de.dimm.vsm.GeneralPreferences;
 import de.dimm.vsm.LogicControl;
 import de.dimm.vsm.Main;
@@ -29,7 +30,7 @@ import java.util.List;
  *
  * @author Administrator
  */
-public class H2HashCache extends HashCache
+public class H2HashCache extends DBHashCache
 {
     public static final String RELPARAMPATH = "/Hash";
 
@@ -56,7 +57,7 @@ public class H2HashCache extends HashCache
     }
     public H2HashCache(StoragePoolNub nub,  StoragePool pool)
     {
-        super(pool);
+        super(null, pool);
         dbPath = getDbPath( nub );
         File dbDir = new File(dbPath);
         if (!dbDir.exists())

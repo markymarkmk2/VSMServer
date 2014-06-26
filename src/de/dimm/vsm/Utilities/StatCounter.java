@@ -230,7 +230,10 @@ public class StatCounter {
                 if (cnt > 0)
                     pc = (int)((statDhbCacheHit*100.0) / cnt);
 
-                System.out.println("DhbCacheSize: " + statDhbCacheSize + " CacheHits: " + statDhbCacheHit + " CacheMisses: " + statDhbCacheMiss + " (" + pc + "%)");
+                System.out.println("DhbCacheSize : " + statDhbCacheSize + " CacheHits: " + statDhbCacheHit + " CacheMisses: " + statDhbCacheMiss + " (" + pc + "%)");
+                System.out.println("CreationTime : " + creationsTime / creations  + " ms");
+                System.out.println("BootstrapTime: " + bootstrapsTime / bootstraps  + " ms");
+                
             }
 
             lastStamp = now;
@@ -311,6 +314,9 @@ public class StatCounter {
         entry.add( Main.Txt("Blocks_deduped"), "dblocks", statDedupBlocks );
         entry.add( Main.Txt("DhbCacheHit"), "dhbHit", statDhbCacheHit );
         entry.add( Main.Txt("DhbCacheMiss"), "dhbMiss", statDhbCacheMiss );
+        entry.add( Main.Txt("CreationTime"), "crTime", creationsTime / creations );
+        entry.add( Main.Txt("BootstrapTime"), "btTime", bootstrapsTime / bootstraps );
+        
     }
 
     public double getByteTransferedPerSec()
@@ -422,6 +428,20 @@ public class StatCounter {
         }
 
         return sb.toString();
+    }
+
+    long creations = 1;
+    long creationsTime = 0;
+    public void addCreationTime( long l ) {
+        creations++;
+        creationsTime += l;
+    }
+
+    long bootstraps = 1;
+    long bootstrapsTime = 0;
+    public void addBootstrapTime( long l ) {
+        bootstraps++;
+        bootstrapsTime += l;
     }
     
 

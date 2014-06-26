@@ -5,8 +5,7 @@
 
 package de.dimm.vsm.fsengine;
 
-import de.dimm.vsm.GeneralPreferences;
-import de.dimm.vsm.Main;
+import de.dimm.vsm.fsengine.hashcache.HashCache;
 import de.dimm.vsm.Utilities.SizeStr;
 import de.dimm.vsm.log.Log;
 import de.dimm.vsm.net.PoolStatusResult;

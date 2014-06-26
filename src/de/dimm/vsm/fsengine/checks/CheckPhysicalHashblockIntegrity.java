@@ -9,7 +9,7 @@ import de.dimm.vsm.LogicControl;
 import de.dimm.vsm.Main;
 import de.dimm.vsm.Utilities.SizeStr;
 import de.dimm.vsm.auth.User;
-import de.dimm.vsm.fsengine.HashCache;
+import de.dimm.vsm.fsengine.hashcache.HashCache;
 import de.dimm.vsm.fsengine.StorageNodeHandler;
 import de.dimm.vsm.fsengine.StoragePoolHandler;
 import de.dimm.vsm.fsengine.StoragePoolHandlerFactory;

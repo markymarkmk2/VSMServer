@@ -1,3 +1,9 @@
+Veränderungen in V1.7.0
+FIX: Lazyload von Hashserver kollidiert mit laufenden backup
+
+Veränderungen in V1.7.0
+UPD: Dedizierter Hashserver
+
 Veränderungen in V1.6.8
 UPD: Preload von Prepared Statements
 

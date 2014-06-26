@@ -2,10 +2,11 @@
  * To change this template, choose Tools | Templates
  * and open the template in the editor.
  */
-package de.dimm.vsm.fsengine;
+package de.dimm.vsm.fsengine.hashcache;
 
 import de.dimm.vsm.GeneralPreferences;
 import de.dimm.vsm.Main;
+import de.dimm.vsm.fsengine.JDBCEntityManager;
 import de.dimm.vsm.log.Log;
 import de.dimm.vsm.records.DedupHashBlock;
 import de.dimm.vsm.records.StoragePool;
@@ -25,8 +26,8 @@ import java.util.List;
 public class DBHashCache extends HashCache
 {
 
-    JDBCEntityManager em;
-    PreparedStatement ps = null;
+    protected JDBCEntityManager em;
+    protected PreparedStatement ps = null;
     ArrayList<String> urlUnsafeHashes = new ArrayList<String>();
 
     public DBHashCache( JDBCEntityManager em, StoragePool pool )
@@ -38,7 +39,7 @@ public class DBHashCache extends HashCache
 
 
     @Override
-    public void fill( String hash, long id )
+    public void fill( String hash, long id ) throws IOException
     {
     }
 
@@ -46,8 +47,10 @@ public class DBHashCache extends HashCache
     public boolean init( Connection conn ) throws IOException
     {
         if (!Main.get_bool_prop(GeneralPreferences.HASH_URL_FORMAT_FIX, false))
+        {
+            inited = true;
             return true;
-
+        }
         urlUnsafeHashes.clear();
         Statement st  = null;
         try
@@ -85,6 +88,8 @@ public class DBHashCache extends HashCache
                 }
 
             }
+            rs.close();
+            inited = true;
         }
         catch (SQLException sQLException)
         {
@@ -118,7 +123,7 @@ public class DBHashCache extends HashCache
         {
             if (ps == null)
             {
-                ps = em.getConnection().prepareStatement("select idx from DedupHashBlock were hashvalue=?");
+                ps = em.getConnection().prepareStatement("select idx from DedupHashBlock where hashvalue=?");
             }
             
             ps.setString(1, hash);
@@ -126,7 +131,7 @@ public class DBHashCache extends HashCache
             ResultSet rs = ps.executeQuery();
             if (rs.next())
             {
-                l = rs.getLong(0);
+                l = rs.getLong(1);
             }
             rs.close();
         }
@@ -142,7 +147,7 @@ public class DBHashCache extends HashCache
     }
 
     @Override
-    public void addDhb( String hash, long idx )
+    public void addDhb( String hash, long idx )  throws IOException
     {
         //
     }

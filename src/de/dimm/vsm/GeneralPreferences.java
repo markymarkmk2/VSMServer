@@ -88,6 +88,7 @@ public class GeneralPreferences extends Preferences
     public static final String WITH_BOOTSTRAP = "WithBootstrap";
     public static final String USE_H2_CACHE = "UseH2Cache";
     public static final String USE_NO_CACHE = "UseNoCache";
+    public static final String USE_LAZY_CACHE = "UseLazyCache";
     public static final String MIN_FREE_NODE_SPACE_GB = "MinFreeNodeSpaceGB";
     public static final String FIX_DUPL_NAMES = "FixDuplNames";
     public static final String BLOCK_DUPL_DIRS = "BlockDuplDir";
@@ -109,6 +110,8 @@ public class GeneralPreferences extends Preferences
     public static final String DATABASE_SERVER = "DatabaseServer";
     public static final String DATABASE_PORT = "DatabasePort";
     public static final String DATABASE_PATH = "DatabasePath";
+    public static final String HASH_LAZY_LOAD_TRESHOLD_MB= "HashLazyLoadGrenzeMB";
+    public static final String USE_REDIS_CACHE = "UseRedisCache";
     
     
     /** Creates a new instance of Preferences */
@@ -185,6 +188,9 @@ public class GeneralPreferences extends Preferences
         prop_names.add( AGENT_CONN_TIMEOUT );
         prop_names.add( AGENT_TX_TIMEOUT );
         prop_names.add( MAX_CONNECTIONS );
+        prop_names.add( USE_LAZY_CACHE );
+        prop_names.add( HASH_LAZY_LOAD_TRESHOLD_MB );
+        prop_names.add( USE_REDIS_CACHE );
         
 
 

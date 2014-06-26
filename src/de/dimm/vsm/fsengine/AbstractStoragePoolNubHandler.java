@@ -4,6 +4,7 @@
  */
 package de.dimm.vsm.fsengine;
 
+import de.dimm.vsm.fsengine.hashcache.HashCache;
 import de.dimm.vsm.DBChecker;
 import de.dimm.vsm.LogicControl;
 import de.dimm.vsm.Main;

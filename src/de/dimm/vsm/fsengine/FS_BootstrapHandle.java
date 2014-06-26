@@ -58,6 +58,7 @@ class IndirectListToEmptyListConverter implements Converter
  */
 public class FS_BootstrapHandle<T> implements BootstrapHandle
 {
+    XStream xstream = new XStream();
 
     protected File fh;
 
@@ -153,7 +154,7 @@ public class FS_BootstrapHandle<T> implements BootstrapHandle
 
             try
             {
-                XStream xstream = new XStream();
+                
                 xstream.toXML(t, fw);                
             }
             catch (Exception iOException)
@@ -240,7 +241,6 @@ public class FS_BootstrapHandle<T> implements BootstrapHandle
                 fw = new FileWriter(fh);
             }
 
-            XStream xstream = new XStream();
             xstream.toXML(t, fw);
             fw.close();
 
@@ -389,7 +389,6 @@ public class FS_BootstrapHandle<T> implements BootstrapHandle
                 parent.mkdirs();
             }
             fw = new FileWriter(fh);
-            XStream xstream = new XStream();
             xstream.toXML(t, fw);            
         }
         catch (IOException iOException)
@@ -426,7 +425,6 @@ public class FS_BootstrapHandle<T> implements BootstrapHandle
                 parent.mkdirs();
             }
             fw = new FileWriter(fh);
-            XStream xstream = new XStream();
             xstream.toXML(t, fw);            
         }
         catch (IOException iOException)
@@ -461,7 +459,6 @@ public class FS_BootstrapHandle<T> implements BootstrapHandle
                 parent.mkdirs();
             }
             fw = new FileWriter(fh);
-            XStream xstream = new XStream();
             xstream.toXML(t, fw);            
         }
         catch (IOException iOException)
@@ -620,9 +617,7 @@ public class FS_BootstrapHandle<T> implements BootstrapHandle
             
             
             XStream xstream = new XStream();
-
             xstream.registerConverter(new IndirectListToEmptyListConverter());
-
             xstream.toXML(object, fw);                       
         }
         catch (IOException iOException)

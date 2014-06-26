@@ -5,6 +5,7 @@
 
 package de.dimm.vsm.fsengine;
 
+import de.dimm.vsm.fsengine.hashcache.HashCache;
 import de.dimm.vsm.CS_Constants;
 import de.dimm.vsm.Exceptions.PathResolveException;
 import de.dimm.vsm.Exceptions.PoolReadOnlyException;

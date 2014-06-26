@@ -13,7 +13,7 @@ import de.dimm.vsm.LogicControl;
 import de.dimm.vsm.log.Log;
 import de.dimm.vsm.Main;
 import de.dimm.vsm.Utilities.StatCounter;
-import de.dimm.vsm.fsengine.HashCache;
+import de.dimm.vsm.fsengine.hashcache.HashCache;
 import de.dimm.vsm.fsengine.FSEIndexer;
 import de.dimm.vsm.fsengine.StoragePoolHandler;
 import de.dimm.vsm.jobs.JobInterface.JOBSTATE;
@@ -26,6 +26,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadFactory;
 
 /**
  *
@@ -52,8 +53,8 @@ public abstract class GenericContext implements IBackupHelper
 
     static int openCounter;
 
-    protected ExecutorService localListDirexecutor = Executors.newFixedThreadPool(1);
-    protected ExecutorService remoteListDirexecutor = Executors.newFixedThreadPool(1);
+    protected ExecutorService localListDirexecutor;
+    protected ExecutorService remoteListDirexecutor;
 
 
     protected ArchiveJob archiveJob;
@@ -105,7 +106,21 @@ public abstract class GenericContext implements IBackupHelper
          {
              Log.warn("Opened " + openCounter + " Contexts");
          }
+        localListDirexecutor = Executors.newFixedThreadPool(1, new NamedThreadFactory());
+        remoteListDirexecutor = Executors.newFixedThreadPool(1, new NamedThreadFactory());
+         
     }
+    class NamedThreadFactory implements  ThreadFactory
+    {
+        @Override
+        public Thread newThread( Runnable r )
+        {
+            String thr_name = basePath;
+
+            Thread thr = new Thread(r, thr_name);
+            return thr;
+        }
+    }    
 
     public void setHashCache( HashCache hashCache )
     {

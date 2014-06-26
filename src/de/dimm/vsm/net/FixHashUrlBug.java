@@ -10,7 +10,7 @@ import de.dimm.vsm.LogicControl;
 import de.dimm.vsm.Main;
 import de.dimm.vsm.Utilities.CryptTools;
 import de.dimm.vsm.auth.User;
-import de.dimm.vsm.fsengine.HashCache;
+import de.dimm.vsm.fsengine.hashcache.HashCache;
 import de.dimm.vsm.fsengine.FS_FileHandle;
 import de.dimm.vsm.fsengine.GenericEntityManager;
 import de.dimm.vsm.fsengine.JDBCEntityManager;

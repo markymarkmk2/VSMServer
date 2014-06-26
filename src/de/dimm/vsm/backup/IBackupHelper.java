@@ -6,7 +6,7 @@
 package de.dimm.vsm.backup;
 
 import de.dimm.vsm.Utilities.StatCounter;
-import de.dimm.vsm.fsengine.HashCache;
+import de.dimm.vsm.fsengine.hashcache.HashCache;
 import de.dimm.vsm.fsengine.StoragePoolHandler;
 import java.io.IOException;
 

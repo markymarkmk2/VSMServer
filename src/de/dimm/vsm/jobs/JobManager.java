@@ -477,7 +477,7 @@ public class JobManager extends WorkerParent
                 BackupJobInterface bi = (BackupJobInterface) jobEntry.getJob();
                 if (bi.getActSchedule() != null && bi.getActSchedule().getPool().getIdx() == ticket.getPoolIdx())
                 {
-                    if (bi.getActClientInfo().getIdx() == ticket.getClientInfoIdx())
+                    if (bi.getActClientInfo() != null && bi.getActClientInfo().getIdx() == ticket.getClientInfoIdx())
                     {
                         if (jobEntry.getJobStatus() != JOBSTATE.FINISHED_OK &&
                             jobEntry.getJobStatus() != JOBSTATE.FINISHED_ERROR)
