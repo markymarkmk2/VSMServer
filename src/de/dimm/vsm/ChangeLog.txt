@@ -1,3 +1,6 @@
+Veränderungen in V1.7.2
+FIX: Speed up of Xstream Usage in create_object
+
 Veränderungen in V1.7.0
 FIX: Lazyload von Hashserver kollidiert mit laufenden backup
 
