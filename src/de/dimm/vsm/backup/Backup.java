@@ -1894,8 +1894,8 @@ public class Backup
 //            AttributeList alist = context.apiEntry.getApi().get_attributes(remoteFSElem);
 //            if (alist != null && !alist.getList().isEmpty())
 //            {
-//                XStream xs = new XStream();
-//                String data = xs.toXML(alist);
+//                XStream xStream = new XStream();
+//                String data = xStream.toXML(alist);
 //                data = ZipUtilities.deflateString( data );
 //                return data;
 //            }
