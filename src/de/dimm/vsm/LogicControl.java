@@ -19,6 +19,7 @@ import de.dimm.vsm.fsengine.JDBCConnectionFactory;
 import de.dimm.vsm.fsengine.JDBCEntityManager;
 import de.dimm.vsm.fsengine.PoolMapper;
 import de.dimm.vsm.fsengine.DerbyStoragePoolNubHandler;
+import de.dimm.vsm.fsengine.IStoragePoolNubHandler;
 import de.dimm.vsm.fsengine.checks.CheckManager;
 import de.dimm.vsm.fsengine.checks.ICheck;
 import de.dimm.vsm.jobs.JobManager;
@@ -72,10 +73,7 @@ import java.util.List;
 import javax.persistence.EntityManager;
 import javax.persistence.EntityManagerFactory;
 import javax.persistence.Persistence;
-import org.apache.commons.pool2.impl.GenericObjectPoolConfig;
 import org.eclipse.jetty.servlet.ServletHolder;
-import redis.clients.jedis.Jedis;
-import redis.clients.jedis.JedisPool;
 
 
 /**
@@ -128,7 +126,7 @@ public class LogicControl
     ArrayList<WorkerParent> workerList;
     TaskPreferences taskPrefs;
 
-    private static DerbyStoragePoolNubHandler storagePoolNubHandler;
+    private static IStoragePoolNubHandler storagePoolNubHandler;
     ThreadPoolWatcher threadPoolWatcher;
     
     JedisManager jedisManager;
@@ -209,7 +207,7 @@ public class LogicControl
             throw new RuntimeException("Initialisation error!");
     }
 
-    public static DerbyStoragePoolNubHandler getStorageNubHandler()
+    public static IStoragePoolNubHandler getStorageNubHandler()
     {
         return storagePoolNubHandler;
     }

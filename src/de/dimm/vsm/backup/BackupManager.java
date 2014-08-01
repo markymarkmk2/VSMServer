@@ -16,10 +16,10 @@ import de.dimm.vsm.backup.Backup.BackupJobInterface;
 import de.dimm.vsm.backup.jobinterface.CDPJobInterface;
 import de.dimm.vsm.backup.jobinterface.VfsJobInterface;
 import de.dimm.vsm.fsengine.GenericEntityManager;
+import de.dimm.vsm.fsengine.IStoragePoolNubHandler;
 import de.dimm.vsm.fsengine.JDBCEntityManager;
 import de.dimm.vsm.fsengine.StoragePoolHandler;
 import de.dimm.vsm.fsengine.StoragePoolHandlerFactory;
-import de.dimm.vsm.fsengine.DerbyStoragePoolNubHandler;
 import de.dimm.vsm.jobs.JobEntry;
 import de.dimm.vsm.jobs.JobInterface;
 import de.dimm.vsm.jobs.JobManager;
@@ -534,7 +534,7 @@ public class BackupManager extends WorkerParent
     {
         StoragePool pool = mountEntry.getPool();
 
-        DerbyStoragePoolNubHandler nubHandler = LogicControl.getStorageNubHandler();
+        IStoragePoolNubHandler nubHandler = LogicControl.getStorageNubHandler();
 
         User user = User.createSystemInternal();
         StoragePoolHandler sp_handler = StoragePoolHandlerFactory.createStoragePoolHandler( nubHandler, pool, user, /*rdonly*/false);
@@ -560,7 +560,7 @@ public class BackupManager extends WorkerParent
     {
         StoragePool pool = sched.getPool();
 
-        DerbyStoragePoolNubHandler nubHandler = LogicControl.getStorageNubHandler();
+        IStoragePoolNubHandler nubHandler = LogicControl.getStorageNubHandler();
 
         User user = User.createSystemInternal();
         StoragePoolHandler sp_handler = StoragePoolHandlerFactory.createStoragePoolHandler( nubHandler, pool, user, /*rdonly*/false);

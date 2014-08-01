@@ -28,7 +28,7 @@ public class StoragePoolHandlerFactory
     {
         return createStoragePoolHandler( LogicControl.getStorageNubHandler(), pool, user, rdonly);
     }
-    public static StoragePoolHandler createStoragePoolHandler(DerbyStoragePoolNubHandler nubHandler, StoragePool _pool, User user, boolean rdonly) throws IOException
+    public static StoragePoolHandler createStoragePoolHandler(IStoragePoolNubHandler nubHandler, StoragePool _pool, User user, boolean rdonly) throws IOException
     {
         try
         {
@@ -100,7 +100,7 @@ public class StoragePoolHandlerFactory
     {
         return createStoragePoolHandler( LogicControl.getStorageNubHandler(), pool, qry);
     }
-    public static StoragePoolHandler createStoragePoolHandler( DerbyStoragePoolNubHandler nubHandler, StoragePool _pool, StoragePoolQry qry ) throws IOException
+    public static StoragePoolHandler createStoragePoolHandler( IStoragePoolNubHandler nubHandler, StoragePool _pool, StoragePoolQry qry ) throws IOException
     {
         try
         {

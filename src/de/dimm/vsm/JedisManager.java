@@ -5,10 +5,13 @@
 package de.dimm.vsm;
 
 import de.dimm.vsm.log.Log;
+import java.net.SocketException;
+import java.sql.Connection;
 import org.apache.commons.lang.StringUtils;
 import org.apache.commons.pool2.impl.GenericObjectPoolConfig;
 import redis.clients.jedis.Jedis;
 import redis.clients.jedis.JedisPool;
+import redis.clients.jedis.Pipeline;
 
 /**
  *
@@ -21,7 +24,9 @@ public class JedisManager {
 
     private String JEDIS_STATUS = "&JEDIS_STATUS";
     private String JEDIS_STARTED = "STARTED";
-    private String JEDIS_SHUTDOWN = "SHUTDOWN";         
+    private String JEDIS_SHUTDOWN = "SHUTDOWN";   
+    
+    private static final int JEDIS_FLUSH_TIMEOUT = 30*60*1000;
     
     String startStatus = null;
     boolean shutDownAllowed = true;
@@ -50,6 +55,7 @@ public class JedisManager {
     }
 
     void startup() {
+        
         if (!Main.get_bool_prop(GeneralPreferences.USE_REDIS_CACHE, false))
             return;
                 
@@ -67,6 +73,13 @@ public class JedisManager {
             if (!hasStartedClean()) 
             {
                 Log.warn("RedisCache für wird geleert");  
+                jedis.getClient().setTimeout(JEDIS_FLUSH_TIMEOUT);
+                try {
+                    jedis.getClient().getSocket().setSoTimeout(JEDIS_FLUSH_TIMEOUT);
+                }
+                catch (Exception socketException) {
+                    Log.err("RedisCache timout failed", socketException);  
+                }
                 jedis.flushAll();
             }
             else

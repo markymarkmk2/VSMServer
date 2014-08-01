@@ -19,17 +19,16 @@ import de.dimm.vsm.Utilities.SizeStr;
 import de.dimm.vsm.auth.User;
 import de.dimm.vsm.net.servlets.AgentApiEntry;
 import de.dimm.vsm.backup.Backup;
+import de.dimm.vsm.fsengine.IStoragePoolNubHandler;
 import de.dimm.vsm.fsengine.JDBCStoragePoolHandler;
 import de.dimm.vsm.fsengine.StoragePoolHandler;
 import de.dimm.vsm.fsengine.StoragePoolHandlerFactory;
-import de.dimm.vsm.fsengine.DerbyStoragePoolNubHandler;
 import de.dimm.vsm.jobs.InteractionEntry;
 import de.dimm.vsm.jobs.JobInterface;
 import de.dimm.vsm.log.Log;
 import de.dimm.vsm.log.LogManager;
 import de.dimm.vsm.net.RemoteFSElem;
 import de.dimm.vsm.records.ArchiveJob;
-import de.dimm.vsm.records.FileSystemElemNode;
 import de.dimm.vsm.records.HotFolder;
 import de.dimm.vsm.records.StoragePool;
 import java.io.IOException;
@@ -84,7 +83,7 @@ public class MMImportManager
 
     void open() throws IOException, SQLException, Exception
     {
-        DerbyStoragePoolNubHandler nubHandler = Main.get_control().getStorageNubHandler();
+        IStoragePoolNubHandler nubHandler = Main.get_control().getStorageNubHandler();
 
         StoragePool pool = nubHandler.getStoragePool( hotFolder.getPoolIdx());
 

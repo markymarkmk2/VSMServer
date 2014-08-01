@@ -66,7 +66,7 @@ class CDPTicketEntry
  *
  * @author Administrator
  */
-public class CDPManager extends WorkerParent implements IAgentIdleManager
+public class CDPManager extends WorkerParent implements IAgentIdleManagerEntry
 {
     
     final List<CDPTicketEntry> cdpEntries;
@@ -225,7 +225,7 @@ public class CDPManager extends WorkerParent implements IAgentIdleManager
     
     @Override
     public void doIdle()
-    {
+    {  
         if (isInPause != isPaused())
         {
             if (isPaused())

@@ -1776,6 +1776,11 @@ public class Backup
 
             while (len > 0)
             {
+                if (context.isAbort())
+                {
+                    throw new Exception("Backup wurde abgebrochen");
+                }                 
+                
                 int read_len = context.hash_block_size;
                 if (read_len > len)
                     read_len = (int)len;
@@ -2334,7 +2339,23 @@ public class Backup
         }
         return ret;
     }
+    static private Object[] get_newest_hashblocks_raw( List<Object[]> hash_block_list )
+    {
 
+        // SORT IN BLOCKOFFSET ORDER, NEWER BLOCKS LAST
+        java.util.Collections.sort(hash_block_list, new Comparator<Object[]>() {
+
+            @Override
+            public int compare( Object[] o1, Object[] o2 )
+            {                
+                return (Long.parseLong(o2[2].toString()) - Long.parseLong(o1[2].toString()) > 0) ? -1 : 1;
+            }
+        });
+
+        Object[] lastHashBlock = hash_block_list.get(hash_block_list.size() - 1);
+        
+        return lastHashBlock;
+    }
     static private void remove_older_xablocks( List<XANode> xa_block_list )
     {
         // SORT IN BLOCKOFFSET ORDER, NEWER BLOCKS FIRST
@@ -2558,6 +2579,36 @@ public class Backup
             }
         }
     }
+    // Holt den Hash zu einer Position / Blocklen einer Datei
+    private static String get_hash_from_db_raw(  GenericContext context, FileSystemElemNode node, long offset, int read_len ) throws SQLException {
+        try {
+            // Alle vom Offset lesen, kann auch leer sein
+            List<Object[]> hashBlocks = context.poolhandler.getEm().createNativeQuery("select hashvalue, blockLen, idx  from HashBlock where blockOffset=" + offset + " and fileNode_idx=" + node.getIdx(), 0);
+            if (hashBlocks.isEmpty())
+                return null;
+            
+            // Wenn mehr als eine dann neuesten suchen
+            Object[] newestBlock;
+            if (hashBlocks.size() > 1)
+            {
+                newestBlock = get_newest_hashblocks_raw(hashBlocks);
+            }
+            else
+            {
+                newestBlock = hashBlocks.get(0);
+            }
+            
+            if (!newestBlock[1].toString().equals(Integer.toString(read_len)))
+                return null;
+                        
+            // Found it -> right offset, right len
+            return newestBlock[0].toString();
+        }
+        catch (SQLException ex) {
+             Log.err( "Fehler beim Lesen der Hashwerts von Node", "Pos: " + offset + " Len: " + read_len + " Node: " + node.toString(), ex);
+             throw ex;
+        }        
+    }    
     
     // Holt den Hash zu einer Position / Blocklen einer Datei
     private static String get_hash_from_db(  GenericContext context, FileSystemElemNode node, long offset, int read_len ) throws SQLException {
@@ -2605,16 +2656,19 @@ public class Backup
             if (remote_handle == null)
                 throw new ClientAccessFileException("Cannot open remote file handle " + remoteFSElem.toString());
             
-
             long len = remoteFSElem.getDataSize();
-            long offset;
-                       
+            long offset;                       
 
             long blockCnt = 0;
 
             int block_number = -1;
             while((long)(block_number+1) * context.hash_block_size < len)
-            {
+            {    
+                if (context.isAbort())
+                {
+                    throw new Exception("Backup wurde abgebrochen");
+                } 
+                
                 // GO THROUGH ALL BLOCKS
                 boolean transfer_block = false;
 
@@ -2718,10 +2772,7 @@ public class Backup
                 context.stat.addTransferBlock();
                 context.stat.addTransferLen( read_len );
 
-                if (context.isAbort())
-                {
-                    throw new Exception("Backup wurde abgebrochen");
-                }
+   
 
             }
             return true;

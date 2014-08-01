@@ -5,6 +5,7 @@
 
 package de.dimm.vsm.lifecycle;
 
+import de.dimm.vsm.Utilities.SizeStr;
 import java.util.Date;
 
 /**
@@ -46,6 +47,10 @@ public class RetentionResult
     {
         return when;
     }
-    
 
+    @Override
+    public String toString() {
+        return "Files: " + getFiles() + " Size: " + SizeStr.format(size);
+    }
+        
 }

@@ -849,7 +849,7 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
             // UNLINK FROM PARENT
             if (node.getParent() != null)
             {
-                if (!node.getParent().getChildren().removeIfRealized(node));
+                if (!node.getParent().getChildren().removeIfRealized(node))
                 {
                     node.getParent().getChildren().unRealize();
                 }

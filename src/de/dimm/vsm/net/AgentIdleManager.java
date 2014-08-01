@@ -7,7 +7,7 @@ package de.dimm.vsm.net;
 import de.dimm.vsm.LogicControl;
 import de.dimm.vsm.Main;
 import de.dimm.vsm.WorkerParent;
-import de.dimm.vsm.fsengine.DerbyStoragePoolNubHandler;
+import de.dimm.vsm.fsengine.IStoragePoolNubHandler;
 import java.util.ArrayList;
 import java.util.List;
 import org.catacombae.jfuse.util.Log;
@@ -21,12 +21,12 @@ import org.catacombae.jfuse.util.Log;
 public class AgentIdleManager extends WorkerParent
 {  
 
-    List<IAgentIdleManager> idleList;
+    List<IAgentIdleManagerEntry> idleList;
 
-    public AgentIdleManager(DerbyStoragePoolNubHandler nubHandler)
+    public AgentIdleManager(IStoragePoolNubHandler nubHandler)
     {
         super("AgentIdleManager");
-        idleList = new ArrayList<IAgentIdleManager>();
+        idleList = new ArrayList<>();
         idleList.add(Main.get_control().getCdpManager());
         idleList.add(Main.get_control().getHfManager());
         idleList.add(Main.get_control().getAutoMountManager());
@@ -66,7 +66,7 @@ public class AgentIdleManager extends WorkerParent
     public void run()
     {
         int cnt = 0;
-        for (IAgentIdleManager iAgentIdleManager : idleList) 
+        for (IAgentIdleManagerEntry iAgentIdleManager : idleList) 
         {            
             iAgentIdleManager.startIdle();
         }
@@ -80,17 +80,24 @@ public class AgentIdleManager extends WorkerParent
                 continue;
 
             cnt++;
-            for (IAgentIdleManager iAgentIdleManager : idleList) 
+            for (IAgentIdleManagerEntry iAgentIdleManager : idleList) 
             {
                 if (cnt % iAgentIdleManager.getCycleSecs() == 0) 
                 {
-                    iAgentIdleManager.doIdle();
+                    if (!LogicControl.getStorageNubHandler().isCacheLoading())
+                    {
+                        iAgentIdleManager.doIdle();
+                    }
+                    else
+                    {
+                        iAgentIdleManager.setStatusTxt("Caches werden geladen");
+                    }
                 }
             }
         }
         
         
-        for (IAgentIdleManager iAgentIdleManager : idleList) 
+        for (IAgentIdleManagerEntry iAgentIdleManager : idleList) 
         {
             iAgentIdleManager.stopIdle();
         }

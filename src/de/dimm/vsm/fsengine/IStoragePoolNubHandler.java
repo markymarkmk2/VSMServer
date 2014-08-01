@@ -51,5 +51,7 @@ public interface IStoragePoolNubHandler {
     void removePoolDatabase( StoragePool pool, boolean physically ) throws SQLException;
 
     void shutdown();
+
+    boolean isCacheLoading();
     
 }

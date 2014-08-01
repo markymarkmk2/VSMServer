@@ -188,6 +188,21 @@ public abstract class AbstractStoragePoolNubHandler  implements IStoragePoolNubH
         }
     }
 
+  
+    @Override
+    public boolean isCacheLoading()
+    {
+        synchronized (mapperList) {
+            for (int i = 0; i < mapperList.size(); i++) {
+                PoolMapper poolMapper = mapperList.get(i);
+                if (poolMapper.isCacheLoading())
+                    return true;
+            }
+        }
+        return false;
+    }    
+    
+    
     protected StoragePool createNewStoragePool( GenericEntityManager gem ) throws Exception {
         StoragePool p = new StoragePool();
         p.setCreation(new Date());

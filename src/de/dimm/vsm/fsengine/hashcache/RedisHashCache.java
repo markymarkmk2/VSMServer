@@ -53,6 +53,7 @@ public class RedisHashCache extends DBHashCache
     StoragePoolNub nub;
     private boolean cacheInited = false;
     private int JEDIS_TIMEOUT = 60000;
+    private boolean isLoading = true;
     
     
     public RedisHashCache( JDBCEntityManager em, StoragePool pool, StoragePoolNub nub)
@@ -64,6 +65,12 @@ public class RedisHashCache extends DBHashCache
         tempMap = new ConcurrentHashMap<>();
         tmpRemoveList = new ArrayList<>();
         //loadHashExecutor = Main.get_control().getThreadPoolWatcher().create_blocking_thread_pool("RedisCacheLoader", 1, 1);        
+    }
+    
+    @Override
+    public boolean isLoading()
+    {
+        return isLoading;
     }
     
     
@@ -224,7 +231,8 @@ public class RedisHashCache extends DBHashCache
                 }
                 catch (SQLException sQLException) {
                 }
-            }            
+            }  
+            isLoading = false;
         }
     }
 
@@ -279,7 +287,7 @@ public class RedisHashCache extends DBHashCache
                 return Long.parseLong(val);
             }
         }
-        int retries = 3;
+        int retries = 1;
         IOException cause = new IOException("");
         while (retries-- > 0)
         {

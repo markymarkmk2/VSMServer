@@ -46,6 +46,10 @@ public class PoolMapper
         lastStatus = null;        
     }
 
+    public boolean isCacheLoading()
+    {
+        return hashCache.isLoading();
+    }
     
     public void abortCalcStats()
     {

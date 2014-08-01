@@ -55,6 +55,10 @@ public abstract class HashCache
     public abstract void removeDhb( DedupHashBlock dhb );
     public abstract List<String> getUrlUnsafeHashes();
     public abstract boolean init(Connection conn ) throws IOException;
+    public boolean isLoading()
+    {
+        return false;
+    }
 
 
     public boolean isInited()

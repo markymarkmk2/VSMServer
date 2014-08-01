@@ -31,7 +31,7 @@ import org.apache.commons.lang.StringUtils;
  *
  * @author Administrator
  */
-public class AutoMountManager extends WorkerParent implements IAgentIdleManager
+public class AutoMountManager extends WorkerParent implements IAgentIdleManagerEntry
 {
     List<MountEntry> mountList;
 

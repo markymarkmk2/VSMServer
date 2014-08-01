@@ -40,6 +40,7 @@ public class LazyJavaHashCache extends DBHashCache
     List<String> tmpRemoveList;
     protected ExecutorService loadHashExecutor =Executors.newFixedThreadPool(1);
     private boolean cacheInited = false;
+    private boolean isLoading = true;
     
     public LazyJavaHashCache( JDBCEntityManager em, StoragePool pool)
     {
@@ -64,6 +65,12 @@ public class LazyJavaHashCache extends DBHashCache
         
         inited = true;
         return super.init(conn);
+    }
+    
+    @Override
+    public boolean isLoading()
+    {
+        return isLoading;
     }
     
     void loadHashMap()
@@ -172,6 +179,7 @@ public class LazyJavaHashCache extends DBHashCache
                 catch (SQLException sQLException) {
                 }
             }
+            isLoading = false;
         }
     }
 

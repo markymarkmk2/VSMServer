@@ -14,10 +14,10 @@ import de.dimm.vsm.Utilities.SizeStr;
 import de.dimm.vsm.WorkerParent;
 import de.dimm.vsm.auth.User;
 import de.dimm.vsm.fsengine.GenericEntityManager;
+import de.dimm.vsm.fsengine.IStoragePoolNubHandler;
 import de.dimm.vsm.fsengine.LazyList;
 import de.dimm.vsm.fsengine.StoragePoolHandler;
 import de.dimm.vsm.fsengine.StoragePoolHandlerFactory;
-import de.dimm.vsm.fsengine.DerbyStoragePoolNubHandler;
 import de.dimm.vsm.records.DedupHashBlock;
 import de.dimm.vsm.records.FileSystemElemAttributes;
 import de.dimm.vsm.records.FileSystemElemNode;
@@ -81,9 +81,9 @@ public class RetentionManager extends WorkerParent
     };
     final String qryFieldStr = "f.idx as fidx, a.fsize as fsize, a.modificationDateMs as mtime, a.name as fname, a.idx as aidx, a.ts as ts";
 
-    DerbyStoragePoolNubHandler nubHandler;
+    IStoragePoolNubHandler nubHandler;
 
-    public RetentionManager(DerbyStoragePoolNubHandler nubHandler)
+    public RetentionManager(IStoragePoolNubHandler nubHandler)
     {
         super("RetentionManager");
        // em = LogicControl.createEntityManager();
@@ -266,7 +266,8 @@ public class RetentionManager extends WorkerParent
         // ADD RETENTION QUERY
         select_str += " and " + retention_where.toString();
 
-        select_str += " order by a.idx asc";
+        // ORDER OLDEST FIRST
+        select_str += " order by f.idx,a.idx asc";
        
 
 //        // DETECT FIRST AIDX TO SPPED UP QUERY
@@ -418,22 +419,32 @@ public class RetentionManager extends WorkerParent
 
 
         // RES IS SORTED a.idx ASC
+        /*
+        F1 10:00
+        F1 11:00
+        F1 12:00
+        F2 10:00
+        ...
+        * */
         
         
         long lastFidx = -1;
-        for (int i = res.size() - 1; i >= 0; i--)
+        for (int i = 0; i < res.size(); i++)
         {
             Object[] object = (Object[]) res.get(i);
             long fidx = (Long) object[fIdxCol];
+
+            // THIS FSEN WAS HANDLES ALREADY
+            // SKIP TO NEXT NODE
+            if (fidx == lastFidx)
+                continue;
+                        
             long fsize = (Long) object[fSizeCol];
             long mtime = (Long) object[mTimeCol];
             String fname = (String) object[fnameCol];
             long aidx = (Long) object[aIdxCol];
             long ts = (Long) object[aTsCol];
 
-            // SKIP TO NEXT NODE
-            if (fidx == lastFidx)
-                continue;
 
             cnt++;
             lastFidx = fidx;
@@ -466,7 +477,7 @@ public class RetentionManager extends WorkerParent
             HashMap<Long,Long> retentionAttrMap = new HashMap<Long,Long>();
             retentionAttrMap.put(aidx, aidx);
 
-            for (int j = i - 1; j >= 0; j--)
+            for (int j = i + 1; j < res.size(); j++)
             {
                 Object[] nextObjects = (Object[]) res.get(j);
                 long nextFidx = (Long) nextObjects[fIdxCol];
@@ -477,20 +488,20 @@ public class RetentionManager extends WorkerParent
                 retentionAttrMap.put(lAidx, lAidx);
             }
 
+            // get History
             List<FileSystemElemAttributes> history = fse.getHistory().getList(em);
             // Sort Newest first
             java.util.Collections.sort(history, new Comparator<FileSystemElemAttributes>()
             {
-
                 @Override
                 public int compare( FileSystemElemAttributes o1, FileSystemElemAttributes o2 )
                 {
                     if (o1.getTs() != o2.getTs())
                     {
-                        return (o1.getTs() - o2.getTs() > 0) ? 1 : -1;
+                        return (o2.getTs() - o2.getTs() > 0) ? 1 : -1;
                     }
 
-                    return (o2.getIdx() - o1.getIdx() > 0) ? -1 : 1;
+                    return (o2.getIdx() - o1.getIdx() > 0) ? 1 : -1;
                 }
             });
                 // BUILD LIST OF ALL ATTRIBUTES TO KEEP
@@ -501,25 +512,17 @@ public class RetentionManager extends WorkerParent
             // REMEMBER THE NEWEST ATTRIBUTE-ENTRY, THIS IS SET WITH fse.setAttribute()
             FileSystemElemAttributes newActualAttribute = null;
 
-
-//            // IS ACTUAL ATTRIBUTE-ENTRY IN RETENTION LIST?
-//            if (!retentionAttrMap.containsKey(fse.getAttributes().getIdx()))
-//            {
-//                // NO, ADD TO KEEP LIST AND SAVE AS ACTUAL ATTRIBUTE-ENTRY
-//                keepList.add(fse.getAttributes());
-//                newActualAttribute = fse.getAttributes();
-//            }
-
             // ADD ALL HISTORY ATTRIBUTE-ENTRIES NOT IN RETENTIONLIST TO KEEP LIST
             FileSystemElemAttributes actualAttrribute = fse.getAttributes();
-            FileSystemElemAttributes actualAttrribute2 = history.get(history.size() - 1);
+            FileSystemElemAttributes actualAttrribute2 = history.get(0);
 
             if (actualAttrribute.getIdx() != actualAttrribute2.getIdx())
             {
                 throw new RetentionException("Attributes direction mismatch: " + fidx + " " + fname);
             }
 
-            // DETECT THE NEW ACTUAL ATTRIBUTE, THIS IS THE NEWEST IN KEEPLIST
+            // Jetzt suchen wir Attribute in der History, die NICHT abgelaufen sind
+            // Wenn gefunden, dann newActualAttribute setzen und in keepList eintragen
             for (int j = 0; j < history.size(); j++)
             {
                 FileSystemElemAttributes fsea = history.get(j);
@@ -532,6 +535,7 @@ public class RetentionManager extends WorkerParent
                 }                
                 else
                 {
+                    // Das ist ein abgelaufenes Attribut -> in removeList
                     removeList.add(fsea);
                 }
             }
@@ -539,6 +543,7 @@ public class RetentionManager extends WorkerParent
 
 
             // NOW CHECK; IF WE CAN DELETE A FILE COMPLETELY
+            // Mode Backup: Wir können nur löschen, wenn kein attribut aus History in keepList ist UND Datei deleted ist            
             boolean deleteEntry = false;
             if (retention.getMode().equals( Retention.MD_BACKUP ))
             {
@@ -552,6 +557,7 @@ public class RetentionManager extends WorkerParent
                         // OTHERWISE WE HAVE TO KEEP NEWEST ENTRY SO THAT THE FILE CAN EXIST IN FS
                         keepList.add(actualAttrribute);
 
+                        // newActualAttribute mitführen
                         if (newActualAttribute == null || newActualAttribute.getTs() < actualAttrribute.getTs())
                             newActualAttribute = actualAttrribute;
 
@@ -598,12 +604,16 @@ public class RetentionManager extends WorkerParent
                 }
                 continue;
             }
+            
+            // ELSE
+            // Wir haben nicht gelöscht, wollen aber die Attribute entfernen, die in removeList stehen
 
             // DELETE OBSOLETE ATTRIBUTES WHICH ARE NOT IN keepList
             for (int j = 0; j < removeList.size(); j++)
             {
                 FileSystemElemAttributes fileSystemElemAttributes = removeList.get(j);
 
+                // Dabei die keepList berücksichtigen
                 boolean skipDelete = false;
                 for( int k = 0; k < keepList.size(); k++)
                 {
@@ -614,17 +624,31 @@ public class RetentionManager extends WorkerParent
                 if (skipDelete)
                     continue;
                 
+                // Attribut aus Liste und DB entfernen
                 if (fse.getHistory().removeIfRealized( fileSystemElemAttributes))
                 {
+                    Log.debug("Attribut wird gelöscht", aidx + ": " + fname + " size:" + fileSystemElemAttributes.getFsize() + " TS:" +  sdf.format(new Date(ts)) + " mtime:" + sdf.format(new Date(fileSystemElemAttributes.getModificationDateMs())) );
                     sp_handler.em_remove(fileSystemElemAttributes);
                 }                    
             }
 
             // NOW GET THE LIST OF BLOCKS WHICH CAN BE DELETED
             List<HashBlock> retentionHashBlocks = createRetentionHashBlockList( em, fse, keepList );
-
+            // RESET LOADED HISTORY LIST
+            if (fse.getHistory() instanceof LazyList)
+            {
+                ((LazyList)fse.getHistory()).unRealize();
+            }
+            // RESET LOADED HISTORY LIST
+            if (fse.getHashBlocks() instanceof LazyList)
+            {
+                ((LazyList)fse.getHashBlocks()).unRealize();
+            }
+            
             if (!retentionHashBlocks.isEmpty())
             {
+                // TODO: Zusammenfassen von zusammenhängenden Blocklisten und gemeinsam löschen: delete from hashblock where fnode_idx= and ts=
+                // dabei die Remove-List berücksichtigen
                 for (int j = 0; j < retentionHashBlocks.size(); j++)
                 {
                     HashBlock hashBlock = retentionHashBlocks.get(j);
@@ -633,7 +657,7 @@ public class RetentionManager extends WorkerParent
                     // AND DELETE THEM
                     if (retention.getFollowAction().equals(Retention.AC_DELETE))
                     {
-                        Log.debug("Block wird gelöscht", hashBlock.getIdx() + ": " + fname + " pos:" + hashBlock.getBlockOffset() +  " TS:" + sdf.format(hashBlock.getTs()) );
+                        Log.debug("HashBlock wird gelöscht", hashBlock.getIdx() + ": " + fname + " pos:" + hashBlock.getBlockOffset() +  " TS:" + sdf.format(hashBlock.getTs()) );
                         if (!retention.isTestmode())
                         {
                             sp_handler.em_remove(hashBlock);
@@ -645,7 +669,7 @@ public class RetentionManager extends WorkerParent
                     }
                     else if(retention.getFollowAction().equals(Retention.AC_MOVE))
                     {
-                        Log.debug("Block wird verschoben", hashBlock.getIdx() + ": " + fname + " pos:" + hashBlock.getBlockOffset() +  " TS:" + sdf.format(hashBlock.getTs())  + " -> " + targetPool.toString() );
+                        Log.debug("HashBlock wird verschoben", hashBlock.getIdx() + ": " + fname + " pos:" + hashBlock.getBlockOffset() +  " TS:" + sdf.format(hashBlock.getTs())  + " -> " + targetPool.toString() );
                         if (!retention.isTestmode())
                         {
                             String args = retention.getFollowActionParams();
@@ -655,26 +679,16 @@ public class RetentionManager extends WorkerParent
                             }
                         }
                     }
+                    sp_handler.check_commit_transaction();                    
                 }
-
-                // RESET LOADED HISTORY LIST
-                if (fse.getHistory() instanceof LazyList)
-                {
-                    ((LazyList)fse.getHistory()).unRealize();
-                }
-                // RESET LOADED HISTORY LIST
-                if (fse.getHashBlocks() instanceof LazyList)
-                {
-                    ((LazyList)fse.getHashBlocks()).unRealize();
-                }
-                // UPDATE CHANGED ATTRIBUTES
-                if (newActualAttribute != null && fse.getAttributes().getIdx() != newActualAttribute.getIdx())
-                {
-                    fse.setAttributes(newActualAttribute);
-                    sp_handler.em_merge(fse);
-                }
+            }            
+            
+            // UPDATE CHANGED ATTRIBUTES
+            if (newActualAttribute != null && fse.getAttributes().getIdx() != newActualAttribute.getIdx())
+            {
+                fse.setAttributes(newActualAttribute);
+                sp_handler.em_merge(fse);
             }
-            // TODO: WE HAVE TO UPDATE ACTUAL DATAFILE IN LANDINGZONE
         }
 
         // FLUSH CHANGES
@@ -726,6 +740,7 @@ public class RetentionManager extends WorkerParent
     public RetentionResult handleRetention( StoragePool pool ) throws RetentionException, IOException, SQLException, PoolReadOnlyException, PathResolveException
     {
         long startIdx = 0;
+        // Max Objects
         int qryCount = 10000;
 
         User user = User.createSystemInternal();
@@ -739,21 +754,24 @@ public class RetentionManager extends WorkerParent
 
         RetentionResult ret = null;
 
-        List<Snapshot> snapshots = em.createQuery("select T1 from Snapshot T1 where T1.pool_idx=" + pool.getIdx() + " order by creation desc", Snapshot.class);
+        // Liste aller Retentions ermitteln
         List<Retention> retentions = em.createQuery("select T1 from Retention T1 where T1.disabled=0 and T1.pool_idx=" + pool.getIdx(), Retention.class);
         if (retentions.isEmpty())
             return null;
 
+        // Liste Aller Snapshots ermitteln
+        List<Snapshot> snapshots = em.createQuery("select T1 from Snapshot T1 where T1.pool_idx=" + pool.getIdx() + " order by creation desc", Snapshot.class);
         
         try
         {
-
+            // Schreibenden PoolHandler erstellen
             sp_handler = StoragePoolHandlerFactory.createStoragePoolHandler(pool, user, /*rdonly*/ false);
             if (pool.getStorageNodes().isEmpty(sp_handler.getEm()))
             {
                 throw new RetentionException("No Storage for pool defined");
             }
 
+            // Leeres Ergebnis
             ret = new RetentionResult(pool.getIdx(), new Date(), 0, 0);
 
             for (int i = 0; i < retentions.size(); i++)
@@ -768,7 +786,9 @@ public class RetentionManager extends WorkerParent
                 }
 
                 // CREATE A LIST OF ALL ENTRIES TO BE REMOVED BASED ON RETENTION PARAMS
+                Log.debug("Lese createRetentionResult für", " " + pool.getName() + " " + retention.toString());
                 RetentionResultList retentionResult = createRetentionResult(retention, pool, startIdx, qryCount, absTs);
+                Log.debug("Size createRetentionResult für", " " + pool.getName() + " " + retention.toString() + " Cnt:" +retentionResult.list.size());
 
                 if (retentionResult.list.isEmpty())
                 {
@@ -776,11 +796,15 @@ public class RetentionManager extends WorkerParent
                 }
 
                 // CREATE SUBLIST OF RETENTION ENTRIES WHICH CAN BE REMOVED REGARDING SNAPSHOTS
+                Log.debug("Lese createSnapshotRetentionList für", " " + pool.getName() + " " + retention.toString());
                 RetentionResultList snapshotRetentionResult = createSnapshotRetentionList(snapshots, retentionResult, pool);
+                Log.debug("Size createSnapshotRetentionList für", " " + pool.getName() + " " + retention.toString() + " Cnt:" +snapshotRetentionResult.list.size());
 
 
                 // DO RETENTION WITH THE FINAL LIST
                 RetentionResult localret = handleRetentionList(sp_handler, snapshotRetentionResult);
+                
+                Log.debug("Result:", localret.toString() );
                 ret.add(localret);
                     
             }
@@ -993,6 +1017,7 @@ public class RetentionManager extends WorkerParent
 //                        ret.remove(hashBlock);
 //                    }
                     // SCROLL THROUGH ALL BLOCKS OF ONE POSITION, NEWEST IS FIRST
+                    // Suche den ersten Block dieser Position, das ist der neueste, den wollen wir behalten
                     for (int hl = h; hl < hash_block_list.size(); hl++)
                     {
                         HashBlock lhashBlock = hash_block_list.get(hl);

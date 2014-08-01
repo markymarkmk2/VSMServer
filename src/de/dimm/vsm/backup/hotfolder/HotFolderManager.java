@@ -13,12 +13,12 @@ import de.dimm.vsm.auth.User;
 import de.dimm.vsm.net.servlets.AgentApiEntry;
 import de.dimm.vsm.backup.Backup;
 import de.dimm.vsm.fsengine.GenericEntityManager;
+import de.dimm.vsm.fsengine.IStoragePoolNubHandler;
 import de.dimm.vsm.fsengine.StoragePoolHandler;
 import de.dimm.vsm.fsengine.StoragePoolHandlerFactory;
-import de.dimm.vsm.fsengine.DerbyStoragePoolNubHandler;
 import de.dimm.vsm.jobs.JobInterface;
 import de.dimm.vsm.mail.NotificationEntry;
-import de.dimm.vsm.net.IAgentIdleManager;
+import de.dimm.vsm.net.IAgentIdleManagerEntry;
 import de.dimm.vsm.net.RemoteFSElem;
 import de.dimm.vsm.records.HotFolder;
 import de.dimm.vsm.records.HotFolderError;
@@ -35,9 +35,9 @@ import java.util.List;
  *
  * @author Administrator
  */
-public class HotFolderManager extends WorkerParent implements VariableResolver, IAgentIdleManager
+public class HotFolderManager extends WorkerParent implements VariableResolver, IAgentIdleManagerEntry
 {  
-    DerbyStoragePoolNubHandler nubHandler;
+    IStoragePoolNubHandler nubHandler;
     ArchiveJobContext actualContext;
     HotFolder actHotfolder;
     private static final String HF_AGENT_OFFLINE = "HF_AGENT_OFFLINE";
@@ -47,7 +47,7 @@ public class HotFolderManager extends WorkerParent implements VariableResolver, 
     private static final String HF_OKAY = "HF_OKAY";
     private static final String HF_GROUP_ERROR = "HF_GROUP_ERROR";
 
-    public HotFolderManager(DerbyStoragePoolNubHandler nubHandler)
+    public HotFolderManager(IStoragePoolNubHandler nubHandler)
     {
         super("HotFolderManager");
         this.nubHandler = nubHandler;

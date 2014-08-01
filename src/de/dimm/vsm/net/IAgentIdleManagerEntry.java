@@ -8,10 +8,12 @@ package de.dimm.vsm.net;
  *
  * @author mw
  */
-public interface IAgentIdleManager {
+public interface IAgentIdleManagerEntry {
     void startIdle();
     void stopIdle();
     void doIdle() ; 
     int getCycleSecs();
+    void setStatusTxt(String statusTxt);
+    String getStatusTxt();
     
 }

@@ -85,7 +85,7 @@ public class DerbyStoragePoolNubHandler extends AbstractStoragePoolNubHandler
         return false;
     }
     
-    
+  
     
     @Override
     public void initMapperList() {
