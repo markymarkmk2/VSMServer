@@ -59,6 +59,7 @@ class IndirectListToEmptyListConverter implements Converter
 public class FS_BootstrapHandle<T> implements BootstrapHandle
 {
     XStream xstream = new XStream();
+    boolean allowParentMkdirs = false; 
 
     protected File fh;
 
@@ -107,6 +108,12 @@ public class FS_BootstrapHandle<T> implements BootstrapHandle
          
      }
 
+    public void setAllowParentMkdirs( boolean allowParentMkdirs ) {
+        this.allowParentMkdirs = allowParentMkdirs;
+    }
+     
+     
+
     @Override
     public String toString()
     {
@@ -147,7 +154,10 @@ public class FS_BootstrapHandle<T> implements BootstrapHandle
                 File parent = fh.getParentFile();
                 if (!parent.exists())
                 {
-                    parent.mkdir();
+                    if (allowParentMkdirs)
+                        parent.mkdirs();
+                    else
+                        parent.mkdir();
                 }
                 fw = new FileWriter(fh);
             }

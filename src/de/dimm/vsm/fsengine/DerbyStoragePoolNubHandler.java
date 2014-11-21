@@ -301,8 +301,8 @@ public class DerbyStoragePoolNubHandler extends AbstractStoragePoolNubHandler
     
     private static String getEffectiveJdbcConnectString(StoragePoolNub storagePoolNub)
     {
-        if (StringUtils.isEmpty(storagePoolNub.getJdbcConnectString()))
-            return null;
+//        if (StringUtils.isEmpty(storagePoolNub.getJdbcConnectString()))
+//            return null;
         
         String jdbcConnect = JDBC_DERBY_PREFIX + getDbPath(storagePoolNub);
         

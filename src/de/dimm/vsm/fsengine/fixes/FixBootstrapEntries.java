@@ -367,6 +367,7 @@ public class FixBootstrapEntries implements IFix
                FS_BootstrapHandle bh = new FS_BootstrapHandle(snode, keepNode);
                if (!bh.exists() || overwriteExisting)
                {
+                   bh.setAllowParentMkdirs(true);
                    bh.write_bootstrap(keepNode);
                    resultData.addFixedFile();
                }

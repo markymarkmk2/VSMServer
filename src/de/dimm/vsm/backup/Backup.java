@@ -60,6 +60,8 @@ import de.dimm.vsm.vaadin.VSMCMain;
 import java.io.IOException;
 import java.sql.SQLException;
 import java.sql.SQLNonTransientConnectionException;
+import java.sql.SQLTransactionRollbackException;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
@@ -71,8 +73,6 @@ import java.util.Properties;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.FutureTask;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
 
 
@@ -91,6 +91,8 @@ public class Backup
 
 
     public static final int DEFAULT_START_WINDOW_S = 600;
+    
+    public static boolean verboseCheckLogging = false;
 
     public static JobInterface createbackupJob( Schedule sched, User user )
     {        
@@ -1526,6 +1528,11 @@ public class Backup
             Log.err(Main.Txt("Node") + " " + fsenode.getIdx() + " " + Main.Txt("hat kein Attribut"));
             return true;
         }
+        if (verboseCheckLogging) {
+            SimpleDateFormat sdf = new SimpleDateFormat("dd.MM.yyyy HH:mm:ss.SSS");
+            Log.debug( " ", remoteFSElem.getName() + " MT FS/VSM:" + sdf.format( new Date(remoteFSElem.getMtimeMs()))+ "/" +  sdf.format( new Date(node.getModificationDateMs())) +
+                      " CT FS/VSM:" + sdf.format( new Date(remoteFSElem.getCtimeMs()))+ "/" +  sdf.format( new Date(node.getCreationDateMs())) );
+        }
         if (remoteFSElem.getMtimeMs() != node.getModificationDateMs())
             return true;
 
@@ -1548,6 +1555,10 @@ public class Backup
         {
             Log.err(Main.Txt("Node") + " " + fsenode.getIdx() + " " + Main.Txt("hat kein Attribut"));
             return true;
+        }
+        if (verboseCheckLogging) {
+            Log.debug( " ", remoteFSElem.getName() + " DS FS/VSM:" + remoteFSElem.getDataSize()+ "/" +  node.getFsize() +
+                      " SS FS/VSM:" + remoteFSElem.getStreamSize()+ "/" +  node.getStreamSize() );
         }
 
         if (remoteFSElem.getDataSize() != node.getFsize())
@@ -2612,38 +2623,88 @@ public class Backup
     
     // Holt den Hash zu einer Position / Blocklen einer Datei
     private static String get_hash_from_db(  GenericContext context, FileSystemElemNode node, long offset, int read_len ) throws SQLException {
-        try {
-            // Alle vom Offset lesen, kann auch leer sein
-            List<HashBlock> hashBlocks = context.poolhandler.getEm().createQuery("select T1 from HashBlock T1 where T1.fileNode_idx=" + node.getIdx() + " and T1.blockOffset=" +offset, HashBlock.class);
-            if (hashBlocks.isEmpty())
-                return null;
-            
-            // Wenn mehr als eine dann neueste nach vorn, doppelte weg
-            if (hashBlocks.size() > 1)
-            {
-                hashBlocks = remove_older_hashblocks(hashBlocks);
+        synchronized (context.getPoolHandler().getPool())
+        {
+            try {
+                // Alle vom Offset lesen, kann auch leer sein
+                long s1 = System.currentTimeMillis();
+                List<HashBlock> hashBlocks = context.poolhandler.getEm().getDistinctHashBlockStatement(node.getIdx(), offset );
+                long s2 = System.currentTimeMillis();
+                /*
+                List<HashBlock> hashBlocks2 = context.poolhandler.getEm().createQuery("select T1 from HashBlock T1 where T1.fileNode_idx=" + node.getIdx() + " and T1.blockOffset=" +offset, HashBlock.class);
+                long s3 = System.currentTimeMillis();
+                List<HashBlock> hashBlocks3 = context.poolhandler.getEm().createQuery("select T1 from HashBlock T1 where  T1.blockOffset=" +offset + " and T1.fileNode_idx=" + node.getIdx(), HashBlock.class);
+                long s4 = System.currentTimeMillis();
+                */
+                long diff = s2 - s1;
+                if (diff > 2000) {                
+                    System.out.println("Dur get_hash_from_db: " + node.toString() + ": " + Long.toString(s2 - s1) + " ms");
+                }
+                /*
+                System.out.println("Dur c2: " + Long.toString(s3 - s2));
+                System.out.println("Dur c3: " + Long.toString(s4 - s3));
+                * */
+                if (hashBlocks.isEmpty())
+                    return null;
+
+               /* if (hashBlocks.size() != hashBlocks2.size())
+                    throw new SQLException("Mist1");
+                if (hashBlocks3.size() != hashBlocks2.size())
+                    throw new SQLException("Mist11");
+                if (hashBlocks.get(0).getIdx() != hashBlocks2.get(0).getIdx() || hashBlocks.get(0).getIdx() != hashBlocks3.get(0).getIdx() )
+                    throw new SQLException("Mist2");
+                */
+                // Wenn mehr als eine dann neueste nach vorn, doppelte weg
+                if (hashBlocks.size() > 1)
+                {
+                    hashBlocks = remove_older_hashblocks(hashBlocks);
+                }
+
+                // Auf len prüfen
+                HashBlock newestBlock = hashBlocks.get(0);
+                if (newestBlock.getBlockLen() != read_len)
+                    return null;
+
+                // Sanity check
+                if (newestBlock.getBlockOffset() != offset)
+                {
+                    Log.err( "Fehler beim Ermitteln der Hashwertoffsetswerte von Node", "Pos: " + offset + " Len: " + read_len + " Node: " + node.toString());
+                    return null;
+                }
+
+                // Found it -> right offset, right len
+                return newestBlock.getHashvalue();            
             }
-            
-            // Auf len prüfen
-            HashBlock newestBlock = hashBlocks.get(0);
-            if (newestBlock.getBlockLen() != read_len)
-                return null;
-            
-            // Sanity check
-            if (newestBlock.getBlockOffset() != offset)
+            catch (SQLTransactionRollbackException ex)
             {
-                Log.err( "Fehler beim ermitteln der Hashwertoffsetswerte von Node", "Pos: " + offset + " Len: " + read_len + " Node: " + node.toString());
-                return null;
+                dumpLockTable(context.poolhandler.getEm());
+                throw ex;
             }
-            
-            // Found it -> right offset, right len
-            return newestBlock.getHashvalue();            
+            catch (SQLException ex) {
+                 Log.err( "Fehler beim Lesen der Hashwerts von Node", "Pos: " + offset + " Len: " + read_len + " Node: " + node.toString(), ex);
+                 throw ex;
+            }        
         }
-        catch (SQLException ex) {
-             Log.err( "Fehler beim Lesen der Hashwerts von Node", "Pos: " + offset + " Len: " + read_len + " Node: " + node.toString(), ex);
-             throw ex;
-        }        
     }    
+    private static void dumpLockTable(GenericEntityManager em)
+    {
+        try {
+            List<Object[]> list = em.createNativeQuery("SELECT * FROM SYSCS_DIAG.LOCK_TABLE", 0);
+            StringBuilder sb = new StringBuilder();
+            sb.append("Lock Table\n");
+            for (Object[] line : list) {
+                for (int col = 0; col < line.length; col++) {
+                    sb.append(line[col]);
+                    sb.append("\t|");
+                }
+                sb.append("\n");
+            }
+            Log.err( "Locking found:\n" + sb.toString());
+        }
+        catch (SQLException sQLException) {
+            Log.err( "Fehler beim Lesen der Locktabelle");
+        }
+    }
 
     static private boolean update_remote_data_entry_to_pool_lazy_load(  final GenericContext context, FileSystemElemNode node, RemoteFSElem remoteFSElem, long ts )
     {

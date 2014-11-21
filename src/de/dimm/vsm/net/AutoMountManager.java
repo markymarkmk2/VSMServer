@@ -188,7 +188,7 @@ public class AutoMountManager extends WorkerParent implements IAgentIdleManagerE
                         if (me == null)
                             continue;
 
-                        if (!mountList.contains( mountEntry))
+                        if (!mountList.contains( me))
                         {
                             // Touch it to prevent unload during inactivity
                             contextMgr.touch(wr);

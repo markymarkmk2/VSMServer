@@ -32,6 +32,7 @@ import de.dimm.vsm.records.HashBlock;
 import de.dimm.vsm.records.XANode;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
+import java.lang.reflect.UndeclaredThrowableException;
 import java.net.InetAddress;
 import java.sql.SQLException;
 import java.util.ArrayList;
@@ -374,10 +375,11 @@ public class Restore
             p = apiEntry.getApi().get_properties();
         }
         catch (Exception e)
-        {
+        {      
+            e = AgentApiEntry.getException(e);
             preStartStatus = "Cannot connect to agent " + targetIP.toString() + " " +  e.getMessage();
             VSMFSLogger.getLog().error("Cannot connect to agent " + targetIP.toString(), e);
-            return null;
+            throw new IOException(preStartStatus);
         }
 
         String agent_ver = p.getProperty(AgentApi.OP_AG_VER);
@@ -672,9 +674,10 @@ public class Restore
                     {
                         restore_stream_data(remoteFSElem, node, attr, targetPath);
                     }
-                    catch (Exception iOException)
+                    catch (Exception e)
                     {
-                        Log.warn("Fehler bei Restore von StreamData", ": " + iOException.getMessage()/*, iOException*/);
+                        e = AgentApiEntry.getException(e);
+                        Log.warn("Fehler bei Restore von StreamData", ": " + e.getMessage()/*, iOException*/);
                     }
                 }
 

@@ -198,12 +198,14 @@ public class LoginManager extends WorkerParent implements GuiLoginApi
         {
             Log.warn("!!!!!!!!!!!!!!!!!!! System Login !!!!!!!!!!!!!!!!!!!!!!!!!!!");
             // OKAY, LOGIN SUCCEDED; WE GOT THE GROUPS, NOW BUILD AND RETURN CONTEXT
-            User user = new User(userName, userName, userName);
+            User user = new User(userName, userName, "SysAdmin");
             Role role = new Role();
             role.getRoleOptions().add( new RoleOption(0, role, RoleOption.RL_ADMIN, 0, ""));
             role.getRoleOptions().add( new RoleOption(0, role, RoleOption.RL_ALLOW_EDIT_PARAM, 0, ""));
             role.getRoleOptions().add( new RoleOption(0, role, RoleOption.RL_ALLOW_VIEW_PARAM, 0, ""));
             user.setRole(role);
+            
+
 
 
             GuiServerApiImpl guiServerApi = new GuiServerApiImpl(System.currentTimeMillis(), null, user);
@@ -217,18 +219,21 @@ public class LoginManager extends WorkerParent implements GuiLoginApi
         {
             Log.warn("!!!!!!!!!!!!!!!!!!! System Login !!!!!!!!!!!!!!!!!!!!!!!!!!!");
             // OKAY, LOGIN SUCCEDED; WE GOT THE GROUPS, NOW BUILD AND RETURN CONTEXT
-            User user = new User(userName, userName, userName);
+            User user = new User(userName, userName, "BackdoorUser");
             user.setIgnoreAcl(true);
             Role role = new Role();
             role.getRoleOptions().add( new RoleOption(0, role, RoleOption.RL_ALLOW_VIEW_PARAM, 0, ""));
             role.getRoleOptions().add( new RoleOption(0, role, RoleOption.RL_FSMAPPINGFILE, 0, "TestMapping"));
+            role.getRoleOptions().add( new RoleOption(0, role, RoleOption.RL_GROUPMAPPINGFILE, 0, "TestMapping"));
             role.getRoleOptions().add( new RoleOption(0, role, RoleOption.RL_USERPATH, 0, "192.168.1.145:8082:z:\\a\\FaxXP"));
             role.getRoleOptions().add( new RoleOption(0, role, RoleOption.RL_USERPATH, 0, "127.0.0.1:8082:/tmp"));
             role.getRoleOptions().add( new RoleOption(0, role, RoleOption.RL_USERPATH, 0, "127.0.0.1:8082:/tmp"));
             
+            
             try
             {
                 user.setRole(role);
+                user.loadGroupMapping();
             }
             catch (Exception e)
             {
@@ -244,7 +249,7 @@ public class LoginManager extends WorkerParent implements GuiLoginApi
         {
             Log.warn("!!!!!!!!!!!!!!!!!!! System Login !!!!!!!!!!!!!!!!!!!!!!!!!!!");
             // OKAY, LOGIN SUCCEDED; WE GOT THE GROUPS, NOW BUILD AND RETURN CONTEXT
-            User user = new User(userName, userName, userName);
+            User user = new User(userName, userName, "DummyBackdoor");
             user.setIgnoreAcl(true);
             Role role = new Role();
             //role.getRoleOptions().add( new RoleOption(0, role, RoleOption.RL_ALLOW_VIEW_PARAM, 0));
@@ -303,6 +308,11 @@ public class LoginManager extends WorkerParent implements GuiLoginApi
                         }
 
                         user.setGroups(groupsThisUser);
+                        
+                        if (role.hasRoleOption(RoleOption.RL_GROUPMAPPINGFILE))
+                        {
+                            user.loadGroupMapping();
+                        }
 
                         Log.debug("Gruppen für Benutzer", userName + ": " + groupsThisUser.size());
                         if (!checkRoleOptions(user)) 

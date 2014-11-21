@@ -22,8 +22,8 @@ Doppelclick auf Namensspalte -> Edit Table
 Retention Folgeoperastion Combobox fehlt
 
 
-Test QueryPlan for
+Restore mit Option überspringe bestehende Dateien
+Restore differential auf Blockebene
 
-"select f.idx as fidx, a.fsize as fsize, a.modificationDateMs as mtime, a.name as fname, a.idx as aidx, a.ts as ts from FileSystemElemNode f, FileSystemElemAttributes a where f.idx = a.file_idx and f.pool_idx=2 and a.ts<1326819198592 and a.idx>20063 order by a.idx asc"
 
 

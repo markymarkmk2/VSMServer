@@ -101,7 +101,7 @@ public class AbstractFixJobInterface implements JobInterface
             boolean result = fix.runFix();
             state = fix.isAborted() ? JOBSTATE.ABORTED : (result ? JOBSTATE.FINISHED_OK : JOBSTATE.FINISHED_ERROR);
         }
-        catch (SQLException sQLException)
+        catch (Exception sQLException)
         {
             state = JOBSTATE.ABORTED;
         }

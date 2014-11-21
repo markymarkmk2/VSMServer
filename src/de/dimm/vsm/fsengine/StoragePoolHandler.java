@@ -18,6 +18,7 @@ import de.dimm.vsm.Utilities.SizeStr;
 import de.dimm.vsm.log.Log;
 import de.dimm.vsm.auth.User;
 import de.dimm.vsm.auth.UserManager;
+import de.dimm.vsm.backup.HandleWriteRunner;
 import de.dimm.vsm.net.RemoteFSElem;
 import de.dimm.vsm.net.SearchContext;
 import de.dimm.vsm.records.AbstractStorageNode;
@@ -75,6 +76,9 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
     protected FSEMapEntryHandler fseMapHandler;
     SearchContext searchContext;
     PathResolver pathResolver;
+    
+    HandleWriteRunner writeRunner;
+    
 
     public StoragePoolHandler( StoragePool pool, StoragePoolQry qry )
     {
@@ -86,6 +90,7 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
 
         searchContext = null;
         pathResolver = new PathResolver(this);
+        writeRunner = new HandleWriteRunner();
     }
 
 
@@ -1897,6 +1902,9 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
 
     }
 
+    public HandleWriteRunner getWriteRunner() {
+        return writeRunner;
+    }
 
     public void setPool( StoragePool pool )
     {
@@ -1904,9 +1912,9 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
     }
 
     public void write_bootstrap_data( FileSystemElemNode node ) throws IOException, PathResolveException
-    {
+    {        
         BootstrapHandle handle = open_bootstrap_handle(node);
-        handle.write_bootstrap( node );  // THIS INCLUDES ATTRIBUTES
+        handle.write_bootstrap( node );  // THIS INCLUDES ATTRIBUTES        
         node.getLinks().realize(getEm());
         for (PoolNodeFileLink pnfl : node.getLinks())
         {
@@ -2219,6 +2227,9 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
             throw new PoolReadOnlyException(pool);
 
         FileSystemElemNode fseNode = getNodeByFileNo( fileNo );
+        if (fseNode == null) {
+            throw new IOException("Cannot retrieve FileNode for fileNo " + fileNo);
+        }
         Log.debug("writeFile len " +  length + " Node:" + fseNode.getIdx() + " Attr:" + fseNode.getAttributes().getIdx() + " " +  fseNode.getAttributes());
         
         if (isReadOnly(fseNode))

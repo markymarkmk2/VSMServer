@@ -1,3 +1,20 @@
+Veränderungen in V1.7.7
+UPD: Neues Mapping für ACL-Rechte analog zum FS-Mapping
+
+Veränderungen in V1.7.6
+FIX: Exception bei ungültigen Dateinamen (lesen von ACL) fangen
+FIX: Ungültige ACL-Infos (null) abfangen
+
+Veränderungen in V1.7.5
+FIX: BackgroundTasks warten auf Cache geladen, Ready-Flag 
+wurde nicht gesetzt wenn Redis-Cache erfolgreich preloaded war
+
+Veränderungen in V1.7.4
+UPD: Locking in LazyHashBlockLoad
+
+Veränderungen in V1.7.3
+UPD: Speed in LazyHashBlockLoad
+
 Veränderungen in V1.7.2
 FIX: Speed up of Xstream Usage in create_object
 

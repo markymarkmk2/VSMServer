@@ -101,6 +101,7 @@ public class RedisHashCache extends DBHashCache
         {
             Log.info("RedisCache für Pool " + pool.getName() + " ist bereits geladen (N=" +jedis.dbSize()  + ")" );  
             cacheInited = true;
+            isLoading = false;
         }
         
         inited = true;

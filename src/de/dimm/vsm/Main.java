@@ -45,7 +45,7 @@ public class Main
 {
 
     static String source_str = "trunk";
-    static String version_str = "1.7.2";
+    static String version_str = "1.7.7";
         
     public static int writeThreads = 1;
     public static int maxOpenFiles = 1024;
@@ -68,6 +68,7 @@ public class Main
     private static Main me;
     public final static String APPNAME = "VSM";
     private static boolean rebuildDB = false;
+    private static boolean verboseDB = false;
 
     private static void checkAdditionArg( String[] args, int i, String errMsg )
     {
@@ -419,7 +420,17 @@ public class Main
                     System.exit(-1);
                 }
                 System.exit(0);
-            }           
+            }     
+            if (string.equals("-verbose-check-log") )
+            {
+                Backup.verboseCheckLogging = true;
+            }     
+            if (string.equals("-verbose-DB") )
+            {
+                verboseDB = true;
+            }     
+            
+            
         }
         
         // SETUP PATH FOR GUI JAR
@@ -735,9 +746,15 @@ public class Main
 
 
         setSystemPropPref( "derby.storage.pageSize", "4096" );
-//        setSystemPropPref( "derby.locks.deadlockTrace","true");
+        setSystemPropPref( "derby.locks.deadlockTrace","true");
         setSystemPropPref( "derby.language.disableIndexStatsUpdate","true");
         //setSystemPropPref( "derby.storage.indexStats.auto","false");
+        if (verboseDB)
+        {
+            setSystemPropPref( "derby.language.logQueryPlan", "true" );
+            setSystemPropPref( "derby.locks.monitor", "true" );
+            //setSystemPropPref( "derby.locks.deadlockTrace", "true" );
+        }
 
     }
 

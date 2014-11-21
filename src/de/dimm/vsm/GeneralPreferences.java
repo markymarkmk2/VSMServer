@@ -112,6 +112,7 @@ public class GeneralPreferences extends Preferences
     public static final String DATABASE_PATH = "DatabasePath";
     public static final String HASH_LAZY_LOAD_TRESHOLD_MB= "HashLazyLoadGrenzeMB";
     public static final String USE_REDIS_CACHE = "UseRedisCache";
+    public static final String NO_IP_RESOLVE = "NoIpResolve";
     
     
     /** Creates a new instance of Preferences */
@@ -191,6 +192,7 @@ public class GeneralPreferences extends Preferences
         prop_names.add( USE_LAZY_CACHE );
         prop_names.add( HASH_LAZY_LOAD_TRESHOLD_MB );
         prop_names.add( USE_REDIS_CACHE );
+        prop_names.add( NO_IP_RESOLVE );
         
 
 

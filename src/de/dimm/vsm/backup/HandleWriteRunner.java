@@ -15,6 +15,7 @@ import de.dimm.vsm.records.DedupHashBlock;
 import de.dimm.vsm.records.FileSystemElemAttributes;
 import de.dimm.vsm.records.FileSystemElemNode;
 import de.dimm.vsm.records.HashBlock;
+import de.dimm.vsm.records.PoolNodeFileLink;
 import de.dimm.vsm.records.XANode;
 import java.io.IOException;
 import java.sql.SQLException;
@@ -138,6 +139,7 @@ class NodeBootstrap extends HandleWriteElem
         //System.out.println("Wrote Node BT");
     }
 }
+
 class AttributesBootstrap extends HandleWriteElem
 {
     StoragePoolHandler poolhandler;
@@ -311,7 +313,7 @@ public class HandleWriteRunner
         }
     }
 
-    void flush() throws InterruptedException
+    public void flush() throws InterruptedException
     {
         // WAIT UP TO 30 SECONDS TO EMPTY CACHE
         int maxCnt = 3000;
@@ -388,34 +390,34 @@ public class HandleWriteRunner
         addElem( elem );
     }
 
-    void addAndCloseElem( FileHandle fh, byte[] data,  int len, long offset )
+    public void addAndCloseElem( FileHandle fh, byte[] data,  int len, long offset )
     {
         HandleWriteElem elem = new HandleWriteElem(fh, data, offset, len, /*doClose*/ true, idxCnt);
         addElem( elem );
     }
 
-    void addBootstrap( StoragePoolHandler poolhandler, DedupHashBlock block, HashBlock node )
+    public void addBootstrap( StoragePoolHandler poolhandler, DedupHashBlock block, HashBlock node )
     {
         DedupBootstrap bt = new DedupBootstrap(poolhandler, node, block);
         addElem( bt );
     }
 
-    void addBootstrap( StoragePoolHandler poolhandler, DedupHashBlock block, XANode node )
+    public void addBootstrap( StoragePoolHandler poolhandler, DedupHashBlock block, XANode node )
     {
         XABootstrap bt = new XABootstrap(poolhandler, node, block);
         addElem( bt );
     }
 
-    void addBootstrap( StoragePoolHandler poolhandler, FileSystemElemNode node )
+    public void addBootstrap( StoragePoolHandler poolhandler, FileSystemElemNode node )
     {
         NodeBootstrap bt = new NodeBootstrap(poolhandler, node);
         addElem( bt );
     }
-    void addBootstrap( StoragePoolHandler poolhandler, FileSystemElemAttributes attr )
+    public void addBootstrap( StoragePoolHandler poolhandler, FileSystemElemAttributes attr )
     {
         AttributesBootstrap bt = new AttributesBootstrap(poolhandler, attr);
         addElem( bt );
-    }
+    }    
 
     public int getQueueLen()
     {

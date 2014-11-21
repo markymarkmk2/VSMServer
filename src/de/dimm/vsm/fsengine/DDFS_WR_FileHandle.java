@@ -38,6 +38,8 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 
 /**
@@ -565,7 +567,8 @@ public final class DDFS_WR_FileHandle implements FileHandle, IBackupHelper
         
         // Zum Eintragen hier den aktuellen Zeitpunkt verwenden, wir wissen nicht, 
         // wenn die Attribute geschrieben werden, aber auf jeden Fall später als jetzt
-        long ts = System.currentTimeMillis();
+        // Falls nicht, haben wir zumindestens den TS vom letzten gültigen Attribut
+        long ts = node.getAttributes().getTs();
         
         DedupHashBlock dhb = check_for_existing_block(hashValue);
         if (dhb != null)
@@ -574,7 +577,7 @@ public final class DDFS_WR_FileHandle implements FileHandle, IBackupHelper
             node.getHashBlocks().addIfRealized(hb);
 
             // UPDATE BOOTSTRAP
-            getSpHandler().write_bootstrap_data(dhb, hb);
+            getSpHandler().getWriteRunner().addBootstrap(getSpHandler(), dhb, hb);
             stat.addDedupBlock(dhb);
             Log.debug("Found DHB " + dhb.toString());
         }
@@ -587,7 +590,9 @@ public final class DDFS_WR_FileHandle implements FileHandle, IBackupHelper
             if (dhb != null)
             {
                 FileHandle fHandle = getSpHandler().open_dedupblock_handle(dhb, /*create*/ true);
-                fHandle.writeFile( data, length, /*offset*/ 0);
+                getSpHandler().getWriteRunner().addAndCloseElem(fHandle, data, length, 0);
+//                fHandle.writeFile( data, length, /*offset*/ 0);
+//                fHandle.close();
 
                 updateHashBlock( isStream(), hashValue, dhb, offset, length, ts );
                 stat.addTransferBlock();
@@ -749,7 +754,7 @@ public final class DDFS_WR_FileHandle implements FileHandle, IBackupHelper
                     node.getHashBlocks().addIfRealized(hb);
 
                     // UPDATE BOOTSTRAP
-                    getSpHandler().write_bootstrap_data(dhb, hb);
+                    getSpHandler().getWriteRunner().addBootstrap(getSpHandler(), dhb, hb);
                     stat.addDedupBlock(dhb);
                     Log.debug("Found DHB " + dhb.toString());
                 }
@@ -875,7 +880,7 @@ public final class DDFS_WR_FileHandle implements FileHandle, IBackupHelper
             node.getXaNodes().addIfRealized(xa);
 
             // UPDATE BOOTSTRAP
-            getSpHandler().write_bootstrap_data( dhb, xa);
+            getSpHandler().getWriteRunner().addBootstrap( getSpHandler(), dhb, xa);
         }
         else
         {
@@ -885,7 +890,7 @@ public final class DDFS_WR_FileHandle implements FileHandle, IBackupHelper
             node.getHashBlocks().addIfRealized(hb);
 
             // UPDATE BOOTSTRAP
-            getSpHandler().write_bootstrap_data( dhb, hb);
+            getSpHandler().getWriteRunner().addBootstrap( getSpHandler(), dhb, hb);
         }
 
         // WRITE TO CACHE
@@ -1135,6 +1140,14 @@ public final class DDFS_WR_FileHandle implements FileHandle, IBackupHelper
         catch (SQLException sQLException)
         {
             Log.err("Fehler beim Committen in Close von " + node.getName(), sQLException);      
+        }
+        try {
+            getSpHandler().getWriteRunner().flush();
+            if (getSpHandler().getWriteRunner().isWriteError())
+                throw new IOException("Fehler beim Schreiben in WriteRunner");
+        }
+        catch (InterruptedException ex) {
+            Logger.getLogger(DDFS_WR_FileHandle.class.getName()).log(Level.SEVERE, null, ex);
         }
     }    
 

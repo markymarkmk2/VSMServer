@@ -1156,5 +1156,8 @@ public class LogicControl
     {
         return Log.isTraceEnabled();
     }
+    public Boolean getPrefBoolean(String val) {
+        return Main.get_bool_prop(val);
+    }
 
 }

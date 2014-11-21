@@ -141,4 +141,10 @@ public class AgentApiEntry
         String v = agentProps.getProperty(opt, Boolean.FALSE.toString());
         return v.equals(Boolean.TRUE.toString());
     }
+    public static Exception getException( Exception e)
+    {
+        if (e instanceof UndeclaredThrowableException && e.getCause() != null && e.getCause() instanceof Exception)
+            return (Exception)e.getCause();
+        return e;
+    }
 }
