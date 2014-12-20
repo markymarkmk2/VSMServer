@@ -251,7 +251,7 @@ public class HandleWriteRunner
 
     public HandleWriteRunner()
     {
-        workList = new ArrayBlockingQueue<HandleWriteElem>(MAX_WRITE_QUEUE_LEN);
+        workList = new ArrayBlockingQueue<>(MAX_WRITE_QUEUE_LEN);
         
         readyLock = new ReentrantLock();
         isReady = readyLock.newCondition();
@@ -282,6 +282,8 @@ public class HandleWriteRunner
         catch (InterruptedException interruptedException)
         {
         }
+        if (writeThread.isAlive())
+            Log.err("writeThread.join timeout");
         lastAddedElem = null;
     }
 

@@ -4,37 +4,30 @@
  */
 package de.dimm.vsm.lifecycle;
 
-import de.dimm.vsm.Exceptions.PathResolveException;
 import de.dimm.vsm.Exceptions.PoolReadOnlyException;
 import de.dimm.vsm.Exceptions.RetentionException;
 import de.dimm.vsm.log.Log;
 import de.dimm.vsm.LogicControl;
 import de.dimm.vsm.Main;
-import de.dimm.vsm.Utilities.SizeStr;
 import de.dimm.vsm.WorkerParent;
-import de.dimm.vsm.auth.User;
 import de.dimm.vsm.fsengine.GenericEntityManager;
 import de.dimm.vsm.fsengine.IStoragePoolNubHandler;
-import de.dimm.vsm.fsengine.LazyList;
 import de.dimm.vsm.fsengine.StoragePoolHandler;
-import de.dimm.vsm.fsengine.StoragePoolHandlerFactory;
-import de.dimm.vsm.records.DedupHashBlock;
 import de.dimm.vsm.records.FileSystemElemAttributes;
 import de.dimm.vsm.records.FileSystemElemNode;
 import de.dimm.vsm.records.HashBlock;
 import de.dimm.vsm.records.Retention;
+import de.dimm.vsm.records.RetentionJob;
 import de.dimm.vsm.records.Snapshot;
 import de.dimm.vsm.records.StoragePool;
-import java.io.IOException;
-import java.io.UnsupportedEncodingException;
 import java.sql.SQLException;
-import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.Date;
 import java.util.GregorianCalendar;
-import java.util.HashMap;
 import java.util.List;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 
 
@@ -57,38 +50,14 @@ class RetentionQueryResult
  */
 public class RetentionManager extends WorkerParent
 {
-
     Thread runner;
-    //GenericEntityManager em;
-
-    static final int fIdxCol = 0;
-    static final int fSizeCol = 1;
-    static final int mTimeCol = 2;
-    static final int fnameCol = 3;
-    static final int aIdxCol = 4;
-    static final int aTsCol = 5;
-
-    boolean enabled = false;
-
-    final RetentionQueryResult[] qryResult =
-    {
-        new RetentionQueryResult( Long.class, "fidx"),
-        new RetentionQueryResult( Long.class, "fsize"),
-        new RetentionQueryResult( Long.class, "mtime"),
-        new RetentionQueryResult( String.class, "fname"),
-        new RetentionQueryResult( Long.class, "aidx"),
-        new RetentionQueryResult( Long.class, "ts"),
-    };
-    final String qryFieldStr = "f.idx as fidx, a.fsize as fsize, a.modificationDateMs as mtime, a.name as fname, a.idx as aidx, a.ts as ts";
-
+    List<RetentionEntry> activeRetentions = new ArrayList<>();
+    public static boolean enabled = false;
     IStoragePoolNubHandler nubHandler;
 
     public RetentionManager(IStoragePoolNubHandler nubHandler)
     {
         super("RetentionManager");
-       // em = LogicControl.createEntityManager();
-        //setTaskState(TASKSTATE.PAUSED);
-
         this.nubHandler = nubHandler;
     }
 
@@ -97,21 +66,105 @@ public class RetentionManager extends WorkerParent
     {
         return true;
     }
+    
     @Override
     public boolean isPersistentState()
     {
         return true;
     }
-
-
-
     
+    public boolean isActiveRetention(Retention retention) {
+        for(RetentionEntry entry : activeRetentions) {
+            for (RetentionJob job: entry.getJobs() ) {
+                if (job.getRetention().getIdx() == retention.getIdx())
+                    return true;
+            }
+        }
+        return false;
+    }
+    
+    public boolean hasActiveRetention(StoragePool pool) {
+        for(RetentionEntry entry : activeRetentions) {
+            for (RetentionJob job: entry.getJobs() ) {
+                if (job.getRetention().getPool().getIdx() == pool.getIdx()) {
+                    return true;
+                }
+            }                
+        }
+        return false;
+    }
+    
+    boolean handleRetention(StoragePool storagePool) throws SQLException {
+        // Busy ?
+        if (hasActiveRetention(storagePool)) {
+            return false;
+        }
+        
+        GenericEntityManager em = nubHandler.getUtilEm(storagePool);
+        List<RetentionJob> list = em.createQuery("select T1 from RETENTIONJOB" , RetentionJob.class);
+        
+        // Get Start of last Retenteion
+        Date lastStart = null;
+        for (RetentionJob job : list) {
+            if (lastStart == null || lastStart.before(job.getStart())) {
+                lastStart = job.getStart();
+            }
+            if (!job.isFinished()) {
+                RetentionEntry entry = new RetentionEntry(nubHandler, storagePool, list, this);
+                activeRetentions.add(entry);
+                Main.get_control().getJobManager().addJobEntry(entry);
+                return true;
+            }
+        }        
+        
+        // Start a new Retention only once a day -> TODO: Abhängig von der parametroerten CycleDauer amchen
+        if (lastStart != null && System.currentTimeMillis() - lastStart.getTime() < 86400*1000 ) {
+            return false;
+        }
+        
+        // No unfinished Retention Job found, Delete last Entries and start new cycle 
+        em.check_open_transaction();
+        for (RetentionJob job : list) {
+            em.em_remove(job);
+        }        
+        em.commit_transaction();
+        
+        em.check_open_transaction();
+        List<Retention> retentions = em.createQuery("select T1 from Retention T1 where T1.disabled=0 and T1.pool_idx=" + storagePool.getIdx(), Retention.class);
+        if (retentions.isEmpty()) {
+            return false;
+        }
+        
+        long now = System.currentTimeMillis();
+        for (Retention retention : retentions) {
+            // ONLY HANDLE ROOT NODES
+            if (retention.getParent() != null) {
+                continue;
+            }
+            if (!retention.isInStartWindow(now)) {
+                continue;
+            }            
+            RetentionJob job = new RetentionJob();
+            job.setRetention(retention);
+            em.em_persist(job);
+            retention.getRetentionJobs().addIfRealized(job);
+        }
+        em.commit_transaction();
+        list = em.createQuery("select T1 from RETENTIONJOB" , RetentionJob.class);
+                
+        RetentionEntry entry = new RetentionEntry(nubHandler, storagePool, list, this);
+        activeRetentions.add(entry);
+        Main.get_control().getJobManager().addJobEntry(entry);
+        return true;
+    }
+
+
     @Override
     public void run()
     {      
         is_started = true;
         GregorianCalendar cal = new GregorianCalendar();
-        int last_checked = cal.get(GregorianCalendar.HOUR_OF_DAY);
+        int last_checked = 0; //cal.get(GregorianCalendar.HOUR_OF_DAY);
 
         setStatusTxt("");
         while(!isShutdown())
@@ -148,170 +201,32 @@ public class RetentionManager extends WorkerParent
             for (int i = 0; i < list.size(); i++)
             {
                 StoragePool storagePool = list.get(i);
-
-                try
-                {
-                    handleRetention(storagePool);
+                try {
+                    if (handleRetention(storagePool)){
+                        Log.debug(Main.Txt("Eine neue Retention würde für Pool gestartet:"), storagePool.getName());
+                    }
+                        
                 }
-                catch (PoolReadOnlyException poolReadOnlyException)
-                {
-                    Log.warn("StoragePool ist schreibgeschützt",  storagePool.toString());
-                }
-                catch (Exception exc)
-                {
-                    Log.err("Fehler bei Gültigkeitsberechnug von Pool" , storagePool.toString(), exc);
+                catch (SQLException ex) {
+                    Log.err("Retention konnte nicht gestartet werden", storagePool.getName(), ex);
+                    
                 }
             }
-            setStatusTxt("");
+            setStatusTxt("");            
         }
         finished = true;
     }
+   
+    
 
-    private boolean isStringArgType( Retention retention )
+    private static boolean isStringArgType( Retention retention )
     {
         return retention.getArgType().equals(Retention.ARG_NAME);
     }
 
-    boolean abortCleanDedups = false;
-    public void abortDeleteFreeBlocks()
-    {
-        abortCleanDedups = true;
-    }
+    
 
-    long handleCleanDedups( StoragePoolHandler handler) throws SQLException, IOException, PathResolveException, UnsupportedEncodingException, PoolReadOnlyException
-    {
-        abortCleanDedups = false;
-        GenericEntityManager em = nubHandler.getUtilEm(handler.getPool());
-
-        setStatusTxt("Berechne freien DedupSpeicher");
-
-        /*
-         * rs = st.executeQuery("select count(*), sum(bigint(DEDUPHASHBLOCK.BLOCKLEN)) from DEDUPHASHBLOCK"
-                        + " LEFT OUTER JOIN XANODE  ON DEDUPHASHBLOCK.idx = XANODE.dedupblock_idx"
-                        + " left outer join hashblock on DEDUPHASHBLOCK.idx = hashblock.dedupblock_idx"
-                        + " where XANODE.idx is null and hashblock.idx is null
-         */
-
-        // SEARCH FÜR DEDUP NODES NOT NEEDED AS HASHBLOCK OR AS XANODE
-        List<Object[]> oList = em.createNativeQuery("select DEDUPHASHBLOCK.IDX from DEDUPHASHBLOCK LEFT OUTER JOIN XANODE ON DEDUPHASHBLOCK.idx = XANODE.dedupblock_idx "
-                + "left outer join hashblock on DEDUPHASHBLOCK.idx = hashblock.dedupblock_idx "
-                + "where XANODE.idx is null and hashblock.idx is null", 0);
-        
-
-        long cnt = 0;
-        if (!oList.isEmpty())
-        {
-            setStatusTxt("Entferne freien DedupSpeicher");
-
-            
-            long size = 0;
-            for (int i = 0; i < oList.size(); i++)
-            {
-                setStatusTxt(Main.Txt("Entferne freien DedupSpeicher")  + "(Block " + i + "/" + oList.size() + ")" );
-                         
-                if (abortCleanDedups)
-                    break;
-
-                Object[] oarr = oList.get(i);
-                if (oarr.length == 1)
-                {
-                    String idxStr = oarr[0].toString();
-
-                    long l = Long.parseLong(idxStr);
-                    if (l > 0)
-                    {
-                        DedupHashBlock hb = em.em_find(DedupHashBlock.class, l);
-                        if (hb != null)
-                        {
-                            handler.removeDedupBlock( hb, null );                           
-                            cnt++;
-                            size += hb.getBlockLen();
-
-                            handler.check_commit_transaction();
-                        }
-                    }
-                }
-            }
-            Log.debug("Enfernte DedupBlöcke", Long.toString(cnt));
-            Log.debug("Freigewordener DedupSpeicher", SizeStr.format(size));
-        }
-        if (abortCleanDedups)
-            setStatusTxt("Löschen wurde abgebrochen");
-        else
-            setStatusTxt("");
-
-        return cnt;
-    }
-
-
-    public RetentionResultList createRetentionResult( Retention retention,StoragePool pool, long startIdx, int qryCount, long absTs ) throws IOException, SQLException
-    {        
-
-        GenericEntityManager em = nubHandler.getUtilEm(pool);
-
-        // THE FIELDS MUST BE FIXED TO THE RESULT!!!!
-
-        // SELECT ALL DIRECT LINKED ATTRIBUTE RESULTS
-        String select_str = "select " + qryFieldStr + " from FileSystemElemNode f, FileSystemElemAttributes a "
-                + "where f.idx = a.file_idx and f.pool_idx=" + pool.getIdx();
-                
-        //StringBuilder where = new StringBuilder();
-
-        StringBuilder retention_where = new StringBuilder();
-        buildRetentionWhereString(em, retention, retention_where, absTs);
-
-        if (retention_where.length() == 0)
-            throw new IOException("Invalid Retention query" );
-
-        // ADD RETENTION QUERY
-        select_str += " and " + retention_where.toString();
-
-        // ORDER OLDEST FIRST
-        select_str += " order by f.idx,a.idx asc";
-       
-
-//        // DETECT FIRST AIDX TO SPPED UP QUERY
-//        String min_aidx_str = "select a.idx from FileSystemElemNode f, FileSystemElemAttributes a where f.idx = a.file_idx and f.pool_idx=" + pool.getIdx();
-//        min_aidx_str += " and " + retention_where.toString();
-//        min_aidx_str += " and a.idx>" + startIdx + " order by a.idx asc";
-//        List<Object[]> aidxres = em.createNativeQuery(min_aidx_str,1);
-//        if (aidxres.isEmpty())
-//        {
-//            RetentionResultList rl = new RetentionResultList(retention, new ArrayList<Object[]>());
-//            return rl;
-//        }
-//        Object[] object = (Object[]) aidxres.get(0);
-//        long first_aidx = (Long) object[0];
-//
-//         // ADD PARTIAL QUERY RESULTSTRING
-//        select_str += " and a.idx between " + first_aidx + " and " + first_aidx + qryCount + " order by a.idx asc";
-
-        
-
-        List<Object[]> nres = em.createNativeQuery(select_str, 0/*, qryCount*/);
-
-
-//
-//        // SELECT ALL HISTORY LINKED ATTRIBUTE RESULTS
-//        select_str = "select " + qryFieldStr + " from FileSystemElemNode f, FileSystemElemAttributes a where f.idx = a.file_idx and f.pool_idx=" + pool.getIdx();
-//
-//
-//        // ADD RETENTION QUERY
-//        select_str += where.toString();
-//
-//        // ADD PARTIAL QUERY RESULTSTRING
-//        select_str += " and a.idx>" + startIdx + " order by a.idx asc";
-//
-//        List<Object[]> nres2 = em.createNativeQuery(select_str, qryCount);
-//
-//        nres.addAll(nres2);
-
-        RetentionResultList rl = new RetentionResultList(retention, nres);
-                     
-        return rl;
-    }
-
-    private void buildRetentionWhereString(  GenericEntityManager em, Retention retention, StringBuilder sb, long absTs )
+    static void buildRetentionWhereString(  GenericEntityManager em, Retention retention, StringBuilder sb, long absTs )
     {        
 
         if (sb.length() > 0)
@@ -388,446 +303,7 @@ public class RetentionManager extends WorkerParent
     }
 
 
-    public RetentionResult handleRetentionList( StoragePoolHandler sp_handler, RetentionResultList retentionList ) throws RetentionException, SQLException, PoolReadOnlyException, IOException, PathResolveException
-    {
-        long sum = 0;
-        int cnt = 0;
-        StoragePool pool = sp_handler.getPool();
-        SimpleDateFormat sdf = new SimpleDateFormat("dd.MM.YYYY HH:mm:ss");
-
-        List res = retentionList.list;
-        Retention retention = retentionList.retention;
-        StoragePool targetPool = null;
-        GenericEntityManager em = sp_handler.getEm();
-
-
-        // LOAD TARGET POOL IF NECESSARY FOR MOVE OP
-        if (retention.getFollowAction().equals(Retention.AC_MOVE))
-        {
-            String args = retention.getFollowActionParams();
-            if (args.charAt(0) == 'P')
-            {
-                long tpool_idx = Integer.parseInt(args.substring(1));
-                targetPool = em.em_find(StoragePool.class, tpool_idx);
-                if (targetPool == null)
-                    throw new RetentionException("Missing TargetPool for Move Retention");
-
-                if (targetPool.getIdx() == pool.getIdx())
-                    throw new RetentionException("Move failed, Target Node == Source Node");
-            }
-        }
-
-
-        // RES IS SORTED a.idx ASC
-        /*
-        F1 10:00
-        F1 11:00
-        F1 12:00
-        F2 10:00
-        ...
-        * */
-        
-        
-        long lastFidx = -1;
-        for (int i = 0; i < res.size(); i++)
-        {
-            Object[] object = (Object[]) res.get(i);
-            long fidx = (Long) object[fIdxCol];
-
-            // THIS FSEN WAS HANDLES ALREADY
-            // SKIP TO NEXT NODE
-            if (fidx == lastFidx)
-                continue;
-                        
-            long fsize = (Long) object[fSizeCol];
-            long mtime = (Long) object[mTimeCol];
-            String fname = (String) object[fnameCol];
-            long aidx = (Long) object[aIdxCol];
-            long ts = (Long) object[aTsCol];
-
-
-            cnt++;
-            lastFidx = fidx;
-
-            // LOAD NODE FROM DB
-            FileSystemElemNode fse = sp_handler.resolve_fse_node_from_db(fidx);
-            if (fse == null)
-            {
-                Log.debug("Node nicht gefunden",  fidx + " " + fname);
-                continue;
-//                throw new RetentionException("Node not found: " + fidx + " " + fname);
-            }
-            if (fse.getAttributes() == null)
-            {
-                Log.warn("Node ohne Attribute", fidx + " " + fname);
-                throw new RetentionException("Attributes not found: " + fidx + " " + fname);
-            }
-            if (!fse.isFile())
-            {
-                // TODO RETENTION OF DIRECTORIES, LINKS ETC.
-                continue;
-            }
-            
-            // DO NOT DELETE ARTIFICIAL ROOT NODE
-            if (fse.getIdx() == sp_handler.getRootDir().getIdx())
-                continue;
-
-            // NOW CHECK, WHICH BLOCKS OF THIS NODE WE CAN REMOVE
-            // BUILD LIST OF ALL ATTRS TO RETENTION
-            HashMap<Long,Long> retentionAttrMap = new HashMap<Long,Long>();
-            retentionAttrMap.put(aidx, aidx);
-
-            for (int j = i + 1; j < res.size(); j++)
-            {
-                Object[] nextObjects = (Object[]) res.get(j);
-                long nextFidx = (Long) nextObjects[fIdxCol];
-                if (nextFidx != fidx)
-                    break;
-
-                Long lAidx = (Long) nextObjects[aIdxCol];
-                retentionAttrMap.put(lAidx, lAidx);
-            }
-
-            // get History
-            List<FileSystemElemAttributes> history = fse.getHistory().getList(em);
-            // Sort Newest first
-            java.util.Collections.sort(history, new Comparator<FileSystemElemAttributes>()
-            {
-                @Override
-                public int compare( FileSystemElemAttributes o1, FileSystemElemAttributes o2 )
-                {
-                    if (o1.getTs() != o2.getTs())
-                    {
-                        return (o2.getTs() - o2.getTs() > 0) ? 1 : -1;
-                    }
-
-                    return (o2.getIdx() - o1.getIdx() > 0) ? 1 : -1;
-                }
-            });
-                // BUILD LIST OF ALL ATTRIBUTES TO KEEP
-            List<FileSystemElemAttributes> keepList = new ArrayList<>();
-            List<FileSystemElemAttributes> removeList = new ArrayList<>();
-
-
-            // REMEMBER THE NEWEST ATTRIBUTE-ENTRY, THIS IS SET WITH fse.setAttribute()
-            FileSystemElemAttributes newActualAttribute = null;
-
-            // ADD ALL HISTORY ATTRIBUTE-ENTRIES NOT IN RETENTIONLIST TO KEEP LIST
-            FileSystemElemAttributes actualAttrribute = fse.getAttributes();
-            FileSystemElemAttributes actualAttrribute2 = history.get(0);
-
-            if (actualAttrribute.getIdx() != actualAttrribute2.getIdx())
-            {
-                throw new RetentionException("Attributes direction mismatch: " + fidx + " " + fname);
-            }
-
-            // Jetzt suchen wir Attribute in der History, die NICHT abgelaufen sind
-            // Wenn gefunden, dann newActualAttribute setzen und in keepList eintragen
-            for (int j = 0; j < history.size(); j++)
-            {
-                FileSystemElemAttributes fsea = history.get(j);
-                if (!retentionAttrMap.containsKey(fsea.getIdx()))
-                {
-                    keepList.add(fsea);
-                    // FIND THE NEWEST ATTRIBUTE
-                    if (newActualAttribute == null || newActualAttribute.getTs() < fsea.getTs())
-                        newActualAttribute = fsea;
-                }                
-                else
-                {
-                    // Das ist ein abgelaufenes Attribut -> in removeList
-                    removeList.add(fsea);
-                }
-            }
-
-
-
-            // NOW CHECK; IF WE CAN DELETE A FILE COMPLETELY
-            // Mode Backup: Wir können nur löschen, wenn kein attribut aus History in keepList ist UND Datei deleted ist            
-            boolean deleteEntry = false;
-            if (retention.getMode().equals( Retention.MD_BACKUP ))
-            {
-                // IN BACKUP MODE KEEP LIST HAS TO BE EMPTY *AND* LAST ATTRIBUTE HAS TO BE DELETED=TRUE
-                if (keepList.isEmpty())
-                {
-                    if (actualAttrribute.isDeleted())
-                        deleteEntry = true;
-                    else
-                    {
-                        // OTHERWISE WE HAVE TO KEEP NEWEST ENTRY SO THAT THE FILE CAN EXIST IN FS
-                        keepList.add(actualAttrribute);
-
-                        // newActualAttribute mitführen
-                        if (newActualAttribute == null || newActualAttribute.getTs() < actualAttrribute.getTs())
-                            newActualAttribute = actualAttrribute;
-
-                    }
-                }
-            }
-            else if(retention.getMode().equals(Retention.MD_ARCHIVE))
-            {
-                // IN ARCHIVAL MODE DATA IS REMOVED AFTER RETENTION TIME
-                if (keepList.isEmpty())
-                {
-                    deleteEntry = true;
-                }
-            }
-            else
-            {
-                throw new RetentionException("Invalid Retention mode " + fidx + " " + fname);
-            }
-            
-            // NOTHING LEFT TO KEEP FROM THIS NODE?
-            if ( deleteEntry )
-            {
-                sum += fsize;
-                // HANDLE FULL ENTRY
-                if (retention.getFollowAction().equals(Retention.AC_DELETE))
-                {
-                    Log.debug("Node wird gelöscht", fidx + ": " + fname + " size:" + fsize + " TS:" +  sdf.format(new Date(ts)) + " mtime:" + sdf.format(new Date(mtime)) );
-                    if (!retention.isTestmode())
-                    {
-                        delete_fse_node(fse, sp_handler);
-                    }
-                }
-                else if(retention.getFollowAction().equals(Retention.AC_MOVE))
-                {
-                    Log.debug("Node wird verschoben", fidx + ": " + fname + " size:" + fsize + " TS:" +  sdf.format(new Date(ts)) + " mtime:" + sdf.format(new Date(mtime)) + " -> " + targetPool.toString() );
-                    if (!retention.isTestmode())
-                    {
-                        String args = retention.getFollowActionParams();
-                        if (args.charAt(0) == 'P')
-                        {                            
-                            move_fse_node( fse, sp_handler, targetPool );
-                        }
-                    }
-                }
-                continue;
-            }
-            
-            // ELSE
-            // Wir haben nicht gelöscht, wollen aber die Attribute entfernen, die in removeList stehen
-
-            // DELETE OBSOLETE ATTRIBUTES WHICH ARE NOT IN keepList
-            for (int j = 0; j < removeList.size(); j++)
-            {
-                FileSystemElemAttributes fileSystemElemAttributes = removeList.get(j);
-
-                // Dabei die keepList berücksichtigen
-                boolean skipDelete = false;
-                for( int k = 0; k < keepList.size(); k++)
-                {
-                    if (keepList.get(k).getIdx() == fileSystemElemAttributes.getIdx())
-                        skipDelete = true;
-                }
-
-                if (skipDelete)
-                    continue;
-                
-                // Attribut aus Liste und DB entfernen
-                if (fse.getHistory().removeIfRealized( fileSystemElemAttributes))
-                {
-                    Log.debug("Attribut wird gelöscht", aidx + ": " + fname + " size:" + fileSystemElemAttributes.getFsize() + " TS:" +  sdf.format(new Date(ts)) + " mtime:" + sdf.format(new Date(fileSystemElemAttributes.getModificationDateMs())) );
-                    sp_handler.em_remove(fileSystemElemAttributes);
-                }                    
-            }
-
-            // NOW GET THE LIST OF BLOCKS WHICH CAN BE DELETED
-            List<HashBlock> retentionHashBlocks = createRetentionHashBlockList( em, fse, keepList );
-            // RESET LOADED HISTORY LIST
-            if (fse.getHistory() instanceof LazyList)
-            {
-                ((LazyList)fse.getHistory()).unRealize();
-            }
-            // RESET LOADED HISTORY LIST
-            if (fse.getHashBlocks() instanceof LazyList)
-            {
-                ((LazyList)fse.getHashBlocks()).unRealize();
-            }
-            
-            if (!retentionHashBlocks.isEmpty())
-            {
-                // TODO: Zusammenfassen von zusammenhängenden Blocklisten und gemeinsam löschen: delete from hashblock where fnode_idx= and ts=
-                // dabei die Remove-List berücksichtigen
-                for (int j = 0; j < retentionHashBlocks.size(); j++)
-                {
-                    HashBlock hashBlock = retentionHashBlocks.get(j);
-                    sum += hashBlock.getBlockLen();
-
-                    // AND DELETE THEM
-                    if (retention.getFollowAction().equals(Retention.AC_DELETE))
-                    {
-                        Log.debug("HashBlock wird gelöscht", hashBlock.getIdx() + ": " + fname + " pos:" + hashBlock.getBlockOffset() +  " TS:" + sdf.format(hashBlock.getTs()) );
-                        if (!retention.isTestmode())
-                        {
-                            sp_handler.em_remove(hashBlock);
-                            // NO BLOCK DELETION HERE, THIS IS DONE AFTERWARDS, SO RETENTION AND BLOCK-REMOVAL CANNOT COLLIDE
-                            //sp_handler.removeHashBlock( hashBlock );
-                            if (!fse.getHashBlocks().removeIfRealized(hashBlock))
-                                throw new RetentionException("Cannot remove deleted hashblock from Node");
-                        }
-                    }
-                    else if(retention.getFollowAction().equals(Retention.AC_MOVE))
-                    {
-                        Log.debug("HashBlock wird verschoben", hashBlock.getIdx() + ": " + fname + " pos:" + hashBlock.getBlockOffset() +  " TS:" + sdf.format(hashBlock.getTs())  + " -> " + targetPool.toString() );
-                        if (!retention.isTestmode())
-                        {
-                            String args = retention.getFollowActionParams();
-                            if (args.charAt(0) == 'P')
-                            {
-                                sp_handler.moveHashBlock( hashBlock, targetPool );
-                            }
-                        }
-                    }
-                    sp_handler.check_commit_transaction();                    
-                }
-            }            
-            
-            // UPDATE CHANGED ATTRIBUTES
-            if (newActualAttribute != null && fse.getAttributes().getIdx() != newActualAttribute.getIdx())
-            {
-                fse.setAttributes(newActualAttribute);
-                sp_handler.em_merge(fse);
-            }
-        }
-
-        // FLUSH CHANGES
-        sp_handler.commit_transaction();
-        
-        RetentionResult ret = new RetentionResult(pool.getIdx(), new Date(), cnt, sum);
-        return ret;
-    }
-
-    public long handleDeleteFreeBlocks( StoragePool pool ) throws Exception
-    {
-        User user = User.createSystemInternal();
-        StoragePoolHandler sp_handler = null;
-
-        try
-        {
-
-            sp_handler = StoragePoolHandlerFactory.createStoragePoolHandler(pool, user, /*rdonly*/ false);
-            if (pool.getStorageNodes().isEmpty(sp_handler.getEm()))
-            {
-                throw new RetentionException("No Storage for pool defined");
-            }
-
-            sp_handler.check_open_transaction();
-
-            return handleCleanDedups(sp_handler);
-        }
-        catch (SQLException exc)
-        {
-            sp_handler.rollback_transaction();
-            throw exc;
-        }
-        catch (Exception exc)
-        {
-             Log.err("Abbruch beim Freigeben von DedupBlöcken", exc);
-             throw exc;
-        }
-        finally
-        {
-            if (sp_handler != null)
-            {
-                sp_handler.commit_transaction();
-                sp_handler.close_transaction();
-                sp_handler.close_entitymanager();
-            }
-        }
-    }
-    
-    public RetentionResult handleRetention( StoragePool pool ) throws RetentionException, IOException, SQLException, PoolReadOnlyException, PathResolveException
-    {
-        long startIdx = 0;
-        // Max Objects
-        int qryCount = 10000;
-
-        User user = User.createSystemInternal();
-
-        // THIS IS THE TIMESTAMP FOR ALL RELATIVE TIMESTAMPS
-        long absTs = System.currentTimeMillis();
-
-        GenericEntityManager em = nubHandler.getUtilEm(pool);
-
-        StoragePoolHandler sp_handler = null;
-
-        RetentionResult ret = null;
-
-        // Liste aller Retentions ermitteln
-        List<Retention> retentions = em.createQuery("select T1 from Retention T1 where T1.disabled=0 and T1.pool_idx=" + pool.getIdx(), Retention.class);
-        if (retentions.isEmpty())
-            return null;
-
-        // Liste Aller Snapshots ermitteln
-        List<Snapshot> snapshots = em.createQuery("select T1 from Snapshot T1 where T1.pool_idx=" + pool.getIdx() + " order by creation desc", Snapshot.class);
-        
-        try
-        {
-            // Schreibenden PoolHandler erstellen
-            sp_handler = StoragePoolHandlerFactory.createStoragePoolHandler(pool, user, /*rdonly*/ false);
-            if (pool.getStorageNodes().isEmpty(sp_handler.getEm()))
-            {
-                throw new RetentionException("No Storage for pool defined");
-            }
-
-            // Leeres Ergebnis
-            ret = new RetentionResult(pool.getIdx(), new Date(), 0, 0);
-
-            for (int i = 0; i < retentions.size(); i++)
-            {
-                Retention retention = retentions.get(i);
-
-                // ONLY HANDLE ROOT NODES
-                if (retention.getParent() != null)
-                {
-                    // CHILDREN ARE HANDLED IN buildRetentionWhereString
-                    continue;
-                }
-
-                // CREATE A LIST OF ALL ENTRIES TO BE REMOVED BASED ON RETENTION PARAMS
-                Log.debug("Lese createRetentionResult für", " " + pool.getName() + " " + retention.toString());
-                RetentionResultList retentionResult = createRetentionResult(retention, pool, startIdx, qryCount, absTs);
-                Log.debug("Size createRetentionResult für", " " + pool.getName() + " " + retention.toString() + " Cnt:" +retentionResult.list.size());
-
-                if (retentionResult.list.isEmpty())
-                {
-                    break;
-                }
-
-                // CREATE SUBLIST OF RETENTION ENTRIES WHICH CAN BE REMOVED REGARDING SNAPSHOTS
-                Log.debug("Lese createSnapshotRetentionList für", " " + pool.getName() + " " + retention.toString());
-                RetentionResultList snapshotRetentionResult = createSnapshotRetentionList(snapshots, retentionResult, pool);
-                Log.debug("Size createSnapshotRetentionList für", " " + pool.getName() + " " + retention.toString() + " Cnt:" +snapshotRetentionResult.list.size());
-
-
-                // DO RETENTION WITH THE FINAL LIST
-                RetentionResult localret = handleRetentionList(sp_handler, snapshotRetentionResult);
-                
-                Log.debug("Result:", localret.toString() );
-                ret.add(localret);
-                    
-            }
-
-            // NOW REMOVE UNUSED DEDUPBLOCKS
-            // TODO, THIS SHOULD BE HANDLED FROM OWN SCHEDULER -> SPACE USED x%. AGE or SIMPLY IMMEDIATELY
-            // handleCleanDedups(sp_handler);
-        }
-        finally
-        {
-            if (sp_handler != null)
-            {
-                sp_handler.commit_transaction();
-                sp_handler.close_transaction();
-                sp_handler.close_entitymanager();
-            }
-        }
-        return ret;
-    }
-
-
-
-    private void delete_fse_node( FileSystemElemNode fse, StoragePoolHandler sp_handler ) throws RetentionException, PoolReadOnlyException
+    static void delete_fse_node( FileSystemElemNode fse, StoragePoolHandler sp_handler ) throws RetentionException, PoolReadOnlyException
     {
         boolean remove_parent = false;
         GenericEntityManager em = sp_handler.getEm();
@@ -874,7 +350,7 @@ public class RetentionManager extends WorkerParent
         }
     }
 
-    private void move_fse_node( FileSystemElemNode fse, StoragePoolHandler sp_handler, StoragePool targetPool )
+    static void move_fse_node( FileSystemElemNode fse, StoragePoolHandler sp_handler, StoragePool targetPool )
     {
         throw new UnsupportedOperationException("Not yet implemented");
     }
@@ -893,8 +369,8 @@ public class RetentionManager extends WorkerParent
         {
             // GET MTIME OF THIS ENTRY
             Object[] objects = res.get(i);            
-            long mtime = (Long) objects[mTimeCol];
-            long ts = (Long) objects[aTsCol];
+            long mtime = (Long) objects[RetentionEntry.mTimeCol];
+            long ts = (Long) objects[RetentionEntry.aTsCol];
             
             boolean protectedBySnapshot = true;
 
@@ -924,7 +400,7 @@ public class RetentionManager extends WorkerParent
         return snapshotRetentionResult;
     }
 
-    private static int exist_snap_younger( List<Snapshot> snapshots, long ts )
+    static int exist_snap_younger( List<Snapshot> snapshots, long ts )
     {
         int foundIdx = -1;
 
@@ -945,7 +421,7 @@ public class RetentionManager extends WorkerParent
         return foundIdx;
     }
 
-    private static boolean exists_younger_entry_between_snap_and_us( Snapshot snapshot, List<Object[]> res, int idx, long TS )
+    static boolean exists_younger_entry_between_snap_and_us( Snapshot snapshot, List<Object[]> res, int idx, long TS )
     {
         // CHECK IF THERE IS AN ENTRY YOUNGER THAN US AND OLDER THAN SNAPSHOT
         // RES IST SORTED ORDER BY AIDX ASCENDING, YOUNGER ENTRIES HAVE BIGGER INDICES
@@ -955,7 +431,7 @@ public class RetentionManager extends WorkerParent
         for (int i = idx + 1; i < res.size(); i++)
         {
             Object[] objects = res.get(i);
-            long testFidx = (Long) objects[fIdxCol];
+            long testFidx = (Long) objects[RetentionEntry.fIdxCol];
             
             
             // REACHED NEXT FILENODE?
@@ -963,7 +439,7 @@ public class RetentionManager extends WorkerParent
                 break;
 
             // WE STOP AT THE FIRST OCCURENCE OF AN ENTRY YOUNGER THAN US BUT OLDER THAN SNAPSHOT
-            long testTs = (Long) objects[aTsCol];
+            long testTs = (Long) objects[RetentionEntry.aTsCol];
             if (testTs > TS && testTs < snapshot.getCreation().getTime())
             {
                 ret = true;
@@ -974,7 +450,7 @@ public class RetentionManager extends WorkerParent
         return ret;
     }
 
-    static private List<HashBlock> buildRemoveHashblockList( FileSystemElemNode node, List<HashBlock> hash_block_list, List<FileSystemElemAttributes> keepList ) throws RetentionException
+    static List<HashBlock> buildRemoveHashblockList( FileSystemElemNode node, List<HashBlock> hash_block_list, List<FileSystemElemAttributes> keepList ) throws RetentionException
     {
         List<HashBlock> ret = new ArrayList<HashBlock>();
         ret.addAll(hash_block_list);
@@ -1007,15 +483,7 @@ public class RetentionManager extends WorkerParent
                 HashBlock hashBlock = hash_block_list.get(h);
                 if (lastHashBlock == null || (lastHashBlock.getBlockOffset() != hashBlock.getBlockOffset()))
                 {
-//                    // SINGULAR LAST BLOCK?
-//                    if (h + 1 == hash_block_list.size())
-//                    {
-//                        // THIS BLOCK WILL NOT BE REMOVED
-//                        keepHashBlockList.add(hashBlock);
-//
-//                        // REMOVE FROM GLOBAL LIST, WE WANT TO RETURN A LIST OF UNUSED BLOCKS
-//                        ret.remove(hashBlock);
-//                    }
+
                     // SCROLL THROUGH ALL BLOCKS OF ONE POSITION, NEWEST IS FIRST
                     // Suche den ersten Block dieser Position, das ist der neueste, den wollen wir behalten
                     for (int hl = h; hl < hash_block_list.size(); hl++)
@@ -1027,6 +495,10 @@ public class RetentionManager extends WorkerParent
                         }
                         // IS THIS BLOCK TO YOUNG ?
                         if (lhashBlock.getTs() > ts)
+                            continue; // SKIP
+                        
+                        // IS THIS BLOCK Outside of this Node ?
+                        if (lhashBlock.getBlockOffset() +  lhashBlock.getBlockLen() > fsea.getFsize())
                             continue; // SKIP
 
                         // ADD FIRST BLOCK WITH CORRECT POSITION, THIS WILL BE THE YOUNGEST BLOCK OLDER OR EQUAL TS
@@ -1054,7 +526,7 @@ public class RetentionManager extends WorkerParent
         return ret;
     }
 
-    private static void checkBlocksForNodeComplete( FileSystemElemNode node, FileSystemElemAttributes fsea, List<HashBlock> keepHashBlockList ) throws RetentionException
+    static void checkBlocksForNodeComplete( FileSystemElemNode node, FileSystemElemAttributes fsea, List<HashBlock> keepHashBlockList ) throws RetentionException
     {
         long size = 0;
         for (int i = 0; i < keepHashBlockList.size(); i++)
@@ -1081,7 +553,7 @@ public class RetentionManager extends WorkerParent
         }
     }
 
-    private static List<HashBlock> createRetentionHashBlockList( GenericEntityManager em, FileSystemElemNode fse, List<FileSystemElemAttributes> keepList ) throws RetentionException
+    static List<HashBlock> createRetentionHashBlockList( GenericEntityManager em, FileSystemElemNode fse, List<FileSystemElemAttributes> keepList ) throws RetentionException
     {
         // READ HASHBLOCKS
         List<HashBlock> hash_block_list = fse.getHashBlocks().getList(em);
@@ -1089,6 +561,22 @@ public class RetentionManager extends WorkerParent
         List<HashBlock> remove_hash_block_list = buildRemoveHashblockList( fse, hash_block_list, keepList );
 
         return remove_hash_block_list;
+    }
+
+    static boolean hasAttribHistory( GenericEntityManager em, long fidx ) throws SQLException {
+        
+        String select_str = "select file_idx from FileSystemElemAttributes a where a.file_idx=" + fidx;        
+        int qryCount = 2;
+        List<Object[]> nres = em.createNativeQuery( select_str, qryCount);
+        return nres.size() > 1;
+    }
+
+    public long handleDeleteFreeBlocks( StoragePool pool ) {
+        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+    }
+
+    public void abortDeleteFreeBlocks() {
+        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
     }
 
 

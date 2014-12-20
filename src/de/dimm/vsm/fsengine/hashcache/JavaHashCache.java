@@ -60,6 +60,7 @@ public class JavaHashCache extends HashCache
             long maxMem = Runtime.getRuntime().maxMemory();
             long freeMem = Runtime.getRuntime().freeMemory();
             long totalMem = Runtime.getRuntime().totalMemory();
+            Log.info("JavaCache wird geladen für Pool ", this.pool.getName() );
             Log.info("Speicher vor Cache", "Max: " + SizeStr.format(maxMem) + " Total: " + SizeStr.format(totalMem) + " Free: " + SizeStr.format(freeMem)  );
 
             ResultSet rs = st.executeQuery("select idx, hashvalue  from DedupHashBlock");

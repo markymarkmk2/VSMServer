@@ -13,6 +13,7 @@ import de.dimm.vsm.log.Log;
 import de.dimm.vsm.log.LogManager;
 import de.dimm.vsm.backup.Backup;
 import de.dimm.vsm.fsengine.JDBCEntityManager;
+import de.dimm.vsm.lifecycle.RetentionManager;
 import de.dimm.vsm.mail.NotificationEntry;
 import de.dimm.vsm.txtscan.TxtScan;
 import java.io.BufferedReader;
@@ -45,7 +46,7 @@ public class Main
 {
 
     static String source_str = "trunk";
-    static String version_str = "1.7.7";
+    static String version_str = "1.7.8";
         
     public static int writeThreads = 1;
     public static int maxOpenFiles = 1024;
@@ -428,7 +429,12 @@ public class Main
             if (string.equals("-verbose-DB") )
             {
                 verboseDB = true;
-            }     
+            }    
+            if (string.equals("-retention") )
+            {
+                RetentionManager.enabled = true;
+            }    
+            
             
             
         }
@@ -746,6 +752,7 @@ public class Main
 
 
         setSystemPropPref( "derby.storage.pageSize", "4096" );
+        setSystemPropPref( "derby.locks.deadlockTimeout","240"); // 4 Min, default is 60s -> too short on a busy system
         setSystemPropPref( "derby.locks.deadlockTrace","true");
         setSystemPropPref( "derby.language.disableIndexStatsUpdate","true");
         //setSystemPropPref( "derby.storage.indexStats.auto","false");

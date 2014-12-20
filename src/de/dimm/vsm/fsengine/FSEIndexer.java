@@ -186,6 +186,7 @@ public class FSEIndexer
   QueryParser qParser;
 
 
+  
 
 
     public FSEIndexer( String path)
@@ -673,24 +674,24 @@ public class FSEIndexer
         }
         return sb_where.toString();
     }
-
-    public List<FileSystemElemNode> searchNodes(StoragePoolHandler sp, String qry, int maxCnt) throws SQLException
+    // Nur für Test
+    /*public List<FileSystemElemNode> searchNodes(StoragePoolHandler sp, String qry, int maxCnt) throws SQLException
     {
         return searchNodes(sp, qry, null, maxCnt);
-    }
+    }*//*
     public List<FileSystemElemNode> searchNodes(StoragePoolHandler sp, ArrayList<SearchEntry> slist, int maxCnt) throws SQLException
     {
         return searchNodes(sp, slist, null, maxCnt);
-    }
-    public List<FileSystemElemNode> searchNodes(StoragePoolHandler sp, ArrayList<SearchEntry> slist, ArchiveJob job, int maxCnt) throws SQLException
+    }*/
+    public List<IndexResult> searchNodes(StoragePoolHandler sp, ArrayList<SearchEntry> slist, ArchiveJob job, int maxCnt) throws SQLException
     {
         String qry = buildLuceneQry( slist );
         return searchNodes(sp, qry, job, maxCnt);
     }
 
-    public List<FileSystemElemNode> searchNodes(StoragePoolHandler sp, String qry, ArchiveJob job, int maxCnt) throws SQLException
+    List<IndexResult> searchNodes(StoragePoolHandler sp, String qry, ArchiveJob job, int maxCnt) throws SQLException
     {
-        List<FileSystemElemNode> ret = new ArrayList<FileSystemElemNode>();
+        List<IndexResult> ret = new ArrayList<>();
         
         try
         {
@@ -719,8 +720,7 @@ public class FSEIndexer
                 filter = bf;
             }
 
-            Sort sort = new Sort( new SortField(f_modificationDateMs.name(), SortField.STRING_VAL, true));
-
+            //Sort sort = new Sort( new SortField(f_modificationDateMs.name(), SortField.STRING_VAL, true));
             //index.searchDocument(q, null, maxCnt, Sort.INDEXORDER);
 
             List<Document> l = indexImpl.searchDocument(q, filter, maxCnt, Sort.INDEXORDER);
@@ -733,7 +733,19 @@ public class FSEIndexer
                 FileSystemElemNode node = sp.resolve_fse_node_from_db(nodeIdx);
                 if (node != null)
                 {
-                    ret.add(node);
+                    // Set found attribute (ts vegleichen)
+                    long ts = IndexImpl.doc_get_hex_long(document, f_ts.name() );
+                    if (ts > 0) {
+                        LazyList<FileSystemElemAttributes> attrs = node.getHistory();
+                        attrs.realize(sp.getEm());
+                        for (FileSystemElemAttributes attr : attrs) {
+                            if (attr.getTs() == ts) {
+                                node.setAttributes(attr);
+                                break;
+                            }
+                        }
+                    }
+                    ret.add(new IndexResult(node, document));
                 }
             }
             return ret;

@@ -26,13 +26,13 @@ public abstract class HashCache
 
     public static HashCache createCache( JDBCEntityManager em, StoragePoolNub nub, StoragePool pool )
     {
-        if (Main.get_bool_prop(GeneralPreferences.USE_H2_CACHE, false))
+        if (Main.get_bool_prop(GeneralPreferences.USE_H2_CACHE, Main.get_bool_prop(GeneralPreferences.USE_H2_CACHE + "_" + nub.getIdx(), false)))
             return new H2HashCache(nub, pool);
-        else if(Main.get_bool_prop(GeneralPreferences.USE_NO_CACHE, false))
+        else if(Main.get_bool_prop(GeneralPreferences.USE_NO_CACHE, Main.get_bool_prop(GeneralPreferences.USE_NO_CACHE + "_" + nub.getIdx(), false)))
             return new DBHashCache(em, pool);
-        else if(Main.get_bool_prop(GeneralPreferences.USE_LAZY_CACHE, false))
+        else if(Main.get_bool_prop(GeneralPreferences.USE_LAZY_CACHE, Main.get_bool_prop(GeneralPreferences.USE_LAZY_CACHE + "_" + nub.getIdx(), false)))
             return new LazyJavaHashCache(em, pool);
-        else if(Main.get_bool_prop(GeneralPreferences.USE_REDIS_CACHE, false))
+        else if(Main.get_bool_prop(GeneralPreferences.USE_REDIS_CACHE, Main.get_bool_prop(GeneralPreferences.USE_REDIS_CACHE + "_" + nub.getIdx(), false)))
             return new RedisHashCache(em, pool, nub);
         else
             return new JavaHashCache(pool);

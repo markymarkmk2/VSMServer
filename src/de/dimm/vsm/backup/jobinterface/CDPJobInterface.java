@@ -194,6 +194,19 @@ public class CDPJobInterface implements JobInterface
                 }
             }
         }
+        
+        if (actualContext != null) {
+            // Fehelr im Ablauf!
+            if (actualContext.getJobState() == JOBSTATE.RUNNING) {
+                actualContext.setJobState(JOBSTATE.FINISHED_ERROR);
+            }
+        }
+        else {
+            // No Context? This Job was never started correctly -> fail silent
+            if (js == JOBSTATE.RUNNING) {
+                js = JOBSTATE.FINISHED_OK_REMOVE;
+            }
+        }
         finished = true;
     }
 

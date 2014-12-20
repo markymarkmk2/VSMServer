@@ -5,6 +5,7 @@
 
 package de.dimm.vsm.net;
 
+import de.dimm.vsm.fsengine.IndexResult;
 import de.dimm.vsm.fsengine.StoragePoolHandler;
 import de.dimm.vsm.log.Log;
 import de.dimm.vsm.records.ArchiveJob;
@@ -26,7 +27,7 @@ public class SearchContext
     StoragePoolHandler sp_handler;
     ArrayList<SearchEntry> slist;
 //    Thread searchThread;
-    List<FileSystemElemNode> resultList;
+    List<IndexResult> resultList;
     List<ArchiveJob> jobResultList;
     Date lastUsage;
     int max;
@@ -37,8 +38,8 @@ public class SearchContext
         this.sp_handler = handler;
         this.slist = slist;
         this.max = max;
-        resultList = new ArrayList<FileSystemElemNode>();
-        jobResultList = new ArrayList<ArchiveJob>();
+        resultList = new ArrayList<>();
+        jobResultList = new ArrayList<>();
 
 
         // REGISTER OURSELVES AT HANDLER
@@ -84,7 +85,7 @@ public class SearchContext
     void runSearch()
     {
         resultList.clear();
-        List<FileSystemElemNode> ret = null;
+        List<IndexResult> ret = null;
         try
         {
             ret = sp_handler.search(slist, max);
@@ -125,18 +126,26 @@ public class SearchContext
     {
         return jobResultList;
     }
-
+/*    private RemoteFSElem getWithDbIdx(List<RemoteFSElem> list, long idx) {
+        for (RemoteFSElem elem : list) {
+            if (elem.getIdx() == idx)
+                return elem;
+        }
+        return null;
+    }
+*/
     public List<RemoteFSElem> getResultList()
     {
-        List<RemoteFSElem> ret = new ArrayList<RemoteFSElem>();
+        List<RemoteFSElem> ret = new ArrayList<>();
         for (int i = 0; i < resultList.size(); i++)
         {
-            FileSystemElemNode fileSystemElemNode = resultList.get(i);
+            IndexResult result = resultList.get(i);
 
 
             // THIS IS THE NEWEST ENTRY FOR THIS FILE
-            FileSystemElemAttributes attr = sp_handler.getActualFSAttributes(fileSystemElemNode, sp_handler.getPoolQry());
-
+            
+            //FileSystemElemAttributes attr = sp_handler.getActualFSAttributes(fileSystemElemNode, sp_handler.getPoolQry());
+            FileSystemElemAttributes attr = result.getAttributes(sp_handler.getEm());
 
             // OBVIOUSLY THE FILE WAS CREATED AFTER TS
             if (attr == null)
@@ -145,12 +154,21 @@ public class SearchContext
             }
 
             // FILE WAS DELETED AT TS
-            if (attr.isDeleted())
+            // TODO: with deleted
+           /* if (attr.isDeleted())
             {
                 continue;
+            }*/
+            //RemoteFSElem elem = getWithDbIdx( ret, result.getIdx());
+            /*if (elem != null)
+            {
+                elem.setMultVersions(true);
             }
-
-            ret.add(StoragePoolHandlerServlet.genRemoteFSElemfromNode(fileSystemElemNode, attr));
+            else
+            {*/
+                RemoteFSElem elem = StoragePoolHandlerServlet.genRemoteFSElemfromNode(result.getNode(), attr);
+                ret.add(elem);
+            //}
         }
 
         return ret;
@@ -188,7 +206,7 @@ public class SearchContext
         long size = 0;
         for (int i = 0; i < resultList.size(); i++)
         {
-            FileSystemElemNode n = resultList.get(i);            
+            FileSystemElemNode n = resultList.get(i).getNode();            
             size += n.getAttributes().getFsize() + n.getAttributes().getStreamSize();
         }
         return size;

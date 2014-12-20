@@ -1,3 +1,10 @@
+Veränderungen in V1.7.8
+FIX: Löschen des Objectache nach letztem Job
+FIX: PSMaker ohne Preload -> weniger Resourcen
+FIX: Explizites Schließen der PreparedStaments
+FIX: Debug bei Notifications
+
+
 Veränderungen in V1.7.7
 UPD: Neues Mapping für ACL-Rechte analog zum FS-Mapping
 

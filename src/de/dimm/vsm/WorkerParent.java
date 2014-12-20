@@ -44,6 +44,7 @@ public abstract class WorkerParent implements TaskInterface
     /** Creates a new instance of WorkerParent */
     public WorkerParent(String _name)
     {
+        taskState = TASKSTATE.STARTED;
         name = _name;
         setGoodState(true);
     }

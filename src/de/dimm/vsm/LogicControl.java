@@ -1098,6 +1098,7 @@ public class LogicControl
             return mapper.getLastStatus();
         return null;
     }
+    
     public PoolStatusResult calcPoolStatusResult( StoragePool pool )
     {
         PoolMapper mapper = storagePoolNubHandler.getPoolMapper(pool);
@@ -1108,6 +1109,7 @@ public class LogicControl
         }
         return null;
     }
+    
     public PoolStatusResult abortCalcPoolStatusResult( StoragePool pool )
     {
         PoolMapper mapper = storagePoolNubHandler.getPoolMapper(pool);

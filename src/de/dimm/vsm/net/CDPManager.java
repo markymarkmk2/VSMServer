@@ -4,6 +4,7 @@
  */
 package de.dimm.vsm.net;
 
+import de.dimm.vsm.GeneralPreferences;
 import de.dimm.vsm.net.servlets.AgentApiEntry;
 import de.dimm.vsm.log.Log;
 import de.dimm.vsm.LogicControl;
@@ -204,10 +205,19 @@ public class CDPManager extends WorkerParent implements IAgentIdleManagerEntry
     @Override
     public void stopIdle()
     {
-        // STOP ON SHUTDOWN
-        Log.debug("CDPManager is stopping");
-        stopAllStarted(); 
-        Log.debug("CDPManager is stopped");        
+        // STOP ON SHUTDOWN IS DIABLED, CDP RUNS ON
+        if (Main.get_bool_prop(GeneralPreferences.STOP_CDP_ON_SHUTDOWN))
+        {
+            Log.debug("CDPManager is stopping");
+            stopAllStarted(); 
+            Log.debug("CDPManager is stopped"); 
+            Log.debug("CDPManager is stopped, with stopping Agents (StopCdpOnShutdown=1)"); 
+        }
+        else
+        {
+            Log.debug("CDPManager is stopped, *without* stopping Agents (StopCdpOnShutdown=0)"); 
+        }
+        
     }
 
     // IS HANDLED INSIDE AgentIdleManager
@@ -237,6 +247,9 @@ public class CDPManager extends WorkerParent implements IAgentIdleManagerEntry
         }
         if (isPaused())
         {
+            return;
+        }
+        if (LogicControl.getStorageNubHandler().isCacheLoading()) {
             return;
         }
 

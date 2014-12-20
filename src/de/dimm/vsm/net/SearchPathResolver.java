@@ -8,6 +8,8 @@ package de.dimm.vsm.net;
 import de.dimm.vsm.Exceptions.PathResolveException;
 import de.dimm.vsm.Exceptions.PoolReadOnlyException;
 import de.dimm.vsm.fsengine.ArrayLazyList;
+import de.dimm.vsm.fsengine.IndexResult;
+import de.dimm.vsm.fsengine.LazyList;
 import de.dimm.vsm.fsengine.PathResolver;
 import de.dimm.vsm.fsengine.StoragePoolHandler;
 import de.dimm.vsm.records.FileSystemElemNode;
@@ -31,7 +33,11 @@ public class SearchPathResolver extends PathResolver
         rootDir.getAttributes().setName("/");
         rootDir.getAttributes().setCreationDateMs(System.currentTimeMillis());
         rootDir.getAttributes().setModificationDateMs(System.currentTimeMillis());
-        rootDir.setChildren(new ArrayLazyList<FileSystemElemNode>(context.resultList));
+        ArrayLazyList<FileSystemElemNode> roots = new ArrayLazyList<>();
+        for (IndexResult res : context.resultList) {
+            roots.add(res.getNode());
+        }
+        rootDir.setChildren(roots);
     }
 
     @Override

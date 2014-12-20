@@ -113,6 +113,7 @@ public class GeneralPreferences extends Preferences
     public static final String HASH_LAZY_LOAD_TRESHOLD_MB= "HashLazyLoadGrenzeMB";
     public static final String USE_REDIS_CACHE = "UseRedisCache";
     public static final String NO_IP_RESOLVE = "NoIpResolve";
+    public static final String STOP_CDP_ON_SHUTDOWN = "StopCdpOnShutdown";
     
     
     /** Creates a new instance of Preferences */
@@ -193,6 +194,7 @@ public class GeneralPreferences extends Preferences
         prop_names.add( HASH_LAZY_LOAD_TRESHOLD_MB );
         prop_names.add( USE_REDIS_CACHE );
         prop_names.add( NO_IP_RESOLVE );
+        prop_names.add( STOP_CDP_ON_SHUTDOWN );
         
 
 
@@ -241,6 +243,14 @@ public class GeneralPreferences extends Preferences
         if (s.startsWith( DATABASE_PATH))
             return true;
         if (s.startsWith( DATABASE_PORT))
+            return true;
+        if (s.startsWith( USE_NO_CACHE))
+            return true;
+        if (s.startsWith( USE_LAZY_CACHE))
+            return true;
+        if (s.startsWith( USE_REDIS_CACHE))
+            return true;
+        if (s.startsWith( USE_H2_CACHE))
             return true;
         
         return super.check_prop(s);

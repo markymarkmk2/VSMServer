@@ -40,6 +40,8 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.GregorianCalendar;
 import java.util.List;
+import net.sf.ehcache.Cache;
+import net.sf.ehcache.CacheManager;
 
 class ScheduleStart
 {
@@ -338,6 +340,17 @@ public class BackupManager extends WorkerParent
     }
 
     @Override
+    public void setPaused( boolean paused ) {
+        if (isPaused() && !paused) {
+            // Zeiten neu berechnen wenn Pause ausgeschaltet wird
+            doUpdateStartList = true;
+        }
+        super.setPaused(paused);
+    }
+    
+    
+
+    @Override
     public void run()
     {
         is_started = true;
@@ -346,6 +359,7 @@ public class BackupManager extends WorkerParent
         long startWindowS = Main.get_int_prop(GeneralPreferences.BA_START_WINDOW_S, Backup.DEFAULT_START_WINDOW_S);
 
         setStatusTxt("");
+        int lastJobsRunning = 0;
         while(!isShutdown())
         {
             LogicControl.sleep(1000);
@@ -358,6 +372,17 @@ public class BackupManager extends WorkerParent
             long now = System.currentTimeMillis();
             if (now - lastCheck < 5*1000)
                 continue;
+            
+            int actJobsRunning = getActJobsRunnung();
+            if (actJobsRunning == 0 && lastJobsRunning > 0) {
+                if (CacheManager.getInstance().cacheExists(JDBCEntityManager.OBJECT_CACHE))
+                {
+                    Cache ch = CacheManager.getInstance().getCache(JDBCEntityManager.OBJECT_CACHE);
+                    Log.debug("ObjectCache wird gelöscht (N=" + ch.getSize() + ")");
+                    ch.removeAll();
+                }
+            }
+            lastJobsRunning = actJobsRunning;
             
             // Einmal täglich Startliste neu berechnen
             updateStartListDaily();
@@ -747,6 +772,16 @@ public class BackupManager extends WorkerParent
                 updateStartList();
             }
         }        
+    }
+
+    private int getActJobsRunnung() {
+        int cnt = 0;
+        JobManager jm = Main.get_control().getJobManager();
+        for (JobEntry job: jm.getJobList()) {
+            if (job.getJobStatus() == JobInterface.JOBSTATE.RUNNING)
+                cnt++;
+        }
+        return cnt;
     }
 
    

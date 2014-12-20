@@ -75,7 +75,7 @@ public class Log implements DBLogger
     {
         log(level, key, addText, t, MessageLog.UID_SYSTEM);
     }
-    public static void log( int level, String key, String addText, Throwable t, int user)
+    public static synchronized void log( int level, String key, String addText, Throwable t, int user)
     {
         String caller = "?";
         

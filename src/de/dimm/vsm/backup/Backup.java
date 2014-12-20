@@ -575,6 +575,10 @@ public class Backup
 
     public boolean run_schedule(  ) throws Exception
     {
+        if (sched == null) {
+            throw new Exception("Schedule is not defined");
+        }
+       
         StoragePool pool = sched.getPool();
         // CREATE RW POOLHANDLER
         User user = User.createSystemInternal();
@@ -714,6 +718,7 @@ public class Backup
         baJobResult.setStartTime( new Date());
         baJobResult.setBackupVolumeResults( new ArrayLazyList<BackupVolumeResult>());
 
+        hdl.check_open_transaction();
         hdl.em_persist(baJobResult, /*noCache*/true);
         hdl.commit_transaction();
         
@@ -774,14 +779,22 @@ public class Backup
                         Log.warn(Main.Txt("Backup wurde abgebrochen") + ":" + clientVolume.toString());
                         break;
                     }
+                    String fullVolumeString;
+                    try{
+                        fullVolumeString = clientVolume.getClinfo().getSched().toString() + ":" + clientVolume.getClinfo().toString() + ":" + clientVolume.toString();
+                    }
+                    catch (Exception ex) {
+                        fullVolumeString = clientVolume.toString();
+                    }
 
-                    Log.info(Main.Txt("Starte Sicherung von Volume") + " " + clientVolume.toString() +
-                            "(" + Integer.toString(j+1) + "/" + volume_list.size()+ ")");
+                    Log.info(Main.Txt("Starte Sicherung von Volume") + " " + fullVolumeString +
+                            " (" + Integer.toString(j+1) + "/" + volume_list.size()+ ")");
 
                     totalVolumesTried++;
 
                     VariableResolver vr = createLocalVr(clientInfo, clientVolume);
 
+                    hdl.check_open_transaction();
                     BackupVolumeResult baVolumeResult = new BackupVolumeResult();
                     baVolumeResult.setStartTime( new Date());
                     baVolumeResult.setVolume(clientVolume);
@@ -809,7 +822,8 @@ public class Backup
                     if (!baVolumeResult.isOk())
                         allVolsOkay = false;
 
-                    Log.info(Main.Txt("Sicherung von Volume") + " " + clientVolume.toString() + " beendet " + (baVolumeResult.isOk()? "(OK)": "(NOK)") );
+                    
+                    Log.info(Main.Txt("Sicherung von Volume") + " " + fullVolumeString + " beendet " + (baVolumeResult.isOk()? "(OK)": "(NOK)") );
                     
                     hdl.em_merge(baVolumeResult);
                     hdl.commit_transaction();
@@ -869,6 +883,7 @@ public class Backup
         }
         finally
         {
+            hdl.check_open_transaction();
             baJobResult.setEndTime( new Date() );
             baJobResult.setOk( globalOk );
             hdl.em_merge(baJobResult);
@@ -1049,6 +1064,8 @@ public class Backup
                 // Hier ist der Einstieg in die Context-Static Methoden
                 backupRemoteFSElem(context, clientVolume.getVolumePath(), node, /*recursive*/true, clientInfo.isOnlyNewer());
             }
+            
+               
 
             if (context.isAbort())
             {
@@ -1073,6 +1090,7 @@ public class Backup
         }
         catch (Throwable exc)
         {
+            context.setResult(false);
             context.setJobState(JOBSTATE.FINISHED_ERROR);
             if (exc instanceof java.lang.reflect.UndeclaredThrowableException)
             {
@@ -1188,6 +1206,7 @@ public class Backup
         }
         if (context.isAbort())
         {
+            Log.err("Dateisicherung wurde abgebrochen", remoteFSElem.getPath());
             context.setJobState(JOBSTATE.ABORTED);
             context.setResult( false );
             return;
@@ -2293,7 +2312,9 @@ public class Backup
         {
             try
             {
-                context.apiEntry.getApi().close_data(remote_handle);
+                if (remote_handle != null) {
+                    context.apiEntry.getApi().close_data(remote_handle);
+                }
             }
             catch (IOException e)
             {

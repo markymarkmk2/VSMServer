@@ -46,6 +46,8 @@
     <class>de.dimm.vsm.records.Excludes</class>
     <class>de.dimm.vsm.records.XANode</class>
     <class>de.dimm.vsm.records.Retention</class>
+    <class>de.dimm.vsm.records.RetentionJob</class>
+    <class>de.dimm.vsm.records.RetentionWindow</class>
     <class>de.dimm.vsm.records.Snapshot</class>
     <class>de.dimm.vsm.records.BackupJobResult</class>
     <class>de.dimm.vsm.records.BackupVolumeResult</class>

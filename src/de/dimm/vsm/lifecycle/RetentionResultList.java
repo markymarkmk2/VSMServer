@@ -12,18 +12,18 @@ import java.util.List;
  *
  * @author Administrator
  */
-public class RetentionResultList
+public class RetentionResultList<T>
 {
     Retention retention;
-    List list;
+    List<T> list;
 
-    public RetentionResultList( Retention retention, List list )
+    public RetentionResultList( Retention retention, List<T> list )
     {
         this.retention = retention;
         this.list = list;
     }
 
-    public List getList()
+    public List<T> getList()
     {
         return list;
     }

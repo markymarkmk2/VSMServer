@@ -83,6 +83,11 @@ public class ServerApiImpl implements ServerApi
                 Log.debug("Stoppe CDP-Call da Pool aktiv mit CDP ist");
                 return false;
             }
+            if (LogicControl.getStorageNubHandler().isCacheLoading())
+            {
+                Log.debug("Stoppe CDP-Call da Caches noch nicht geladen sind");
+                return false;
+            }
             if (jm.isPoolBusyBackup(ticket.getPoolIdx()))
             {
                 Log.debug("Registriere CDP-Call bei aktivem Backup");

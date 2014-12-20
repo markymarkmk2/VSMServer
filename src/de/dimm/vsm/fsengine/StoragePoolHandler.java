@@ -593,6 +593,16 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
             for (int i = 0; i < childNodes.size(); i++)
             {
                 FileSystemElemNode fileSystemElemNode = childNodes.get(i);
+                if (fileSystemElemNode == null )
+                {
+                    Log.err("Found empty Childnode in " , act_dir.toString()  );
+                    continue;
+                }
+                if (fileSystemElemNode.getAttributes() == null )
+                {
+                    Log.err("Found empty ChildAttribute in " , act_dir.toString() + ": " + fileSystemElemNode.toString()  );
+                    continue;
+                }
                 if (!showDeleted && fileSystemElemNode.getAttributes().isDeleted())
                     continue;
                 
@@ -655,34 +665,10 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
 
         return sb.toString();
     }
-//
-//    public FileHandle resolve_file_handle( FileSystemElemNode dnode, boolean create) throws PathResolveException
-//    {
-//        FileHandle ret = null;
-//
-//        List<PoolNodeFileLink> link_list = get_pool_node_file_links( dnode );
-//
-//        if (link_list == null || link_list.isEmpty())
-//            return null;
-//
-//
-//        AbstractStorageNode s_node = get_preferred_storage_node( link_list );
-//        if (s_node != null)
-//        {
-//            StorageNodeHandler sn_handler = new StorageNodeHandler(s_node, this);
-//            if (sn_handler != null)
-//            {
-//                ret = sn_handler.create_file_handle(dnode, create);
-//            }
-//        }
-//
-//        return ret;
-//    }
 
     public List<PoolNodeFileLink> get_pool_node_file_links( FileSystemElemNode dnode )
     {
         List<PoolNodeFileLink> list = dnode.getLinks(getEm());
-//        updateLazyListsHandler(list);
         return list;
     }
 
@@ -699,9 +685,7 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
         while(children.size() > 0)
         {
             FileSystemElemNode child = children.remove(0);
-
             _remove_fse_node( child);
-
         }
         check_open_transaction();
 
@@ -716,26 +700,10 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
                 nativeCall("delete from ArchiveJobFileLink where ArchiveJobFileLink.fileNode_idx=" + node.getIdx());
                 commit_transaction();
 
+                // Löschen mit allen Cascade-Deletes (Siehe Record Spec)
                 em_remove(node);
                 commit_transaction();
 
-                // WE ARE GOING TO DELETE THE DEDUPBLOCKS IN AN EXTERNAL PROCESS
-/*
-                List<HashBlock> hbList = node.getHashBlocks(getEm());
-                for (int i = 0; i < hbList.size(); i++)
-                {
-                    System.out.println("Removing hashnode manually " + node.toString());
-                    HashBlock hashBlock = hbList.get(i);
-                    removeHashBlock( hashBlock );
-                }
-                List<XANode> xaList = createQuery("select T1 from XANode T1 where T1.fileNode_idx=" + node.getIdx(), XANode.class);
-                for (int i = 0; i < xaList.size(); i++)
-                {
-                    System.out.println("Removing attributenode manually" + node.toString());
-                    XANode xaNode = xaList.get(i);
-                    removeXANode( xaNode );
-                }
-*/
                 return true;
             }
         }
@@ -2521,13 +2489,13 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
 //        return search(slist, Integer.MAX_VALUE);
 //    }
 
-    public List<FileSystemElemNode> search( ArrayList<SearchEntry> slist, int limit ) throws SQLException
+    public List<IndexResult> search( ArrayList<SearchEntry> slist, int limit ) throws SQLException
     {
 
         FSEIndexer fse = LogicControl.getStorageNubHandler().getIndexer(pool);
 
         
-        List<FileSystemElemNode> list = fse.searchNodes(this, slist, null, limit);
+        List<IndexResult> list = fse.searchNodes(this, slist, null, limit);
 
 
         // TODO: ADD ACLS TO DB SO THAT WE CAN FILTER REULTS THROUGH DB
@@ -2537,8 +2505,9 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
         StoragePoolQry qry = getPoolQry();
         for (int i = 0; i < list.size(); i++)
         {
-            FileSystemElemNode fileSystemElemNode = list.get(i);
-            if (!qry.matchesUser(fileSystemElemNode, fileSystemElemNode.getAttributes(), umgr))
+            FileSystemElemNode fileSystemElemNode = list.get(i).getNode();
+            FileSystemElemAttributes attributes = list.get(i).getAttributes( getEm());
+            if (!qry.matchesUser(fileSystemElemNode, attributes, umgr))
             {
                 list.remove(i);
                 i--;

@@ -267,7 +267,7 @@ public class JobManager extends WorkerParent
                                     jobEntry.getJob().setJobState(JobInterface.JOBSTATE.RUNNING);
                                 }
                             }
-                        } else if (jobEntry.getJob().getJobState() == JobInterface.JOBSTATE.ABORTED) {
+                        } else if (jobEntry.getJob().getJobState() == JobInterface.JOBSTATE.ABORTED || jobEntry.getJob().getJobState() == JobInterface.JOBSTATE.FINISHED_OK_REMOVE ) {
                             jobEntry.close();
                             list.remove(jobEntry);
                             i--;
@@ -325,7 +325,7 @@ public class JobManager extends WorkerParent
 
 
 
-    List<JobEntry> getJobList()
+    public List<JobEntry> getJobList()
     {
         return list;
     }

@@ -33,6 +33,7 @@ public class DBHashCache extends HashCache
     public DBHashCache( JDBCEntityManager em, StoragePool pool )
     {
         super(pool);
+        Log.info("DBHashAccess ist aktiv für Pool ", this.pool.getName() );
         this.em = em;
 
     }
@@ -118,17 +119,12 @@ public class DBHashCache extends HashCache
     public long getDhbIdx( String hash ) throws IOException
     {
         long l = -1;
-        
+        Statement st = null;
+        ResultSet rs = null;
         try
         {
-            if (ps == null)
-            {
-                ps = em.getConnection().prepareStatement("select idx from DedupHashBlock where hashvalue=?");
-            }
-            
-            ps.setString(1, hash);
-
-            ResultSet rs = ps.executeQuery();
+            st = em.getConnection().createStatement(ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY, ResultSet.CLOSE_CURSORS_AT_COMMIT);
+            rs = st.executeQuery("select idx from DedupHashBlock where hashvalue='" + hash + "'");
             if (rs.next())
             {
                 l = rs.getLong(1);
@@ -141,7 +137,17 @@ public class DBHashCache extends HashCache
         }
         finally
         {
-            
+            try {
+                if (rs != null) {
+                    rs.close();
+                }
+                if (st != null) {
+                    st.close();
+                }
+            }
+            catch (SQLException sQLException) {
+                throw new IOException(sQLException.getMessage());
+            }            
         }
         return l;
     }
