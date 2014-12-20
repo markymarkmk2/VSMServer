@@ -150,34 +150,34 @@ public class FSEIndexerTest
             tf.addTerm(new Term("jobidx", IndexImpl.to_hex_field(job.getIdx())));
             fsi.searchFSEDocuments("", null, 10);
 
-            List<FileSystemElemNode> ret = fsi.searchNodes(sp_handler, "nodeidx:" + IndexImpl.to_hex_field(file_node.getIdx()), 10);
+            List<IndexResult> ret = fsi.searchNodes(sp_handler, "nodeidx:" + IndexImpl.to_hex_field(file_node.getIdx()), null, 10);
             assertEquals(1, ret.size());
-            assertEquals(ret.get(0).getIdx(), file_node.getIdx());
+            assertEquals(ret.get(0).getNode().getIdx(), file_node.getIdx());
 
             // "FileHandler 08Test.txt";
-            assertEquals(fsi.searchNodes(sp_handler, "name:jvm", 10).size(), 1);
-            assertEquals(fsi.searchNodes(sp_handler, "name:66", 10).size(), 1);
-            assertEquals(fsi.searchNodes(sp_handler, "name:67", 10).size(), 1);
-            assertEquals(fsi.searchNodes(sp_handler, "name:sport", 10).size(), 1);
-            assertEquals(fsi.searchNodes(sp_handler, "name:paket", 10).size(), 1);
-            assertEquals(fsi.searchNodes(sp_handler, "name:png", 10).size(), 1);
-            assertEquals(fsi.searchNodes(sp_handler, "name:kühlergrill name:exterieur", 10).size(), 1);
+            assertEquals(fsi.searchNodes(sp_handler, "name:jvm", null, 10).size(), 1);
+            assertEquals(fsi.searchNodes(sp_handler, "name:66", null, 10).size(), 1);
+            assertEquals(fsi.searchNodes(sp_handler, "name:67", null, 10).size(), 1);
+            assertEquals(fsi.searchNodes(sp_handler, "name:sport", null, 10).size(), 1);
+            assertEquals(fsi.searchNodes(sp_handler, "name:paket", null, 10).size(), 1);
+            assertEquals(fsi.searchNodes(sp_handler, "name:png", null, 10).size(), 1);
+            assertEquals(fsi.searchNodes(sp_handler, "name:kühlergrill name:exterieur", null, 10).size(), 1);
             assertEquals(fsi.searchNodes(sp_handler, "", job, 10).size(), 1);
-            assertEquals(fsi.searchNodes(sp_handler, "jobidx: [0 TO " + IndexImpl.to_hex_field(Long.MAX_VALUE) + "]", 10).size(), 1);
-            assertEquals(fsi.searchNodes(sp_handler, "accessDateMs:1", 10).size(), 1 );
+            assertEquals(fsi.searchNodes(sp_handler, "jobidx: [0 TO " + IndexImpl.to_hex_field(Long.MAX_VALUE) + "]", null, 10).size(), 1);
+            assertEquals(fsi.searchNodes(sp_handler, "accessDateMs:1", null, 10).size(), 1 );
             job.setIdx(43);
-            assertEquals(fsi.searchNodes(sp_handler, "jobidx:" + IndexImpl.to_hex_field(43), 10).size(), 0);
+            assertEquals(fsi.searchNodes(sp_handler, "jobidx:" + IndexImpl.to_hex_field(43), null, 10).size(), 0);
             assertEquals(fsi.searchNodes(sp_handler, "", job, 10).size(), 0);
             assertEquals(ret.size(), 1);
-            assertEquals(ret.get(0).getIdx(), file_node.getIdx());
+            assertEquals(ret.get(0).getNode().getIdx(), file_node.getIdx());
 
             System.out.println("Testing update Index");
             file_node.getAttributes().setAccessDateMs(2);
             fsi.updateIndex(file_node.getAttributes());
             fsi.flushSync();
             fsi.updateReadIndex();
-            assertEquals(0, fsi.searchNodes(sp_handler, "accessDateMs:1", 10).size());
-            assertEquals(1, fsi.searchNodes(sp_handler, "accessDateMs:2", 10).size() );
+            assertEquals(0, fsi.searchNodes(sp_handler, "accessDateMs:1", null, 10).size());
+            assertEquals(1, fsi.searchNodes(sp_handler, "accessDateMs:2", null, 10).size() );
 
 
         }
