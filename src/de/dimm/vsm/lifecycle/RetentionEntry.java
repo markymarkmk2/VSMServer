@@ -139,7 +139,7 @@ public class RetentionEntry implements JobInterface {
     long getStartTS() {
         long ts = System.currentTimeMillis();
         for (RetentionJob job : jobList) {
-            if (ts > job.getStart().getTime()) {
+            if (job.getStart() != null && ts > job.getStart().getTime()) {
                 ts = job.getStart().getTime();
             }
         }
@@ -462,11 +462,11 @@ public class RetentionEntry implements JobInterface {
         // NOTHING LEFT TO KEEP FROM THIS NODE?
         if (deleteEntry) {
             statNodes++;
-            statSize += newActualAttribute.getFsize();
+            statSize += actualAttrribute.getFsize();
             // HANDLE FULL ENTRY
             switch (retention.getFollowAction()) {
                 case Retention.AC_DELETE:
-                    Log.debug("Node wird gelöscht", fidx + ": " + fname + " size:" + newActualAttribute.getFsize() + " TS:" + sdf.format(new Date(newActualAttribute.getTs())) + " mtime:" + sdf.format(new Date(newActualAttribute.getModificationDateMs())));
+                    Log.debug("Node wird gelöscht", fidx + ": " + fname + " size:" + actualAttrribute.getFsize() + " TS:" + sdf.format(new Date(actualAttrribute.getTs())) + " mtime:" + sdf.format(new Date(actualAttrribute.getModificationDateMs())));
                     if (!retention.isTestmode()) {
                         RetentionManager.delete_fse_node(fse, sp_handler);
 
@@ -474,7 +474,7 @@ public class RetentionEntry implements JobInterface {
                     break;
                 case Retention.AC_MOVE:
                     StoragePool targetPool = getTargetPool(retention, sp_handler.getEm());
-                    Log.debug("Node wird verschoben", fidx + ": " + fname + " size:" + newActualAttribute.getFsize() + " TS:" + sdf.format(new Date(newActualAttribute.getTs())) + " mtime:" + sdf.format(new Date(newActualAttribute.getModificationDateMs())) + " -> " + targetPool.toString());
+                    Log.debug("Node wird verschoben", fidx + ": " + fname + " size:" + actualAttrribute.getFsize() + " TS:" + sdf.format(new Date(actualAttrribute.getTs())) + " mtime:" + sdf.format(new Date(actualAttrribute.getModificationDateMs())) + " -> " + targetPool.toString());
                     if (!retention.isTestmode()) {
                         String args = retention.getFollowActionParams();
                         if (args.charAt(0) == 'P') {
