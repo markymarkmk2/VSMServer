@@ -1170,8 +1170,9 @@ public class Backup
             {
                 Excludes excludes = exclList.get(i);
                 if (Excludes.checkExclude( excludes, remoteFSElem ))
-                {
-                    Log.debug(Main.Txt("Excludefilter"), excludes.toString() + ": " + remoteFSElem.getPath());
+                {                    
+                    if (Log.isTraceEnabled())
+                        Log.debug(Main.Txt("Excludefilter"), excludes.toString() + ": " + remoteFSElem.getPath());
                     return;
                 }
             }
