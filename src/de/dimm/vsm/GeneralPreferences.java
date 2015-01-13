@@ -114,6 +114,7 @@ public class GeneralPreferences extends Preferences
     public static final String USE_REDIS_CACHE = "UseRedisCache";
     public static final String NO_IP_RESOLVE = "NoIpResolve";
     public static final String STOP_CDP_ON_SHUTDOWN = "StopCdpOnShutdown";
+    public static final String MAX_CACHE_LOAD_S = "MaxCacheLoadS";
     
     
     /** Creates a new instance of Preferences */
@@ -195,6 +196,7 @@ public class GeneralPreferences extends Preferences
         prop_names.add( USE_REDIS_CACHE );
         prop_names.add( NO_IP_RESOLVE );
         prop_names.add( STOP_CDP_ON_SHUTDOWN );
+        prop_names.add( MAX_CACHE_LOAD_S );
         
 
 
