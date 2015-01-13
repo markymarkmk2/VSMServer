@@ -348,6 +348,7 @@ public class Restore
         }
         catch (Exception e)
         {
+            actualContext.setStatus(e.getMessage());
             Log.err("Abbruch beim Restore", e);
             ret = false;
         }
@@ -468,8 +469,9 @@ public class Restore
             }
             catch (Exception exception)
             {
-                Log.err( "Restore schulg fehl", node.toString(), exception );
+                Log.err( "Restore schlog fehl", node.toString(), exception );
                 Log.warn("TODO: Error list restore");
+                actualContext.setStatus(exception.getMessage());
                 actualContext.setResult(false);
             }
         }
