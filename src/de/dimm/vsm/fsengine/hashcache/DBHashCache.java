@@ -40,7 +40,7 @@ public class DBHashCache extends HashCache
 
 
     @Override
-    public void fill( String hash, long id ) throws IOException
+    public void fill( String hash, long id )
     {
     }
 
