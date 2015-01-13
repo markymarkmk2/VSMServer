@@ -87,7 +87,8 @@ public class LogicControl
     private static final String keyStore = "server.jks";
     private static final String keyPwd = "1234fuenf";
     
-
+    private static final int MAX_CACHE_LOAD_S = 60*30; // 30 min default wait for cache
+    
     public static final int LTM_FTP = 0x0001;
     public static final int LTM_S3 = 0x0002;
     static EntityManagerFactory emf = null;
@@ -295,10 +296,6 @@ public class LogicControl
         catch (SQLException sQLException)
         {
         }
-//        get_log_em().close_entitymanager();
-//        get_txt_em().commit_transaction();
-//        get_txt_em().close_entitymanager();
-
     }
 
 
@@ -318,13 +315,27 @@ public class LogicControl
     public AutoMountManager getAutoMountManager()
     {
         return autoMountManager;
-    }
-    
-    
-
+    }        
     
     public AgentIdleManager getAgentIdleManager() {
         return agentIdleManager;
+    }
+
+    private void waitForHashCachesLoaded() {
+        int s = 0;
+        Log.debug("Lade Hash Caches...");
+        while (getStorageNubHandler().isCacheLoading() && !jobManager.isShutdown()) {
+            sleep(1000);
+            s++;
+            if (s > Main.get_int_prop(GeneralPreferences.MAX_CACHE_LOAD_S, MAX_CACHE_LOAD_S)) {
+                Log.err(Main.Txt( "Timeout: Hash caches können nicht geladen werden, Parameter " + GeneralPreferences.MAX_CACHE_LOAD_S + " zu kurz?"));                
+                break;
+            }
+        }
+        if (!getStorageNubHandler().isCacheLoading())
+        {
+            Log.debug("Hash Caches geladen");
+        }
     }
     
     
@@ -484,6 +495,8 @@ public class LogicControl
             Log.err(Main.Txt( "Benachrichtigungen können nicht geladen werden"), iOException);
         }
         
+        waitForHashCachesLoaded();
+        
         StringBuffer sb = new StringBuffer();
         for (int i = 0; i < workerList.size(); i++)
         {
@@ -502,10 +515,6 @@ public class LogicControl
         {
             Log.info(Main.Txt( "TaskManager lieferte"), ": " + sb.toString());
         }
-
-        
-
-
     }
 
     public NotificationServer getNotificationServer()
