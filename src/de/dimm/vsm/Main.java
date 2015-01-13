@@ -32,10 +32,13 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.Enumeration;
 import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Properties;
 import net.sf.ehcache.Cache;
 import net.sf.ehcache.CacheManager;
 import net.sf.ehcache.Statistics;
+import org.apache.commons.lang.StringUtils;
 
 
 /**
@@ -46,7 +49,7 @@ public class Main
 {
 
     static String source_str = "trunk";
-    static String version_str = "1.7.8";
+    static String version_str = "1.7.9";
         
     public static int writeThreads = 1;
     public static int maxOpenFiles = 1024;
@@ -256,8 +259,7 @@ public class Main
 
     public static List<InetAddress> getInetAddresses( boolean ipv6)
     {
-        List<InetAddress> list = new ArrayList<InetAddress>();
-
+        List<InetAddress> list = new ArrayList<>();
         try
         {
             Enumeration<NetworkInterface> en = NetworkInterface.getNetworkInterfaces();
@@ -383,7 +385,7 @@ public class Main
                 {
                     TextBaseManager.importTextCsv(filename, code);
                 }
-                catch (Exception exception)
+                catch (IOException | SQLException exception)
                 {
                     System.out.println(exception.getMessage());
                     System.exit(-1);
@@ -400,7 +402,7 @@ public class Main
                 {
                     TextBaseManager.exportTextCsv(filename, code);
                 }
-                catch (Exception exception)
+                catch (IOException | SQLException exception)
                 {
                     System.out.println(exception.getMessage());
                     System.exit(-1);
@@ -598,6 +600,54 @@ public class Main
             Main.general_prefs.set_prop(pref_name, Long.toString(v));
         }
     }
+    /**
+     * Liefert das Ergebnis, ob alle gefundenen Präferenzen dem Wert match entsprechen
+     * 
+     * @param pref_name Suchmaske der Präferenzen (startsWith)
+     * @param check     Vergleichswert
+     * @return  Liefert true, wenn alle Präferenzen == match
+     *          Liefert true, wenn alle keiene Präferenzen und match == false
+     *          sonst false
+     */
+    static public boolean get_bool_prop_match(  String pref_name, boolean check )
+    {
+        String bool_true = "tTjJyY1";
+        String bool_false = "fFnN0";
+
+        boolean match = true;
+        if (general_prefs == null)
+        {
+            return true;
+        }
+        Map<String,String> ret = Main.general_prefs.get_prop_match(pref_name);
+        if (ret.isEmpty())
+            return (check == false) ? true : false;
+
+        
+        for (Entry<String,String> entry : ret.entrySet()) {            
+            if (StringUtils.isNotEmpty(entry.getValue()))
+            {
+                String val = entry.getValue();
+            
+                if (bool_true.indexOf(val.charAt(0)) >= 0)
+                {
+                    if (check == false)
+                        match = false;
+                    continue;
+                }
+                if (bool_false.indexOf(val.charAt(0)) >= 0)
+                {
+                    if (check == true)
+                        match = false;
+                    continue;
+                }
+
+                LogManager.msg_system( LogManager.LVL_ERR,  "Boolean preference " + pref_name + " has wrong format");
+            }
+        }
+        return match;
+    }
+    
     static public boolean get_bool_prop( String pref_name, boolean def )
     {
         String bool_true = "tTjJyY1";
@@ -788,12 +838,13 @@ public class Main
         {
             try
             {
-                BufferedReader br = new BufferedReader(new FileReader(f));
-                String data = br.readLine();
-                br.close();
+                String data;
+                try (BufferedReader br = new BufferedReader(new FileReader(f))) {
+                    data = br.readLine();
+                }
                 waitSeconds = Integer.parseInt(data);
             }
-            catch (Exception exception)
+            catch (IOException | NumberFormatException exception)
             {
             }
         }
@@ -868,7 +919,7 @@ public class Main
         long ret = -1;
         if (dbrelease.exists())
         {
-            String v = null;
+            String v;
             BufferedReader br = null;
             try
             {
@@ -877,7 +928,7 @@ public class Main
                 br.close();
                 ret = Long.parseLong(v);
             }
-            catch (Exception iOException)
+            catch (IOException | NumberFormatException iOException)
             {
                 if (br != null)
                 {
