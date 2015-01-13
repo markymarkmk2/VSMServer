@@ -248,7 +248,7 @@ public class H2HashCache extends DBHashCache
     }
 
     @Override
-    public void fill( String hash, long id ) throws IOException
+    public void fill( String hash, long id ) 
     {
         try
         {
@@ -266,7 +266,6 @@ public class H2HashCache extends DBHashCache
         catch (SQLException exc)
         {
             LogManager.err_db("Füllen von H2cache schlug fehl", exc);
-            throw new IOException("Fehler beim Aufbau des  H2 caches-> Fallback auch HashMap", exc);
         }       
     }
 
