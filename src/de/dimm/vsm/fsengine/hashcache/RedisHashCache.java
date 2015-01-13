@@ -54,6 +54,7 @@ public class RedisHashCache extends DBHashCache
     private boolean cacheInited = false;
     private int JEDIS_TIMEOUT = 60000;
     private boolean isLoading = true;
+    private boolean loadFailed = false;
     
     
     public RedisHashCache( JDBCEntityManager em, StoragePool pool, StoragePoolNub nub)
@@ -113,22 +114,23 @@ public class RedisHashCache extends DBHashCache
         return  Main.get_control().getJedisManager().getJedisPool();
     }
     
-    String buildRedisHash( String hash)
+    private String buildRedisHash( String hash)
     {
         String ret = Long.toString(nub.getIdx()) + "&" + hash;
         return ret;
     }
-    String getHashFromRedis( String redisHash)
-    {
-        String[] parts = redisHash.split("&");
-        if (parts.length != 2)
-            throw new RuntimeException("Redis Hash Delimiter ist falsch");
-        Long idx = Long.parseLong(parts[0]);
-        if (idx != nub.getIdx())
-            throw new RuntimeException("Redis Hash stammt von falschem Nub");
-        
-        return parts[1];
-    }
+    
+//    private String getHashFromRedis( String redisHash)
+//    {
+//        String[] parts = redisHash.split("&");
+//        if (parts.length != 2)
+//            throw new RuntimeException("Redis Hash Delimiter ist falsch");
+//        Long idx = Long.parseLong(parts[0]);
+//        if (idx != nub.getIdx())
+//            throw new RuntimeException("Redis Hash stammt von falschem Nub");
+//        
+//        return parts[1];
+//    }
     
     void loadHashMap()
     {
@@ -211,6 +213,8 @@ public class RedisHashCache extends DBHashCache
         {
             Main.get_control().getJedisManager().invalidateShutdown();
             Log.err("HashMap kann nicht angelegt werden", pool.getName(), ex);
+            Log.warn("Fallback zu langsamen DB-Hash für pool ", pool.getName());
+            loadFailed = true;
         }
         finally
         {
@@ -240,6 +244,11 @@ public class RedisHashCache extends DBHashCache
     @Override
     public void fill( String hash, long id )
     {
+        if (loadFailed)
+        {
+            super.fill(hash, id);
+            return;
+        }
         synchronized(preloadMtx)
         {
             if (cacheInited)
@@ -266,6 +275,10 @@ public class RedisHashCache extends DBHashCache
     @Override
     public long getDhbIdx( String hash ) throws IOException
     {
+        if (loadFailed)
+        {            
+            return super.getDhbIdx(hash);
+        }
         synchronized(preloadMtx)
         {
             if (cacheInited)
@@ -304,8 +317,7 @@ public class RedisHashCache extends DBHashCache
             }
         }
         Log.err("Fehler bei getDhbIdx: ", pool.getName(), cause);
-        throw cause;
-        
+        throw cause;        
     }
     
     @Override
@@ -317,6 +329,10 @@ public class RedisHashCache extends DBHashCache
     @Override
     public long size()
     {
+        if (loadFailed)
+        {            
+            return super.size();
+        }        
         synchronized(preloadMtx)
         {
             if (cacheInited)
