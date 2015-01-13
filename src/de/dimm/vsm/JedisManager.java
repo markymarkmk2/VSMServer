@@ -5,13 +5,10 @@
 package de.dimm.vsm;
 
 import de.dimm.vsm.log.Log;
-import java.net.SocketException;
-import java.sql.Connection;
 import org.apache.commons.lang.StringUtils;
 import org.apache.commons.pool2.impl.GenericObjectPoolConfig;
 import redis.clients.jedis.Jedis;
 import redis.clients.jedis.JedisPool;
-import redis.clients.jedis.Pipeline;
 
 /**
  *
@@ -33,7 +30,8 @@ public class JedisManager {
     
     void shutDown()
     {
-        if (!Main.get_bool_prop(GeneralPreferences.USE_REDIS_CACHE, false))
+        // Wenn kein RedisCache eingerichtet ist, weder global noch per Pool -> raus
+        if (Main.get_bool_prop_match(GeneralPreferences.USE_REDIS_CACHE, false))
             return;        
         
         if (shutDownAllowed)
@@ -56,7 +54,8 @@ public class JedisManager {
 
     void startup() {
         
-        if (!Main.get_bool_prop(GeneralPreferences.USE_REDIS_CACHE, false))
+        // Wenn kein RedisCache eingerichtet ist, weder global noch per Pool -> raus
+        if (Main.get_bool_prop_match(GeneralPreferences.USE_REDIS_CACHE, false))
             return;
                 
         GenericObjectPoolConfig config = new GenericObjectPoolConfig();
