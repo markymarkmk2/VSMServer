@@ -11,6 +11,9 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.util.ArrayList;
+import java.util.Enumeration;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Properties;
 
 /**
@@ -91,6 +94,27 @@ public class Preferences
         String ret = props.getProperty(p);
         return ret;
     }
+    
+    public Map<String,String> get_prop_match( String p )
+    {
+        if (!check_prop(p))
+        {
+            warn_unknown(p);
+            return null;
+        }
+        Map<String,String> ret = new HashMap<>();
+        Enumeration<?> en =  props.propertyNames();
+        while (en.hasMoreElements())
+        {
+            String prop = en.nextElement().toString();
+            if (prop.startsWith(p))
+            {
+                ret.put( prop, props.getProperty(prop));
+            }            
+        }
+        return ret;
+    }
+    
     public String get_prop( String p, String def )
     {
         if (!check_prop(p))
