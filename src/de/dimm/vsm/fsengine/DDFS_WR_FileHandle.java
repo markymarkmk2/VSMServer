@@ -347,6 +347,9 @@ class DDHandleManager
                         if (dDHandle.isUnread())
                         {
                             AbstractStorageNode snode = fh.getStorageNodeForBlock( dDHandle);
+                            if (snode == null) {
+                                throw new IOException("Speichernode für " + fh.fh.getName() + " nicht gefunden oder nicht valide"); 
+                            }
                             dDHandle.open(snode, rafMode);
                         }
                         openHandles.add(dDHandle);           
