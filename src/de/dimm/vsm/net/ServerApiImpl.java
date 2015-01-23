@@ -152,7 +152,8 @@ public class ServerApiImpl implements ServerApi
         JobInterface job = null;
         try
         {
-            if (ticket == null)
+            // Spurious call from running agent on a starting server?
+            if (ticket == null || jm == null || bm == null )
             {
                 Log.warn("Ignoriere ungültigen CDP-Call, Ticket fehlt");
                 return false;

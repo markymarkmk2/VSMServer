@@ -337,6 +337,10 @@ public class LogicControl
             Log.debug("Hash Caches geladen");
         }
     }
+
+    public RetentionManager getRetentionManager() {
+        return retentionManager;
+    }
     
     
     public static class LicenseHandler

@@ -112,9 +112,14 @@ public class GeneralPreferences extends Preferences
     public static final String DATABASE_PATH = "DatabasePath";
     public static final String HASH_LAZY_LOAD_TRESHOLD_MB= "HashLazyLoadGrenzeMB";
     public static final String USE_REDIS_CACHE = "UseRedisCache";
-    public static final String NO_IP_RESOLVE = "NoIpResolve";
+    public static final String NO_IP_RESOLVE = "NoIpResolve";  // Achtung, die Pref wird aus GUI abgefragt, dort ist Kostante unbekannt, dajer dort im Klartext 
     public static final String STOP_CDP_ON_SHUTDOWN = "StopCdpOnShutdown";
     public static final String MAX_CACHE_LOAD_S = "MaxCacheLoadS";
+    public static final String NODE_ATTR_QRY_CNT = "NodeAttrQryCnt";
+    public static final String BACKUP_BREAKS_RETENTION = "BackupBreaksRetention";
+    public static final String RETENTION_BREAKS_BACKUP = "RetentionBreaksBackup";
+    public static final String MAX_COMMIT_TIMEOUT = "MaxCommitTimeout";
+    public static final String KICK_JOB_TIMEOUT_S = "KickJobTimeoutS";
     
     
     /** Creates a new instance of Preferences */
@@ -197,9 +202,11 @@ public class GeneralPreferences extends Preferences
         prop_names.add( NO_IP_RESOLVE );
         prop_names.add( STOP_CDP_ON_SHUTDOWN );
         prop_names.add( MAX_CACHE_LOAD_S );
-        
-
-
+        prop_names.add( NODE_ATTR_QRY_CNT );
+        prop_names.add( BACKUP_BREAKS_RETENTION );
+        prop_names.add( RETENTION_BREAKS_BACKUP );
+        prop_names.add( MAX_COMMIT_TIMEOUT );
+        prop_names.add( KICK_JOB_TIMEOUT_S );
 
         String[] log_types = LogManager.get_log_types();
         for (int i = 0; i < log_types.length; i++)

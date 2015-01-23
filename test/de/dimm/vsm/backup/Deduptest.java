@@ -30,14 +30,18 @@ import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.util.List;
 import de.dimm.vsm.Exceptions.PoolReadOnlyException;
+import de.dimm.vsm.Main;
 import de.dimm.vsm.fsengine.StoragePoolHandler;
 import de.dimm.vsm.fsengine.StoragePoolHandlerTest;
+import de.dimm.vsm.lifecycle.RetentionEntry;
 import de.dimm.vsm.net.RemoteFSElem;
 import de.dimm.vsm.net.StoragePoolQry;
 import de.dimm.vsm.records.FileSystemElemNode;
+import de.dimm.vsm.records.RetentionJob;
 import java.io.File;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
+import java.util.Arrays;
 import org.junit.After;
 import org.junit.AfterClass;
 import org.junit.Before;
@@ -309,6 +313,16 @@ get_fs_handle_for_dedupblock(hb_orig.get(0));
             retention.setFollowActionParams("");
 
             RetentionManager rm = new RetentionManager(StoragePoolHandlerTest.getNubHandler());
+            
+            RetentionJob job = new RetentionJob();
+            job.setRetention(retention);            
+            retention.getRetentionJobs().addIfRealized(job);
+            List<RetentionJob> list = Arrays.asList(job);
+            
+            // Um Starterlaubnis bitten
+            
+            RetentionEntry entry = new RetentionEntry(StoragePoolHandlerTest.getNubHandler(), pool, list, rm);
+                  
 
             // BA
             // S0
@@ -317,14 +331,15 @@ get_fs_handle_for_dedupblock(hb_orig.get(0));
             // UPD Block2
             // S2
  // CREATE RETENTIONRESULT
-            RetentionResultList retentionResult = rm.createRetentionResult(retention, pool, 0, 100, System.currentTimeMillis());
+            // public RetentionResultList<Object[]> createRetentionResult( Retention retention, long startIdx, int qryCount, long absTs ) throws IOException, SQLException {    
+            RetentionResultList retentionResult = entry.createRetentionResult(retention, 0, 100, System.currentTimeMillis());
             // THIS SHOULD BE NOTHING, RETENTION IS OLDER THAN OLDEST FILE
             assertEquals(filterRetentionResultList(retentionResult, fileNode.getIdx()), 0);
 
             // EVERYTHING OLDER THAN NOW WILL BE HANDLED
             retention.setArgValue( Long.toString(0) );
 
-            retentionResult = rm.createRetentionResult(retention, pool, 0, 100, System.currentTimeMillis());
+            retentionResult = entry.createRetentionResult(retention, 0, 100, System.currentTimeMillis());
 
             // THIS SHOULD BE ALL ENTRIES, ORIG + 2 UPDATES
             assertEquals(filterRetentionResultList(retentionResult, fileNode.getIdx()), 3);
@@ -429,7 +444,7 @@ get_fs_handle_for_dedupblock(hb_orig.get(0));
 
 
 //            // NOW HANDLE RETENTION FOR S1, THAT MEANS WE LOOSE LAST UPDATE AND WE LOOSE ORIGINAL BLOCK OF UPDATE
-            RetentionResult localret = rm.handleRetentionList(pool_handler, snapshotRetentionResult_s1);
+            RetentionResult localret = entry.handleRetentionList(pool_handler, snapshotRetentionResult_s1);
 
             // AND CHECK IF NOT EXISTS AFTER RETENTION
             assert( !sfh.get_fh().exists() );
@@ -442,7 +457,7 @@ get_fs_handle_for_dedupblock(hb_orig.get(0));
 
             // RESULTS AFTER RETENTION SHOULD BE SAME AS AFTER FIRST UPDATE, ONLY THE ORIGINAL OF SECOND BLOCK IS MISSING
             fileNode = pool_handler.resolve_node(file_abs_path);
-            List<HashBlock> hb_ba3  = new ArrayList<HashBlock>(fileNode.getHashBlocks().getList(pool_handler.getEm()));
+            List<HashBlock> hb_ba3  = new ArrayList<>(fileNode.getHashBlocks().getList(pool_handler.getEm()));
             sortHashBlocks( hb_ba3 );
             assertEquals( hb_ba1.size(), hb_ba3.size() + 1);
 
@@ -455,7 +470,7 @@ get_fs_handle_for_dedupblock(hb_orig.get(0));
             // REMOVE EVERYTHING
             snapshots.clear();
             snapshotRetentionResult = RetentionManager.createSnapshotRetentionList(snapshots, retentionResult, pool);
-            localret = rm.handleRetentionList(pool_handler, snapshotRetentionResult_s1);
+            localret = entry.handleRetentionList(pool_handler, snapshotRetentionResult);
 
             context.close();
         }

@@ -92,12 +92,12 @@ public class BackupManagerTest {
         st = BackupManager.calcNextStart(sched, now);
         
         // NEXT START SHOULD BE IN HALF AN HOUR
-        assertEquals((st.nextStart - now)/1000, 3600/2);
+        assertTrue(((st.nextStart - now)/1000 - 3600/2) < 10);
         
         sched.setCycleLengthMs(24*3600*1000l);
         st = BackupManager.calcNextStart(sched, now);        
         // NEXT START SHOULD BE IN HALF AN HOUR
-        assertEquals((st.nextStart - now)/1000, -3600/2 + 12*3600 + 3600);
+        assertTrue(((st.nextStart - now)/1000 - ( -3600/2 + 12*3600 + 3600)) < 10);
         
         
 
@@ -109,8 +109,8 @@ public class BackupManagerTest {
         now = checkCal.getTimeInMillis();
         st = BackupManager.calcNextStart(sched, now);
 
-        // NEXT START SHOULD BE 3:59:59
-        assertEquals((st.nextStart - now) / 1000, 3*3600 + 59*60 + 59);
+        // NEXT START SHOULD BE 12h away (now: 13:00 Start: 01:00
+        assertTrue(((st.nextStart - now) / 1000 - 12*3600 ) < 10);
 
 
         sched.setJobs( new ArrayLazyList<Job>());
@@ -118,6 +118,8 @@ public class BackupManagerTest {
         job.setSched(sched);
         sched.setIsCycle(false);
         sched.setCycleLengthMs(14*86400*1000l);
+        // Back To actual year
+        baseCal.add(GregorianCalendar.YEAR, 14);
         sched.setScheduleStart( new Date( baseCal.getTime().getTime() ));
         job.setOffsetStartMs((13*3600 + 5*60)* 1000);
         job.setDayNumber(0);
@@ -125,17 +127,17 @@ public class BackupManagerTest {
         sched.getJobs().addIfRealized( job );
         st = BackupManager.calcNextStart(sched, now);
 
-        // NEXT START SHOULD BE 3:59:59
-        
-        assertEquals((st.nextStart - now) / 1000, 4*60 + 59);
+        // NEXT START SHOULD BE IN 00:05:00
+        checkCal.getTime();
+        assertTrue(((st.nextStart - now) / 1000 -  (5*60)) < 10);
 
         job.setDayNumber(3);
 
         sched.getJobs().addIfRealized( job );
         st = BackupManager.calcNextStart(sched, now);
 
-        // NEXT START SHOULD BE 3:59:59
-        assertEquals((st.nextStart - now) / 1000, 3*86400 + 4*60 + 59);
+        // NEXT START SHOULD BE  3d 00:05:00
+        assertTrue(((st.nextStart - now) / 1000 - (3*86400 + 4*60 + 59)) < 10);
         
         
         

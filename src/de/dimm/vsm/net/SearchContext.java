@@ -126,14 +126,7 @@ public class SearchContext
     {
         return jobResultList;
     }
-/*    private RemoteFSElem getWithDbIdx(List<RemoteFSElem> list, long idx) {
-        for (RemoteFSElem elem : list) {
-            if (elem.getIdx() == idx)
-                return elem;
-        }
-        return null;
-    }
-*/
+
     public List<RemoteFSElem> getResultList()
     {
         List<RemoteFSElem> ret = new ArrayList<>();
@@ -143,8 +136,6 @@ public class SearchContext
 
 
             // THIS IS THE NEWEST ENTRY FOR THIS FILE
-            
-            //FileSystemElemAttributes attr = sp_handler.getActualFSAttributes(fileSystemElemNode, sp_handler.getPoolQry());
             FileSystemElemAttributes attr = result.getAttributes(sp_handler.getEm());
 
             // OBVIOUSLY THE FILE WAS CREATED AFTER TS
@@ -152,23 +143,11 @@ public class SearchContext
             {
                 continue;
             }
-
-            // FILE WAS DELETED AT TS
-            // TODO: with deleted
-           /* if (attr.isDeleted())
-            {
-                continue;
-            }*/
-            //RemoteFSElem elem = getWithDbIdx( ret, result.getIdx());
-            /*if (elem != null)
-            {
-                elem.setMultVersions(true);
-            }
-            else
-            {*/
-                RemoteFSElem elem = StoragePoolHandlerServlet.genRemoteFSElemfromNode(result.getNode(), attr);
-                ret.add(elem);
-            //}
+            
+            RemoteFSElem elem = StoragePoolHandlerServlet.genRemoteFSElemfromNode(result.getNode(), attr);
+            if (result.getNode().getHistory().size() > 1)
+                elem.setMultVersions(true);                    
+            ret.add(elem);
         }
 
         return ret;
@@ -176,16 +155,6 @@ public class SearchContext
 
     void close()
     {
-//        if (isBusy())
-//        {
-//            try
-//            {
-//                searchThread.interrupt();
-//            }
-//            catch (Exception e)
-//            {
-//            }
-//        }
         if (resultList != null)
         {
             resultList.clear();

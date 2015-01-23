@@ -15,6 +15,7 @@ import de.dimm.vsm.backup.Backup;
 import de.dimm.vsm.fsengine.JDBCEntityManager;
 import de.dimm.vsm.lifecycle.RetentionManager;
 import de.dimm.vsm.mail.NotificationEntry;
+import de.dimm.vsm.net.IpResolver;
 import de.dimm.vsm.txtscan.TxtScan;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
@@ -232,6 +233,7 @@ public class Main
         setDerbyProperties();
 
         JDBCEntityManager.MAX_CONNECTIONS = get_int_prop(GeneralPreferences.MAX_CONNECTIONS, JDBCEntityManager.MAX_CONNECTIONS);
+        JDBCEntityManager.MAX_COMMIT_TIMEOUT = get_int_prop(GeneralPreferences.MAX_COMMIT_TIMEOUT, JDBCEntityManager.MAX_COMMIT_TIMEOUT);
 
         control = new LogicControl(this);
 
@@ -435,6 +437,10 @@ public class Main
             if (string.equals("-retention") )
             {
                 RetentionManager.enabled = true;
+            }    
+            if (string.equals("-no-retention") )
+            {
+                RetentionManager.enabled = false;
             }    
             
             
@@ -739,8 +745,7 @@ public class Main
                         System.out.println("Open Commits: " + JDBCEntityManager.getOpenCommits() );
                     }
                 }
-                System.out.println("Free Mem " + SizeStr.format(fm));                
-                
+                System.out.println("Free Mem " + SizeStr.format(fm));                                
             }
 
 
@@ -752,6 +757,8 @@ public class Main
                 guiMod = actGuiMod;
                 get_control().restartGui();
             }
+            
+            // Auto-Detect new Preferences
             long actPrefMod = prefs.lastModified();
             if (actPrefMod != prefMod)
             {
@@ -759,6 +766,8 @@ public class Main
                 actPrefMod = prefs.lastModified();
                 prefMod = actPrefMod;
                 general_prefs.read_props();
+                // Reset IP-Cache
+                IpResolver.resetCache();
             }
             
             File f = new File("shutdown.txt");
@@ -770,10 +779,9 @@ public class Main
                 System.exit(0);
                 break;
             }
-
         }
     }
-
+       
     void setSystemPropPref( String name, String val )
     {
         System.getProperties().setProperty(name, general_prefs.get_prop(name, val));

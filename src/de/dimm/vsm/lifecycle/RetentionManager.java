@@ -6,15 +6,20 @@ package de.dimm.vsm.lifecycle;
 
 import de.dimm.vsm.Exceptions.PoolReadOnlyException;
 import de.dimm.vsm.Exceptions.RetentionException;
+import de.dimm.vsm.GeneralPreferences;
 import de.dimm.vsm.log.Log;
 import de.dimm.vsm.LogicControl;
 import de.dimm.vsm.Main;
 import de.dimm.vsm.WorkerParent;
+import de.dimm.vsm.backup.Backup.BackupJobInterface;
+import de.dimm.vsm.backup.jobinterface.CDPJobInterface;
+import de.dimm.vsm.backup.jobinterface.VfsJobInterface;
 import de.dimm.vsm.fsengine.GenericEntityManager;
 import de.dimm.vsm.fsengine.IStoragePoolNubHandler;
+import de.dimm.vsm.fsengine.JDBCEntityManager;
 import de.dimm.vsm.fsengine.StoragePoolHandler;
 import de.dimm.vsm.jobs.JobEntry;
-import de.dimm.vsm.jobs.JobInterface;
+import de.dimm.vsm.jobs.JobInterface.JOBSTATE;
 import de.dimm.vsm.records.FileSystemElemAttributes;
 import de.dimm.vsm.records.FileSystemElemNode;
 import de.dimm.vsm.records.HashBlock;
@@ -47,7 +52,7 @@ class RetentionQueryResult {
 public class RetentionManager extends WorkerParent {
 
     Thread runner;
-    public static boolean enabled = false;
+    public static boolean enabled = true;
     IStoragePoolNubHandler nubHandler;
 
     public RetentionManager( IStoragePoolNubHandler nubHandler ) {
@@ -92,9 +97,7 @@ public class RetentionManager extends WorkerParent {
     public boolean hasActiveRetention( StoragePool pool ) {
         List<RetentionEntry> activeRetentions = getActiveRetentions();
         for (RetentionEntry entry : activeRetentions) {
-            if (entry.getJobState() == JobInterface.JOBSTATE.RUNNING
-                    || entry.getJobState() == JobInterface.JOBSTATE.WAITING
-                    || entry.getJobState() == JobInterface.JOBSTATE.SLEEPING) {
+            if (isBusy(entry.getJobState())) {
                 for (RetentionJob job : entry.getJobs()) {
                     if (job.getRetention().getPool().getIdx() == pool.getIdx()) {
                         return true;
@@ -104,13 +107,139 @@ public class RetentionManager extends WorkerParent {
         }
         return false;
     }
+    
+    private boolean isBusy( JOBSTATE state ) {
+        return state == JOBSTATE.RUNNING || state == JOBSTATE.SLEEPING || state == JOBSTATE.WAITING;
+    }
+    
+    boolean hasActiveBackupJobs(StoragePool storagePool) {
+        List<BackupJobInterface> bjobs = Main.get_control().getJobManager().getJobList(BackupJobInterface.class);
+        for (BackupJobInterface jobEntry : bjobs) {
+            if (jobEntry.getActSchedule() != null && 
+                    jobEntry.getActSchedule().getPool().getIdx() == storagePool.getIdx()) {
+                if (isBusy(jobEntry.getJobState())) {
+                    return true;
+                }                        
+            }
+        }
+        List<VfsJobInterface> vjobs = Main.get_control().getJobManager().getJobList(VfsJobInterface.class);
+        for (VfsJobInterface jobEntry : vjobs) {
+            if (jobEntry.getMountEntry() != null && 
+                    jobEntry.getMountEntry().getPool().getIdx() == storagePool.getIdx()) {
+                if (isBusy(jobEntry.getJobState())) {
+                    return true;
+                }                        
+            }
+        }
+        List<CDPJobInterface> cjobs = Main.get_control().getJobManager().getJobList(CDPJobInterface.class);
+        for (CDPJobInterface jobEntry : cjobs) {
+            if (jobEntry.getSched() != null && 
+                    jobEntry.getSched().getPool().getIdx() == storagePool.getIdx()) {
+                if (isBusy(jobEntry.getJobState())) {
+                    return true;
+                }                        
+            }
+        }
+        return false;
+    }
+    void abortBackupJobs(StoragePool storagePool) {
+        List<BackupJobInterface> bjobs = Main.get_control().getJobManager().getJobList(BackupJobInterface.class);
+        for (BackupJobInterface jobEntry : bjobs) {
+            if (jobEntry.getActSchedule() != null && 
+                    jobEntry.getActSchedule().getPool().getIdx() == storagePool.getIdx()) {
+                jobEntry.abortJob();                    
+            }
+        }
+        List<VfsJobInterface> vjobs = Main.get_control().getJobManager().getJobList(VfsJobInterface.class);
+        for (VfsJobInterface jobEntry : vjobs) {
+            if (jobEntry.getMountEntry() != null && 
+                    jobEntry.getMountEntry().getPool().getIdx() == storagePool.getIdx()) {
+                jobEntry.abortJob();                    
+            }
+        }
+        List<CDPJobInterface> cjobs = Main.get_control().getJobManager().getJobList(CDPJobInterface.class);
+        for (CDPJobInterface jobEntry : cjobs) {
+            if (jobEntry.getSched() != null && 
+                    jobEntry.getSched().getPool().getIdx() == storagePool.getIdx()) {
+                jobEntry.abortJob();                    
+            }
+        }
+    }
+
+    
+    public void askForStartBackup(StoragePool storagePool) {
+        // Bahn ist frei?
+        if (!hasActiveRetention(storagePool)) {
+            return;
+        }
+        
+        // Keinen Parallelbetrieb in einem Pool zulassen
+        setStatusTxt(Main.Txt("Warte auf Ende von laufenden Retentions"));
+        while (hasActiveRetention(storagePool)) {
+            if (Main.get_bool_prop(GeneralPreferences.BACKUP_BREAKS_RETENTION, true)) {
+                setStatusTxt(Main.Txt("Beende laufende Retentions..."));
+                abortActiveRetentions(storagePool);
+            }
+            LogicControl.sleep(1000);
+            if (isShutdown()) {
+                break;
+            }
+        }
+        setStatusTxt("");
+    }
+    
+    public void askForStartRetention(StoragePool storagePool) {
+        // Bahn ist frei?
+        if (!hasActiveBackupJobs(storagePool)) {
+            return;
+        }
+        
+        // Keinen Parallelbetrieb in einem Pool zulassen        
+        setStatusTxt(Main.Txt("Warte auf Ende von laufenden Backups"));
+        while (hasActiveBackupJobs(storagePool)) {
+            if (Main.get_bool_prop(GeneralPreferences.RETENTION_BREAKS_BACKUP, false)) {
+                setStatusTxt(Main.Txt("Beende laufende Backups..."));
+                abortBackupJobs(storagePool);
+            }
+            LogicControl.sleep(1000);
+            if (isShutdown()) {
+                break;
+            }
+        }
+        setStatusTxt("");        
+    }
+    
+    void abortActiveRetentions(StoragePool pool) {
+        List<RetentionEntry> activeRetentions = getActiveRetentions();
+        for (RetentionEntry entry : activeRetentions) {
+            if (isBusy( entry.getJobState())) {
+                for (RetentionJob job : entry.getJobs()) {
+                    if (job.getRetention().getPool().getIdx() == pool.getIdx()) {
+                        entry.abortJob();
+                    }
+                }
+            }
+        }       
+    }
+    void finishOkRetentions(StoragePool pool) {
+        List<RetentionEntry> activeRetentions = getActiveRetentions();
+        for (RetentionEntry entry : activeRetentions) {
+            if (entry.getJobState() == JOBSTATE.FINISHED_OK) {
+                for (RetentionJob job : entry.getJobs()) {
+                    if (job.getRetention().getPool().getIdx() == pool.getIdx()) {
+                        entry.abortJob();
+                    }
+                }
+            }
+        }       
+    }
 
     boolean handleRetention( StoragePool storagePool ) throws SQLException {
         // Busy ?
         if (hasActiveRetention(storagePool)) {
             return false;
         }
-
+        // Jobs und Windows sind FETCHTYPE EAGER, also no need for LazyList gedoens
         GenericEntityManager em = nubHandler.getUtilEm(storagePool);
         List<RetentionJob> list = em.createQuery("select T1 from RETENTIONJOB", RetentionJob.class);
 
@@ -125,23 +254,17 @@ public class RetentionManager extends WorkerParent {
                 lastStart = job.getStart();
             }
             if (!job.isFinished()) {
-                RetentionEntry entry = new RetentionEntry(nubHandler, storagePool, list, this);
+                // Um Starterlaubnis bitten
+                askForStartRetention(storagePool);
+                
+                // Alte Einträge im Jobfenster entfernen
+                finishOkRetentions(storagePool);
+                RetentionEntry entry = new RetentionEntry(nubHandler, storagePool, list, this);                
                 Main.get_control().getJobManager().addJobEntry(entry);
                 return true;
             }
         }
-
-        // Start a new Retention only once a day -> TODO: Abhängig von der parametroerten CycleDauer amchen
-        if (lastStart != null && System.currentTimeMillis() - lastStart.getTime() < 86400 * 1000) {
-            return false;
-        }
-
-        // No unfinished Retention Job found, Delete last Entries and start new cycle 
-        em.check_open_transaction();
-        for (RetentionJob job : list) {
-            em.em_remove(job);
-        }
-        em.commit_transaction();
+             
 
         em.check_open_transaction();
         List<Retention> retentions = em.createQuery("select T1 from Retention T1 where T1.disabled=0 and T1.pool_idx=" + storagePool.getIdx(), Retention.class);
@@ -149,65 +272,84 @@ public class RetentionManager extends WorkerParent {
             return false;
         }
 
+        boolean started = false;
         for (Retention retention : retentions) {
             // ONLY HANDLE ROOT NODES
             if (retention.getParent() != null) {
                 continue;
             }
             if (!retention.isInStartWindow(now)) {
+                // Alte Jobs entfernen, damit wird das nächste Startfenster wieder frei
+                deleteJobs(em, retention);
                 continue;
             }
+            // Mehrfacher Neustart in einem Startfenster sperren über JobInfo
+            if (retention.existJobInStartWindow()) {
+                continue;
+            }
+            
+            // Remove old Jobs
+            deleteJobs(em, retention);
+            
             RetentionJob job = new RetentionJob();
             job.setRetention(retention);
             em.em_persist(job);
             retention.getRetentionJobs().addIfRealized(job);
             list.add(job);
+            started = true;
         }
-        em.commit_transaction();
-        list = em.createQuery("select T1 from RETENTIONJOB", RetentionJob.class);
-
-        if (!list.isEmpty()) {
+        if (started) {
+            em.commit_transaction();
+            list = em.createQuery("select T1 from RETENTIONJOB", RetentionJob.class);
+            // Um Starterlaubnis bitten
+            askForStartRetention(storagePool);
+            
+            // Alte Einträge im Jobfenster entfernen
+            finishOkRetentions(storagePool);
             RetentionEntry entry = new RetentionEntry(nubHandler, storagePool, list, this);
             Main.get_control().getJobManager().addJobEntry(entry);
             return true;
         }
         return false;
 
+    }    
+    
+    private void deleteJobs(GenericEntityManager em, Retention retention) throws SQLException {
+        em.check_open_transaction();
+        for (RetentionJob job : retention.getRetentionJobs()) {
+            em.em_remove(job);
+        }
+        retention.getRetentionJobs().unRealize();
+        em.commit_transaction();        
     }
 
     @Override
     public void run() {
         is_started = true;
-        GregorianCalendar cal = new GregorianCalendar();
-        int last_checked = 0; //cal.get(GregorianCalendar.HOUR_OF_DAY);
+        GregorianCalendar cal = new GregorianCalendar();        
 
         setStatusTxt("");
         while (!isShutdown()) {
             LogicControl.sleep(1000);
 
-            if (isPaused()) {
-                last_checked = -1;
+            if (isPaused()) {                
                 continue;
             }
             if (!enabled) {
                 setStatusTxt(Main.Txt("Deaktiviert"));
                 setPaused(true);
-                last_checked = -1;
                 continue;
             }
 
             cal.setTime(new Date());
 
-            // ONCE EVERY HOUR
-            int check = cal.get(GregorianCalendar.HOUR_OF_DAY);
-            if (check == last_checked) {
+            // ONCE EVERY 5 MIN
+            int check = cal.get(GregorianCalendar.MINUTE);
+            if (check % 5 != 0) {
                 continue;
             }
 
-            last_checked = check;
-
             // OK, WE HAVE A NEW MINUTE, CHECK ALL SCHEDS            
-
             List<StoragePool> list = nubHandler.listStoragePools();
 
             setStatusTxt(Main.Txt("Überprüfe Retention"));
@@ -299,7 +441,7 @@ public class RetentionManager extends WorkerParent {
         // DELEET ONLY FILES
         if (!fse.isDirectory()) {
             // DIRS ARE DELETED IF LAST FILE IS DELETED
-            if (fse.getParent().getChildren(em).size() == 1) {
+            if (fse.getParent() != null && fse.getParent().getChildren(em).size() == 1) {
                 if (fse.getParent().getChildren(em).get(0).getIdx() != fse.getIdx()) {
                     throw new RetentionException("Parentfolder does not match");
                 }
@@ -314,7 +456,7 @@ public class RetentionManager extends WorkerParent {
             // DELETE EMPTY DIRS EXCEPT ROOT
             if (fse.getChildren(em).isEmpty() && fse.getParent() != null) {
                 // DIRS ARE DELETED IF LAST FILE IS DELETED
-                if (fse.getParent().getChildren(em).size() == 1) {
+                if (fse.getParent() != null && fse.getParent().getChildren(em).size() == 1) {
                     if (fse.getParent().getChildren(em).get(0).getIdx() != fse.getIdx()) {
                         throw new RetentionException("Parentfolder does not match");
                     }
@@ -515,13 +657,7 @@ public class RetentionManager extends WorkerParent {
         return remove_hash_block_list;
     }
 
-    static boolean hasAttribHistory( GenericEntityManager em, long fidx ) throws SQLException {
-
-        String select_str = "select file_idx from FileSystemElemAttributes a where a.file_idx=" + fidx;
-        int qryCount = 2;
-        List<Object[]> nres = em.createNativeQuery(select_str, qryCount);
-        return nres.size() > 1;
-    }
+    
 
     public long handleDeleteFreeBlocks( StoragePool pool ) {
         throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.

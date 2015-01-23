@@ -725,6 +725,7 @@ public class FSEIndexer
 
             List<Document> l = indexImpl.searchDocument(q, filter, maxCnt, Sort.INDEXORDER);
 
+            
             for (int i = 0; i < l.size(); i++)
             {
                 Document document = l.get(i);
@@ -745,7 +746,11 @@ public class FSEIndexer
                             }
                         }
                     }
-                    ret.add(new IndexResult(node, document));
+                    // Doppelte übergehen
+                    IndexResult res = new IndexResult(node, document);
+                    if (!ret.contains(res)) {
+                        ret.add(new IndexResult(node, document));
+                    }
                 }
             }
             return ret;

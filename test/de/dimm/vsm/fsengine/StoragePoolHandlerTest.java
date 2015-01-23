@@ -223,8 +223,6 @@ public class StoragePoolHandlerTest
         try
         {
             // REMOVE OLD STUFF
-
-
             FileSystemElemNode node = sp_handler.resolve_elem_by_path("/Dir/File");
             if (node != null)
             {

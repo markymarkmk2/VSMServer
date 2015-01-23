@@ -7,12 +7,14 @@ package de.dimm.vsm.lifecycle;
 import de.dimm.vsm.Exceptions.PathResolveException;
 import de.dimm.vsm.Exceptions.PoolReadOnlyException;
 import de.dimm.vsm.Exceptions.RetentionException;
+import de.dimm.vsm.GeneralPreferences;
 import de.dimm.vsm.LogicControl;
 import de.dimm.vsm.Main;
 import de.dimm.vsm.Utilities.SizeStr;
 import de.dimm.vsm.auth.User;
 import de.dimm.vsm.fsengine.GenericEntityManager;
 import de.dimm.vsm.fsengine.IStoragePoolNubHandler;
+import de.dimm.vsm.fsengine.JDBCEntityManager;
 import de.dimm.vsm.fsengine.LazyList;
 import de.dimm.vsm.fsengine.StoragePoolHandler;
 import de.dimm.vsm.fsengine.StoragePoolHandlerFactory;
@@ -29,6 +31,8 @@ import de.dimm.vsm.records.Snapshot;
 import de.dimm.vsm.records.StoragePool;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -36,7 +40,15 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.FutureTask;
+import java.util.concurrent.ThreadFactory;
 
 /**
  *
@@ -44,7 +56,8 @@ import java.util.List;
  */
 public class RetentionEntry implements JobInterface {
 
-    private static final int NODE_ATTR_QRYCNT = 500000;
+    private static final int DEF_NODE_ATTR_QRY_CNT = 50000;
+    private int nodeAttrQryCnt;
     static final int fIdxCol = 0;
     static final int fSizeCol = 1;
     static final int mTimeCol = 2;
@@ -52,13 +65,15 @@ public class RetentionEntry implements JobInterface {
     static final int aIdxCol = 3;
     static final int aTsCol = 4;
     public static boolean enabled = false;
+    
     final RetentionQueryResult[] qryResult = {
         new RetentionQueryResult(Long.class, "fidx"),
         new RetentionQueryResult(Long.class, "fsize"),
         new RetentionQueryResult(Long.class, "mtime"),
         //new RetentionQueryResult( String.class, "fname"),
         new RetentionQueryResult(Long.class, "aidx"),
-        new RetentionQueryResult(Long.class, "ts"),};
+        new RetentionQueryResult(Long.class, "ts")};
+    
     final String qryFieldStr = "f.idx as fidx, a.fsize as fsize, a.modificationDateMs as mtime, a.idx as aidx, a.ts as ts";
     List<RetentionJob> jobList;
     RetentionManager manager;
@@ -78,9 +93,15 @@ public class RetentionEntry implements JobInterface {
     long statIdx;
     long statSize;
     
-    long maxFseIdx = 0;
+    long maxFseIdx = 0;    
     long actFseIdx = 0;
+    long maxDedupIdx = 0;
+    long actDedupIdx = 0;
     private boolean inited;
+    
+    ExecutorService remoteQryExecutor;
+    PreparedStatement psHasAttribHistory;
+    
 
     public RetentionEntry( IStoragePoolNubHandler nubHandler, StoragePool pool, List<RetentionJob> jobs, RetentionManager manager ) {
         this.jobList = jobs;
@@ -88,8 +109,35 @@ public class RetentionEntry implements JobInterface {
         this.nubHandler = nubHandler;
         this.pool = pool;
         js = JobInterface.JOBSTATE.SLEEPING;
+        nodeAttrQryCnt = Main.get_int_prop(GeneralPreferences.NODE_ATTR_QRY_CNT, DEF_NODE_ATTR_QRY_CNT);
+        remoteQryExecutor = Executors.newFixedThreadPool(1, new NamedThreadFactory());
     }
+    class NamedThreadFactory implements  ThreadFactory
+    {
+        @Override
+        public Thread newThread( Runnable r )
+        {
+            String thr_name = "RetentionQryEntry";
+
+            Thread thr = new Thread(r, thr_name);
+            return thr;
+        }
+    }    
     
+    private boolean hasAttribHistory( GenericEntityManager em, long fidx ) throws SQLException {
+
+        psHasAttribHistory.setLong(1, fidx);
+        psHasAttribHistory.setMaxRows(2);
+        
+        ResultSet rs = psHasAttribHistory.executeQuery();
+        int cnt = 0;
+        while (rs.next()) {
+            cnt++;
+        }
+        rs.close();
+        return cnt > 1;
+    }    
+        
     void init() throws SQLException {
         
         GenericEntityManager em = nubHandler.getUtilEm(pool);
@@ -97,15 +145,74 @@ public class RetentionEntry implements JobInterface {
         if (!result.isEmpty() ) {
             maxFseIdx = Long.parseLong(result.get(0)[0].toString());
         }
+        result = em.createNativeQuery("select max(idx) from deduphashblock", 0);
+        if (!result.isEmpty() ) {
+            maxDedupIdx = Long.parseLong(result.get(0)[0].toString());
+        }
         // Read once, it doesnt change inside a retention
-        if (snapshots == null) {
-            
+        if (snapshots == null) {            
             snapshots = em.createQuery("select T1 from Snapshot T1 where T1.pool_idx=" + pool.getIdx() + " order by creation desc", Snapshot.class);
         }
+                
+        psHasAttribHistory = ((JDBCEntityManager)em).getConnection().prepareStatement(
+                "select file_idx from FileSystemElemAttributes a where a.file_idx=?");
+                        
         inited = true;
     }
-
-
+    
+    List<Long> getUnusedDHBs(long startidx, int maxQryCount ) throws SQLException {
+        final GenericEntityManager em = nubHandler.getUtilEm(pool);
+        List<Long> oListresult = new ArrayList<>();        
+        
+        while (oListresult.size() < maxQryCount && !isShutdown()) {
+            setStatusTxt("Suche freien DedupSpeicher ab Block " + startidx);   
+            List<Object[]>oList = em.createNativeQuery("select DEDUPHASHBLOCK.IDX from DEDUPHASHBLOCK where IDX > " + startidx, maxQryCount);
+            if (oList.isEmpty())
+                break;
+            
+            HashSet<Long> set = new HashSet<>();
+            for (Iterator<Object[]> it = oList.iterator(); it.hasNext();) {
+                set.add((Long)it.next()[0]);
+            }
+            
+            final Long s = (Long)oList.get(0)[0];
+            final Long e = (Long)oList.get(oList.size() - 1)[0];
+            startidx = e;            
+            
+            // Read HB_NODE (SLOW, IN BACKGROUND)
+            FutureTask<List<Object[]>> hbf = new FutureTask( new Callable<List<Object[]>>() {
+                @Override
+                public List<Object[]> call() throws Exception {
+                    return em.createNativeQuery("select distinct dedupblock_idx from hashblock where dedupblock_idx between " + s + " and " + e, 0);                    
+                }
+            });
+            remoteQryExecutor.execute(hbf);   
+            
+            // Read XA_NODE (FAST)
+            List<Object[]> oListxa = em.createNativeQuery("select distinct dedupblock_idx from xanode where dedupblock_idx between " + s + " and " + e, 0);
+            for (Object[] obs : oListxa) {
+                Long l = (Long)obs[0];
+                set.remove(l);                
+            }
+            
+            List<Object[]> oListhb;
+            try {
+                oListhb =  hbf.get();
+            }
+            catch (InterruptedException | ExecutionException interruptedException) {
+                oListhb = em.createNativeQuery("select distinct dedupblock_idx from hashblock where dedupblock_idx between " + s + " and " + e, 0);   
+            }
+            for (Object[] obs : oListhb) {
+                Long l = (Long) obs[0];
+                set.remove(l);                    
+            }
+                            
+            oListresult.addAll(set);
+        }
+        Collections.sort(oListresult);
+        return oListresult;
+    }
+    
     public void setStatusTxt( String statusTxt ) {
         this.statusTxt = statusTxt;
     }
@@ -130,10 +237,32 @@ public class RetentionEntry implements JobInterface {
 
     @Override
     public String getStatisticStr() {
+        if (actDedupIdx > 0) {
+            // Clean DHB STat
+            return "Dedupblocks:" + statDedups + " Size:" + SizeStr.format(dedupSize);
+        }
         if (statNodes == 0 && statAttribs == 0 && statHashes == 0) {
             return "";
         }
-        return "Nodes:" + statNodes + " Attr:" + statAttribs + " Hash:" + statHashes + " Dedup:" + statDedups + " " + SizeStr.format(dedupSize);
+        return "Nodes:" + statNodes + " Attr:" + statAttribs + " Hash:" + statHashes;
+    }
+    void readStatFromJob( RetentionJob retentionJob) {
+        statNodes = retentionJob.getStatNodes();
+        statHashes = retentionJob.getStatHashes();
+        statDedups = retentionJob.getStatDedups();
+        dedupSize = retentionJob.getDedupSize();
+        statAttribs = retentionJob.getStatAttribs();
+        statIdx = retentionJob.getStatIdx();
+        statSize = retentionJob.getDedupSize();        
+    }
+    void writeStatToJob( RetentionJob retentionJob) {
+         retentionJob.setStatNodes(statNodes);
+         retentionJob.setStatHashes(statHashes);
+         retentionJob.setStatDedups(statDedups);
+         retentionJob.setDedupSize(dedupSize);
+         retentionJob.setStatAttribs(statAttribs);
+         retentionJob.setStatIdx(statIdx);
+         retentionJob.setDedupSize(statSize);        
     }
 
     long getStartTS() {
@@ -177,10 +306,14 @@ public class RetentionEntry implements JobInterface {
             }
 
             boolean done = false;
-            int qryCount = NODE_ATTR_QRYCNT;
+            int qryCount = nodeAttrQryCnt;
+            // Statistikdaten lesen
+            readStatFromJob(retentionJob);
+            // STartIndex setzen
             long startIdx = retentionJob.getStartIdx();
             while (!done && !isShutdown()) {
                 while (manager.isPaused() && !isShutdown()) {
+                    setStatusTxt(Main.Txt("Pause bei Eintrag") + " " + actFseIdx );                    
                     LogicControl.sleep(1000);
                 }
                 if (isShutdown()) {
@@ -189,7 +322,7 @@ public class RetentionEntry implements JobInterface {
 
                 // CREATE A LIST OF ALL ENTRIES TO BE REMOVED BASED ON RETENTION PARAMS
                 Log.debug("Lese createRetentionResult für", " " + pool.getName() + " " + retention.toString());
-                setStatusTxt("Suche " + qryCount + " Nodes ab Idx " + startIdx);
+                setStatusTxt("Suche " + qryCount + " Einträge ab Index " + startIdx);
                 RetentionResultList<Object[]> retentionResult = createRetentionResult(retention, startIdx, qryCount, absTs);
                 Log.debug("Size createRetentionResult für", " " + pool.getName() + " " + retention.toString() + " Cnt:" + retentionResult.list.size());
 
@@ -205,13 +338,13 @@ public class RetentionEntry implements JobInterface {
 
                 // CREATE SUBLIST OF RETENTION ENTRIES WHICH CAN BE REMOVED REGARDING SNAPSHOTS
                 Log.debug("Lese createSnapshotRetentionList für", " " + pool.getName() + " " + retention.toString());
-                setStatusTxt("Berechne Snapshots für " + qryCount + " Nodes ab Idx " + startIdx);
+                setStatusTxt("Berechne Snapshots für " + qryCount + " Einträge ab Index " + startIdx);
                 RetentionResultList snapshotRetentionResult = RetentionManager.createSnapshotRetentionList(snapshots, retentionResult, pool);
                 Log.debug("Size createSnapshotRetentionList für", " " + pool.getName() + " " + retention.toString() + " Cnt:" + snapshotRetentionResult.list.size());
 
 
                 // DO RETENTION WITH THE FINAL LIST
-                setStatusTxt(pool.getName() + ": Nodes " + startIdx + " bis " + endIdx);
+                setStatusTxt("Einträge " + startIdx + " bis " + endIdx);
                 RetentionResult localret = handleRetentionList(sp_handler, snapshotRetentionResult);
                 Log.debug("Result: " + startIdx, localret.toString());
                 ret.add(localret);
@@ -221,6 +354,8 @@ public class RetentionEntry implements JobInterface {
 
                 // Leaving Active Window?
                 if (!retention.isInStartWindow(System.currentTimeMillis())) {
+                    setStatusTxt("Zeitfenster beendet bei Eintrag " + actFseIdx);
+                    Log.debug("Zeitfenster beendet für Retention ", retention.getName());
                     break;
                 }
             }
@@ -229,9 +364,12 @@ public class RetentionEntry implements JobInterface {
                 retentionJob.setFinished(true);
             }
             else {
-                Log.debug("Retention unterbrochen für ", retention.getName());
+                Log.debug("Retention unterbrochen bei Node " + startIdx + " für ", retention.getName());
                 retentionJob.setStartIdx(startIdx);
             }
+            // Statistikdaten -> Job schreiben
+            writeStatToJob(retentionJob);
+
             
             // Update actual progress
             sp_handler.check_open_transaction();
@@ -240,10 +378,12 @@ public class RetentionEntry implements JobInterface {
 
             // NOW REMOVE UNUSED DEDUPBLOCKS
             // TODO, THIS SHOULD BE HANDLED FROM OWN SCHEDULER -> SPACE USED x%. AGE or SIMPLY IMMEDIATELY
-            if (done && clearBlocks && !isShutdown() && !abort) {
-                setStatusTxt(pool.getName() + ": Entferne Blöcke");
-                handleCleanDedups(sp_handler);
+            if (done && clearBlocks && !isShutdown()) {
+                setStatusTxt("Entferne Blöcke");
+                handleCleanDedups(sp_handler, retention);
             }
+            // Statistikdaten -> Job schreiben
+            writeStatToJob(retentionJob);
         }
         finally {
             if (sp_handler != null) {
@@ -292,13 +432,14 @@ public class RetentionEntry implements JobInterface {
         long lastFidx = -1;
         for (int i = 0; i < res.size(); i++) {
             statIdx++;
-            setStatusTxt(pool.getName() + ": Eintrag " + statIdx);
+            setStatusTxt("Bearbeite Eintrag " + actFseIdx);
             
 
-            while (manager.isPaused() && !isShutdown() && !abort) {
+            while (manager.isPaused() && !isShutdown()) {
+                setStatusTxt(Main.Txt("Pause bei Eintrag") + " " + actFseIdx );
                 LogicControl.sleep(1000);
             }
-            if (isShutdown() || abort) {
+            if (isShutdown()) {
                 break;
             }
 
@@ -320,7 +461,7 @@ public class RetentionEntry implements JobInterface {
 
             // Ist beim backup überhaput was zum Recyclen da (Anz Attrib > 1)?
             if (retention.getMode().equals(Retention.MD_BACKUP)) {
-                if (!RetentionManager.hasAttribHistory(em, fidx)) {
+                if (!hasAttribHistory(em, fidx)) {
                     continue;
                 }
             }
@@ -375,7 +516,7 @@ public class RetentionEntry implements JobInterface {
             });
 
 
-            List<FileSystemElemAttributes> keepList = removeAttributes(sp_handler, retention, fse, history, retentionAttrMap);
+            List<FileSystemElemAttributes> keepList = removeNodeOrAttributes(sp_handler, retention, fse, history, retentionAttrMap);
             if (keepList != null) {
                 removehashBlocks(sp_handler, retention, fse, keepList);
             }
@@ -388,7 +529,7 @@ public class RetentionEntry implements JobInterface {
         return ret;
     }
 
-    List<FileSystemElemAttributes> removeAttributes( StoragePoolHandler sp_handler, Retention retention,
+    List<FileSystemElemAttributes> removeNodeOrAttributes( StoragePoolHandler sp_handler, Retention retention,
             FileSystemElemNode fse, List<FileSystemElemAttributes> history, HashMap<Long, Long> retentionAttrMap ) throws RetentionException, PoolReadOnlyException, SQLException {
         SimpleDateFormat sdf = new SimpleDateFormat("dd.MM.YYYY HH:mm:ss");
         long fidx = fse.getIdx();
@@ -570,6 +711,7 @@ public class RetentionEntry implements JobInterface {
         }
     }
 
+    // Einstieg aus GUI
     public long handleDeleteFreeBlocks( StoragePool pool ) throws Exception {
         User user = User.createSystemInternal();
         StoragePoolHandler sp_handler = null;
@@ -581,7 +723,9 @@ public class RetentionEntry implements JobInterface {
             }
             sp_handler.check_open_transaction();
 
-            return handleCleanDedups(sp_handler);
+            statDedups = 0;
+            handleCleanDedups(sp_handler, null);
+            return statDedups;
         }
         catch (SQLException exc) {
             if (sp_handler != null) {
@@ -602,13 +746,15 @@ public class RetentionEntry implements JobInterface {
         }
     }
 
+    
     public RetentionResultList<Object[]> createRetentionResult( Retention retention, long startIdx, int qryCount, long absTs ) throws IOException, SQLException {
         GenericEntityManager em = nubHandler.getUtilEm(pool);
 
         // THE FIELDS MUST BE FIXED TO THE RESULT!!!!
         // SELECT ALL DIRECT LINKED ATTRIBUTE RESULTS
+        long endIdx = startIdx + qryCount;
         String select_str = "select " + qryFieldStr + " from FileSystemElemNode f, FileSystemElemAttributes a "
-                + "where f.idx = a.file_idx and f.pool_idx=" + pool.getIdx();
+                + "where f.idx = a.file_idx and f.idx between " + startIdx + " and " + endIdx ;
 
         StringBuilder retention_where = new StringBuilder();
         RetentionManager.buildRetentionWhereString(em, retention, retention_where, absTs);
@@ -616,24 +762,40 @@ public class RetentionEntry implements JobInterface {
         if (retention_where.length() == 0) {
             throw new IOException("Invalid Retention query");
         }
-
         // ADD RETENTION QUERY
         select_str += " and " + retention_where.toString();
-        if (startIdx > 0) {
-            select_str += " and f.idx >= " + startIdx;
-        }
 
+        // Call
         List<Object[]> nres = em.createNativeQuery(select_str, qryCount);
+        
+        // Leere Menge kann auch bedeutet: Upper Limit too low 
+        if (nres.isEmpty()) {
+            // Dann ohne Upperlimit, ist zwar langsamer aber geht nicht anders
+            select_str = "select " + qryFieldStr + " from FileSystemElemNode f, FileSystemElemAttributes a "
+                + "where f.idx = a.file_idx and f.idx >= " + startIdx;
+
+            retention_where = new StringBuilder();
+            RetentionManager.buildRetentionWhereString(em, retention, retention_where, absTs);
+
+            if (retention_where.length() == 0) {
+                throw new IOException("Invalid Retention query");
+            }
+
+            // ADD RETENTION QUERY
+            select_str += " and " + retention_where.toString();
+
+            nres = em.createNativeQuery(select_str, qryCount);
+        }
 
         Comparator<Object[]> comp = new Comparator<Object[]>() {
             @Override
             public int compare( Object[] o1, Object[] o2 ) {
-                long of1 = Long.parseLong(o1[fIdxCol].toString());
-                long of2 = Long.parseLong(o2[fIdxCol].toString());
+                long of1 = (Long)o1[fIdxCol];
+                long of2 = (Long)o2[fIdxCol];
                 long diff = of1 - of2;
                 if (diff == 0) {
-                    of1 = Long.parseLong(o1[aIdxCol].toString());
-                    of2 = Long.parseLong(o2[aIdxCol].toString());
+                    of1 = (Long)o1[aIdxCol];
+                    of2 = (Long)o2[aIdxCol];
 
                     diff = of1 - of2;
                 }
@@ -645,60 +807,76 @@ public class RetentionEntry implements JobInterface {
         RetentionResultList<Object[]> rl = new RetentionResultList<>(retention, nres);
 
         return rl;
-    }
+    }    
 
-    long handleCleanDedups( StoragePoolHandler handler ) throws SQLException, IOException, PathResolveException, UnsupportedEncodingException, PoolReadOnlyException {
+    void handleCleanDedups( StoragePoolHandler handler, Retention retention ) throws SQLException, IOException, PathResolveException, UnsupportedEncodingException, PoolReadOnlyException {
         abortCleanDedups = false;
         GenericEntityManager em = nubHandler.getUtilEm(pool);
         setStatusTxt("Berechne freien DedupSpeicher");
+        boolean done = false;
+        int maxQryCount = 1000;
+        long startIdx = 0;
         
-        // TODO: XANODE 
-        // SEARCH FÜR DEDUP NODES NOT NEEDED AS HASHBLOCK OR AS XANODE
-        List<Object[]> oList = em.createNativeQuery("select DEDUPHASHBLOCK.IDX from DEDUPHASHBLOCK  "
-                + "left outer join hashblock on DEDUPHASHBLOCK.idx = hashblock.dedupblock_idx "
-                + "where hashblock.idx is null", 0);
-
-        long cnt = 0;
-        if (!oList.isEmpty()) {
-            setStatusTxt("Entferne freien DedupSpeicher");
+        
+        while (!isShutdown() && !done) {
+            // SEARCH FÜR DEDUP NODES NOT NEEDED AS HASHBLOCK OR AS XANODE
+                     
+            List<Long> oList = getUnusedDHBs(startIdx, maxQryCount);
+                        
+            if (oList.isEmpty()) {
+                done = true;
+                break;
+            }
 
             long size = 0;
-            for (int i = 0; i < oList.size(); i++) {
-                setStatusTxt(Main.Txt("Entferne freien DedupSpeicher") + "(Block " + i + "/" + oList.size() + ")");
+            long localCnt = 0;
+            for (int i = 0; i < oList.size(); i++) {                
+                while (manager.isPaused() && !isShutdown()) {
+                    setStatusTxt(Main.Txt("Pause bei Block") + " " + actDedupIdx );
+                    LogicControl.sleep(1000);
+                }
+                if (isShutdown()) {
+                    break;
+                }
 
                 if (abortCleanDedups) {
                     break;
                 }
 
-                Object[] oarr = oList.get(i);
-                if (oarr.length == 1) {
-                    String idxStr = oarr[0].toString();
+                actDedupIdx = oList.get(i);
+                DedupHashBlock hb = em.em_find(DedupHashBlock.class, actDedupIdx);
+                if (hb != null) {
+                    setStatusTxt(Main.Txt("Entferne freien DedupSpeicher") + " Block " + actDedupIdx );
 
-                    long l = Long.parseLong(idxStr);
-                    if (l > 0) {
-                        DedupHashBlock hb = em.em_find(DedupHashBlock.class, l);
-                        if (hb != null) {
-                            handler.removeDedupBlock(hb, null);
-                            cnt++;
-                            size += hb.getBlockLen();
+                    handler.removeDedupBlock(hb, null);
+                    
+                    localCnt++;
+                    size += hb.getBlockLen();
 
-                            handler.check_commit_transaction();
-                            statDedups++;
-                            dedupSize += hb.getBlockLen();
-                        }
-                    }
+                    handler.check_commit_transaction();
+                    statDedups++;
+                    dedupSize += hb.getBlockLen();
                 }
+                startIdx = actDedupIdx;                                                 
             }
-            Log.debug("Enfernte DedupBlöcke", Long.toString(cnt));
-            Log.debug("Freigewordener DedupSpeicher", SizeStr.format(size));
+            Log.debug("Enfernte DedupBlöcke", Long.toString(localCnt));
+            Log.debug("Freigewordener DedupSpeicher", SizeStr.format(size));   
+            
+            if (retention != null && 
+                    !retention.isInStartWindow(System.currentTimeMillis())) {
+                setStatusTxt("Zeitfenster beendet bei Eintrag " + actDedupIdx);
+                Log.debug("Zeitfenster beendet für Retention ", retention.getName());
+                break;
+            }
         }
+        handler.check_commit_transaction();
         if (abortCleanDedups) {
             setStatusTxt("Löschen wurde abgebrochen");
         }
-        else {
-            setStatusTxt("");
-        }
-        return cnt;
+        
+        if (done) {
+            setStatusTxt("Löschen wurde beendet");
+        }        
     }
         
     @Override
@@ -718,7 +896,7 @@ public class RetentionEntry implements JobInterface {
 
     @Override
     public String getStatusStr() {
-        return statusTxt;
+        return "Retention " + pool.getName() + ": " + statusTxt;
     }
 
     @Override
@@ -736,6 +914,11 @@ public class RetentionEntry implements JobInterface {
 
     @Override
     public String getProcessPercent() {
+        // Dedupberechnung?
+        if (maxDedupIdx > 0 && actDedupIdx > 0)
+            return String.format("%.1f", 100.0*actDedupIdx / maxDedupIdx);
+        
+        // Nodeberechnung?
         if (maxFseIdx > 0)
             return String.format("%.1f", 100.0*actFseIdx / maxFseIdx);
         return "";
@@ -770,7 +953,14 @@ public class RetentionEntry implements JobInterface {
                     }
                 }
             }
-            js = JOBSTATE.FINISHED_OK_REMOVE;
+            // Normales Ende ohne schließen
+            if (!abort)
+                js = JOBSTATE.FINISHED_OK;
+            else
+                js = JOBSTATE.ABORTED;
+            
+            psHasAttribHistory.close();
+            remoteQryExecutor.shutdown();
         }
         catch (Throwable ex) {
             Log.err("RetentionEntry wurde abgebrochen", ex);
@@ -782,6 +972,12 @@ public class RetentionEntry implements JobInterface {
 
     @Override
     public void close() {
+        remoteQryExecutor.shutdown();
+        try {
+            psHasAttribHistory.close();
+        }
+        catch (SQLException ex) {            
+        }
     }
 
     @Override

@@ -2623,6 +2623,8 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
      
     public void removeDedupBlock( DedupHashBlock dhb, FileSystemElemNode node ) throws SQLException, PathResolveException, UnsupportedEncodingException, PoolReadOnlyException, IOException
     {
+        em_remove(dhb);
+        
         List<PoolNodeFileLink> link_list = null;
         if (node != null)
         {            
@@ -2665,8 +2667,6 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
                 bfh.delete();
             }
         }
-
-        em_remove(dhb);
 
     }
 

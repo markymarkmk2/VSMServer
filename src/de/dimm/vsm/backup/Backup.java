@@ -324,10 +324,10 @@ public class Backup
         public String getStatusStr()
         {
             if (actualContext != null)
-                return actualContext.getStatus();
+                return "Sicherung " + sched.getName() + ": "  + actualContext.getStatus();
 
             if (preStartStatus != null)
-                return preStartStatus;
+                return "Sicherung " + sched.getName() + ": " + preStartStatus;
             return "?";
         }
 
@@ -392,6 +392,10 @@ public class Backup
         @Override
         public void run()
         {
+            // Um Starterlaubnis bitten
+            Main.get_control().getRetentionManager().askForStartBackup(sched.getPool());   
+            Main.get_control().getJobManager().abortOlderTasks(sched, this);
+
             try
             {
                 run_schedule();
@@ -412,7 +416,14 @@ public class Backup
                 else
                 {
                      Log.err("Abbruch in Sicherung", exception );
-                     baNotify( BackupManager.BA_ABORT, exception.getMessage(), actualContext );
+                     VariableResolver vr = null;
+                     if (getActSchedule() != null)
+                         vr = createSchedVr(getActSchedule());
+                     else if (getActClientInfo() != null && getActVolume() != null) {
+                         vr = createLocalVr(getActClientInfo(), getActVolume() );
+                     }
+                     preStartStatus = Main.Txt("Das Backup wurde abgebrochen") + ": " + exception.getMessage();
+                     baNotify( BackupManager.BA_ABORT, exception.getMessage(), vr );
                 }
             }
             finally
@@ -579,7 +590,7 @@ public class Backup
             throw new Exception("Schedule is not defined");
         }
        
-        StoragePool pool = sched.getPool();
+        StoragePool pool = sched.getPool();                
         // CREATE RW POOLHANDLER
         User user = User.createSystemInternal();
 

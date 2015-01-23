@@ -4,6 +4,7 @@
  */
 package de.dimm.vsm.backup.jobinterface;
 
+import de.dimm.vsm.Main;
 import de.dimm.vsm.auth.User;
 import de.dimm.vsm.net.servlets.AgentApiEntry;
 import de.dimm.vsm.backup.BackupContext;
@@ -17,7 +18,6 @@ import de.dimm.vsm.records.ClientVolume;
 import de.dimm.vsm.records.Schedule;
 import java.util.ArrayList;
 import java.util.Date;
-import java.util.Formatter;
 import java.util.List;
 
 /**
@@ -37,6 +37,7 @@ public class CDPJobInterface implements JobInterface
     Date start = new Date();
     JobInterface.JOBSTATE js;
     private boolean finished;
+    String preStartStatus;
 
     public CDPJobInterface( BackupManager mgr, AgentApiEntry api, Schedule sched, ClientInfo info, ClientVolume volume, CdpEvent ev )
     {
@@ -105,8 +106,11 @@ public class CDPJobInterface implements JobInterface
     {
         if (actualContext != null)
         {
-            return actualContext.getStatus();
+            return "CdpBackup " + info.getIp() + ": " + actualContext.getStatus();
         }
+        if (preStartStatus != null)
+            return "CdpBackup " + info.getIp() + ": " + preStartStatus;
+        
         return "";
     }
 
@@ -169,14 +173,20 @@ public class CDPJobInterface implements JobInterface
     {
         try
         {
+            // Um STarterlaubnis bitten
+            preStartStatus = Main.Txt("Warte auf Startfreigabe...");
+            Main.get_control().getRetentionManager().askForStartBackup(sched.getPool());
+            
             actualContext = mgr.initCDPbackup(api, sched, info, volume);
             mgr.handleCDPbackup(actualContext, api, evList, sched);
         }
         catch (Throwable ex)
         {
-            if (actualContext != null)
-            {
+            if (actualContext != null) {
                 actualContext.setJobState(JobInterface.JOBSTATE.ABORTED);
+            }
+            else {
+                preStartStatus = Main.Txt("Abbruch beim Start: " + ex.getMessage());
             }
         }
         finally
@@ -185,7 +195,6 @@ public class CDPJobInterface implements JobInterface
             {
                 try
                 {
-
                     mgr.closeCDPbackup(actualContext);
                 }
                 catch (Exception exception)

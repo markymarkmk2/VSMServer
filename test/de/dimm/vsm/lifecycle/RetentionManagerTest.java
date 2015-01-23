@@ -7,6 +7,7 @@ package de.dimm.vsm.lifecycle;
 
 
 
+import de.dimm.vsm.Exceptions.PathResolveException;
 import de.dimm.vsm.net.interfaces.GuiServerApi;
 import de.dimm.vsm.LogicControl;
 import de.dimm.vsm.auth.User;
@@ -26,21 +27,26 @@ import de.dimm.vsm.backup.Backup;
 import de.dimm.vsm.backup.GenericContext;
 import de.dimm.vsm.backup.Restore;
 import de.dimm.vsm.backup.RestoreTest;
+import de.dimm.vsm.fsengine.ArrayLazyList;
 import de.dimm.vsm.fsengine.FS_FileHandle;
 import de.dimm.vsm.fsengine.StoragePoolHandler;
 import de.dimm.vsm.fsengine.StoragePoolHandlerTest;
 import de.dimm.vsm.fsengine.DerbyStoragePoolNubHandler;
+import de.dimm.vsm.log.Log;
 import de.dimm.vsm.net.RemoteFSElem;
 import de.dimm.vsm.net.StoragePoolQry;
 import de.dimm.vsm.records.FileSystemElemNode;
 import de.dimm.vsm.records.HashBlock;
+import de.dimm.vsm.records.RetentionJob;
 import de.dimm.vsm.records.Snapshot;
 import java.io.IOException;
 import java.io.RandomAccessFile;
+import java.io.UnsupportedEncodingException;
 
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 import org.junit.After;
@@ -94,28 +100,28 @@ public class RetentionManagerTest {
         
         try
         {
-            RandomAccessFile raf = new RandomAccessFile(f, "rw");
-            byte[] buff = new byte[8192];
-            for (int i = 0; i < buff.length; i++)
-            {
-                buff[i] = val;
+            try (RandomAccessFile raf = new RandomAccessFile(f, "rw")) {
+                byte[] buff = new byte[8192];
+                for (int i = 0; i < buff.length; i++)
+                {
+                    buff[i] = val;
 
+                }
+                while (len >  0)
+                {
+                    int wlen = buff.length;
+                    if (wlen > len)
+                        wlen = (int)len;
+
+                    raf.write(buff, 0, wlen);
+
+                    len -= wlen;
+                }
             }
-            while (len >  0)
-            {
-                int wlen = buff.length;
-                if (wlen > len)
-                    wlen = (int)len;
-
-                raf.write(buff, 0, wlen);
-
-                len -= wlen;
-            }
-            raf.close();
         }
         catch (IOException iOException)
         {
-            fail( "Cannot create test file " +  f.getAbsolutePath() );
+            fail( "Cannot create test file " +  f.getAbsolutePath() + iOException.getMessage() );
         }
     }
     void updateTestFile(File f, long pos, byte val)
@@ -123,10 +129,10 @@ public class RetentionManagerTest {
 
         try
         {
-            RandomAccessFile raf = new RandomAccessFile(f, "rw");
-            raf.seek(pos);
-            raf.write(val);
-            raf.close();
+            try (RandomAccessFile raf = new RandomAccessFile(f, "rw")) {
+                raf.seek(pos);
+                raf.write(val);
+            }
         }
         catch (IOException iOException)
         {
@@ -138,10 +144,10 @@ public class RetentionManagerTest {
         byte val = 0;
         try
         {
-            RandomAccessFile raf = new RandomAccessFile(f, "rw");
-            raf.seek(pos);
-            val = (byte)raf.read();
-            raf.close();
+            try (RandomAccessFile raf = new RandomAccessFile(f, "rw")) {
+                raf.seek(pos);
+                val = (byte)raf.read();
+            }
         }
         catch (IOException iOException)
         {
@@ -250,7 +256,7 @@ public class RetentionManagerTest {
         {
             fh = sn_handler.create_file_handle(hb2.getDedupBlock(), /*create*/ false);
         }
-        catch (Exception pathResolveException)
+        catch (PathResolveException | UnsupportedEncodingException pathResolveException)
         {
             fail("create_file_handle failed: " + pathResolveException.getMessage());
         }
@@ -296,9 +302,9 @@ public class RetentionManagerTest {
         AgentApiEntry apiEntry = null;
         FileSystemElemNode fileNode = null;
 
-        Snapshot s0 = null;
-        Snapshot s1 = null;
-        Snapshot s2 = null;
+        Snapshot s0;
+        Snapshot s1;
+        Snapshot s2;
 
         int restoreFlags = GuiServerApi.RF_RECURSIVE;
         
@@ -358,7 +364,7 @@ public class RetentionManagerTest {
             assertNotNull(dirNode);
 
             // GET AND SAVE ORIG LIST OF BLOCKS
-            List<HashBlock> hb_orig = new ArrayList<HashBlock>(fileNode.getHashBlocks().getList(pool_handler.getEm()));
+            List<HashBlock> hb_orig = new ArrayList<>(fileNode.getHashBlocks().getList(pool_handler.getEm()));
 
 
             // UPDATE FILE AT FIRST BYTE OF SECOND BLOCK AND BACKUP FILE
@@ -370,7 +376,7 @@ public class RetentionManagerTest {
 
             // CHECK HBLIST
             fileNode = pool_handler.resolve_node(file_abs_path);
-            List<HashBlock> hb_ba1 = new ArrayList<HashBlock>(fileNode.getHashBlocks().getList(pool_handler.getEm()));
+            List<HashBlock> hb_ba1 = new ArrayList<>(fileNode.getHashBlocks().getList(pool_handler.getEm()));
             assertEquals(hb_orig.size() + 1, hb_ba1.size());
 
             // SORT BLOCKS ORDER BY OFFSET, TS
@@ -398,7 +404,7 @@ public class RetentionManagerTest {
 
             // CHECK HBLIST
             fileNode = pool_handler.resolve_node(file_abs_path);
-            List<HashBlock> hb_ba2  = new ArrayList<HashBlock>( fileNode.getHashBlocks().getList(pool_handler.getEm()) );
+            List<HashBlock> hb_ba2  = new ArrayList<>( fileNode.getHashBlocks().getList(pool_handler.getEm()) );
             assertEquals(hb_orig.size() + 2, hb_ba2.size());
 
             // SORT BLOCKS ORDER BY OFFSET, TS
@@ -419,13 +425,22 @@ public class RetentionManagerTest {
             retention.setArgOp(Retention.OP_LE);
             retention.setArgType(Retention.ARG_TS);
             // RETENTIONTIME VEFORE BACKUP, NOTHING TO DELETE
-            retention.setArgValue( Long.toString(System.currentTimeMillis() - TsBeforebackup) );
+            long now = System.currentTimeMillis();
+            retention.setArgValue( Long.toString(now - TsBeforebackup) );
             retention.setFollowAction(Retention.AC_DELETE);
             retention.setFollowActionParams("");
             retention.setMode(Retention.MD_ARCHIVE);
 
             RetentionManager rm = new RetentionManager(nubHandler);
-
+            RetentionJob job = new RetentionJob();
+            job.setRetention(retention);            
+            retention.setRetentionJobs( new ArrayLazyList<>(Arrays.asList(job)));
+            List<RetentionJob> list = Arrays.asList(job);
+            List<Snapshot> snapshots = Arrays.asList();
+            
+            // Um Starterlaubnis bitten
+            
+            RetentionEntry entry = new RetentionEntry(StoragePoolHandlerTest.getNubHandler(), pool, list, rm);
             // BA
             // S0
             // UPD Block1
@@ -434,21 +449,31 @@ public class RetentionManagerTest {
             // S2
 
             // CREATE RETENTIONRESULT
-            RetentionResultList retentionResult = rm.createRetentionResult(retention, pool, 0, 100, System.currentTimeMillis());
+
+
+            // DO RETENTION WITH THE FINAL LIST
+
+            RetentionResultList retentionResult = entry.createRetentionResult(retention, 0, 100,now);
+            RetentionResultList snapshotRetentionResult = RetentionManager.createSnapshotRetentionList(snapshots, retentionResult, pool);
+            entry.handleRetentionList(pool_handler, snapshotRetentionResult);
+            entry.writeStatToJob(job);
             // THIS SHOULD BE NOTHING, RETENTION IS OLDER THAN OLDEST FILE
-            assertEquals(filterRetentionResultList(retentionResult, fileNode.getIdx()), 0);
+            //filterRetentionResultList(retentionResult, fileNode.getIdx())
+            assertEquals(job.getStatNodes(), 0);
 
             // EVERYTHING OLDER THAN NOW WILL BE HANDLED
             retention.setArgValue( Long.toString(0) );
 
-            retentionResult = rm.createRetentionResult(retention, pool, 0, 100, System.currentTimeMillis());
+            retentionResult = entry.createRetentionResult(retention, 0, 100, now);
+            snapshotRetentionResult = RetentionManager.createSnapshotRetentionList(snapshots, retentionResult, pool);
+            entry.handleRetentionList(pool_handler, snapshotRetentionResult);
+            entry.writeStatToJob(job);
 
             // THIS SHOULD BE ALL ENTRIES, ORIG + 2 UPDATES
-            assertEquals(filterRetentionResultList(retentionResult, fileNode.getIdx()), 3);
-            ArrayList<Snapshot> snapshots = new ArrayList<Snapshot>();
+            assertEquals(job.getStatNodes(), 3);
 
 
-            RetentionResultList snapshotRetentionResult = RetentionManager.createSnapshotRetentionList(snapshots, retentionResult, pool);
+            snapshotRetentionResult = RetentionManager.createSnapshotRetentionList(snapshots, retentionResult, pool);
             // THIS SHOULD BE ALL ENTRIES, ORIG + 2 UPDATES
             assertEquals(filterRetentionResultList(snapshotRetentionResult, fileNode.getIdx()), 3);
 
@@ -540,21 +565,21 @@ public class RetentionManagerTest {
 
 
             // NOW HANDLE RETENTION FOR S1, THAT MEANS WE LOOSE LAST UPDATE AND WE LOOSE ORIGINAL BLOCK OF UPDATE
-            RetentionResult localret = rm.handleRetentionList(pool_handler, snapshotRetentionResult_s1);
+            entry.handleRetentionList(pool_handler, snapshotRetentionResult_s1);
 
             // AND CHECK IF NOT EXISTS AFTER RETENTION
             assert( !sfh.get_fh().exists() );
 
             // ONE FILE, TWO BLOCKS
-            assertEquals(localret.files, 1 );
-            assertEquals(localret.size, 2*bs );
+//            assertEquals(localret.files, 1 );
+//            assertEquals(localret.size, 2*bs );
             
 
 
             // RESULTS AFTER RETENTION SHOULD BE SAME AS AFTER FIRST UPDATE, ONLY THE ORIGINAL OF SECOND BLOCK IS MISSING
             fileNode = pool_handler.resolve_node(file_abs_path);
             fileNode = pool_handler.em_find(FileSystemElemNode.class, fileNode.getIdx());
-            List<HashBlock> hb_ba3  = new ArrayList<HashBlock>(fileNode.getHashBlocks().getList(pool_handler.getEm()));
+            List<HashBlock> hb_ba3  = new ArrayList<>(fileNode.getHashBlocks().getList(pool_handler.getEm()));
             sortHashBlocks( hb_ba3 );
             assertEquals( hb_ba1.size(), hb_ba3.size() + 1);
 
@@ -567,7 +592,7 @@ public class RetentionManagerTest {
             // REMOVE EVERYTHING
             snapshots.clear();
             snapshotRetentionResult = RetentionManager.createSnapshotRetentionList(snapshots, retentionResult, pool);
-            localret = rm.handleRetentionList(pool_handler, snapshotRetentionResult_s1);
+            entry.handleRetentionList(pool_handler, snapshotRetentionResult);
             
             context.close();
         }
@@ -581,9 +606,9 @@ public class RetentionManagerTest {
             fail("read only: " + poolReadOnlyException.getMessage());
         }
         catch (Exception exc)
-        {
+        {            
             exc.printStackTrace();
-            fail("Backup failed: " + exc.getMessage());
+            fail("Retention failed: " + exc.getMessage());
         }
 
 

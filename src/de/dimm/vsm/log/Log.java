@@ -13,6 +13,7 @@ import de.dimm.vsm.records.TextBase;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.logging.Logger;
 import org.apache.log4j.Level;
 
 /**
@@ -122,7 +123,7 @@ public class Log implements DBLogger
                 {
                     LogicControl.get_log_em().check_open_transaction();
                     LogicControl.get_log_em().em_persist(log);
-                    LogicControl.get_log_em().commit_transaction();
+                    LogicControl.get_log_em().check_commit_transaction();
                 }
                 catch (SQLException sQLException)
                 {
@@ -473,6 +474,12 @@ public class Log implements DBLogger
 
     public static MessageLog[] listLogs( int cnt, long offsetIdx, LogQuery lq )
     {
+        try {
+            LogicControl.get_log_em().commit_transaction();
+        }
+        catch (SQLException ex) {
+            Logger.getLogger(Log.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
+        }
         String qry = "select max(idx) from messagelog";
         List<Object[]> ret = null;
         try
@@ -606,6 +613,13 @@ public class Log implements DBLogger
 
     public static MessageLog[] listLogsSinceIdx(long idx, LogQuery lq )
     {
+        try {
+            LogicControl.get_log_em().commit_transaction();
+        }
+        catch (SQLException ex) {
+            Logger.getLogger(Log.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
+        }
+
         String qry = "select x from Messagelog x where T1.idx > " + idx;
 
         String addQry = buildQryString(lq);

@@ -1216,7 +1216,8 @@ public final class DDFS_WR_FileHandle implements FileHandle, IBackupHelper
  @Override
     public synchronized int read( byte[] b, int length, long offset ) throws IOException
     {
-        Log.debug("readFile len " +  length + " offs " + offset + " Node:" + node.getIdx() );
+        if (Log.isTraceEnabled())
+            Log.debug("readFile len " +  length + " offs " + offset + " Node:" + node.getIdx() );
                 
         if (verbose)
         {

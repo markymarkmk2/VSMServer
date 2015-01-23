@@ -32,6 +32,7 @@ public class VfsJobInterface implements JobInterface
     Date start = new Date();
     JobInterface.JOBSTATE js;
     User user;
+    String preStartStatus;
 
     public VfsJobInterface( BackupManager mgr, AgentApiEntry api, MountEntry mountEntry, List<RemoteFSElem> elem )
     {
@@ -89,8 +90,10 @@ public class VfsJobInterface implements JobInterface
     {
         if (actualContext != null)
         {
-            return actualContext.getStatus();
+            return "VfsBackup " + mountEntry.getName()  + ": " + actualContext.getStatus();
         }
+        if (preStartStatus != null)
+            return "VfsBackup " + mountEntry.getName()  + ": " + preStartStatus;        
         return "";
     }
 
@@ -148,16 +151,23 @@ public class VfsJobInterface implements JobInterface
     {
         try
         {
+            // Um Starterlaubnis fragen
+            preStartStatus = Main.Txt("Warte auf Startfreigabe...");
+
+            Main.get_control().getRetentionManager().askForStartBackup(mountEntry.getPool());
+
             actualContext = mgr.initVfsbackup(api, mountEntry);
             mgr.handleVfsbackup(actualContext, api, elems, mountEntry);            
             actualContext.setJobState(actualContext.getResult() ? JobInterface.JOBSTATE.FINISHED_OK : JobInterface.JOBSTATE.FINISHED_ERROR);            
         }
         catch (Throwable ex)
         {
-            if (actualContext != null)
-            {
+            if (actualContext != null) {
                 actualContext.setJobState(JobInterface.JOBSTATE.ABORTED);
             }
+            else {
+                preStartStatus = Main.Txt("Abbruch beim Start: " + ex.getMessage());
+            }            
         }
         finally
         {
@@ -165,7 +175,6 @@ public class VfsJobInterface implements JobInterface
             {
                 try
                 {
-
                     mgr.closeVfsbackup(actualContext);
                 }
                 catch (Exception exception)

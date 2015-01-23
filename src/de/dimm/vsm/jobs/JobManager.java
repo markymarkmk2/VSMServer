@@ -5,7 +5,9 @@
 
 package de.dimm.vsm.jobs;
 
+import de.dimm.vsm.GeneralPreferences;
 import de.dimm.vsm.LogicControl;
+import de.dimm.vsm.Main;
 import de.dimm.vsm.WorkerParent;
 import de.dimm.vsm.auth.User;
 import de.dimm.vsm.backup.Backup.BackupJobInterface;
@@ -165,7 +167,7 @@ public class JobManager extends WorkerParent
     {
         super("JobManager");
         
-        list = new ArrayList<JobEntry>();
+        list = new ArrayList<>();
 
         if (test)
         {
@@ -268,12 +270,22 @@ public class JobManager extends WorkerParent
                                 }
                             }
                         } else if (jobEntry.getJob().getJobState() == JobInterface.JOBSTATE.ABORTED || jobEntry.getJob().getJobState() == JobInterface.JOBSTATE.FINISHED_OK_REMOVE ) {
+                            // Automatic Remove
                             jobEntry.close();
                             list.remove(jobEntry);
                             i--;
+                        } else if (jobEntry.getJob().getJobState() == JobInterface.JOBSTATE.FINISHED_OK ) {
+                            // Automatic Remove after 1d
+                            long kickTimeout = Main.get_int_prop(GeneralPreferences.KICK_JOB_TIMEOUT_S, 86400);
+                            if (kickTimeout > 0 && jobEntry.getStarted() != null && (now - jobEntry.getStarted().getTime()) > kickTimeout*1000) {
+                                jobEntry.close();
+                                list.remove(jobEntry);
+                                i--;
+                            }
                         }
+                        
                     } catch (Exception e) {
-                        e.printStackTrace();
+                        Log.err("Abbruch in Run", e);
                     }
                 }
             }
@@ -287,7 +299,7 @@ public class JobManager extends WorkerParent
             entry.getJob().abortJob();            
         }
         
-        boolean allStopped = false;
+        boolean allStopped;
         int maxWaitS=10;
         while (maxWaitS > 0)
         {
@@ -339,7 +351,7 @@ public class JobManager extends WorkerParent
                 return list.toArray( new JobEntry[0]);
             }
         }
-        List<JobEntry> userList = new ArrayList<JobEntry>();
+        List<JobEntry> userList = new ArrayList<>();
         for (int i = 0; i < list.size(); i++)
         {
             JobEntry jobEntry = list.get(i);
@@ -532,6 +544,44 @@ public class JobManager extends WorkerParent
             }
         }
         return false;
+    }
+    
+    public <T> List<T> getJobList(Class<T> clazz) {
+        
+        List<T> foundJobs = new ArrayList<>();
+                
+        JobEntry[] jobs = getJobArray(null);
+        for (int i = 0; i < jobs.length; i++)
+        {
+            JobEntry jobEntry = jobs[i];
+            if (jobEntry.getJob().getClass().getSimpleName().equals(clazz.getSimpleName())) {               
+               foundJobs.add((T)jobEntry.getJob());                       
+            }
+        }
+        return foundJobs;
+    }
+
+    public void abortOlderTasks( Schedule sched, BackupJobInterface job) {
+        JobEntry[] jobs = getJobArray(null);
+        for (int i = 0; i < jobs.length; i++)
+        {
+            JobEntry jobEntry = jobs[i];
+            if (jobEntry.getJob() instanceof BackupJobInterface)
+            {
+                // Stop all other ready Jobs 
+                BackupJobInterface bi = (BackupJobInterface) jobEntry.getJob();
+                if (bi != job && 
+                        bi.getActSchedule() != null && 
+                        bi.getActSchedule().getIdx() == sched.getIdx() &&
+                        bi.getActSchedule().getPool().getIdx() == sched.getPool().getIdx())
+                {
+                    if (jobEntry.getJobStatus() == JOBSTATE.FINISHED_OK || jobEntry.getJobStatus() == JOBSTATE.FINISHED_ERROR)
+                    {
+                        bi.abortJob();
+                    }
+                }
+            }
+        }    
     }
 
 }
