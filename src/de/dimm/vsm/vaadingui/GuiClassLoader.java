@@ -3,7 +3,7 @@
  * and open the template in the editor.
  */
 
-package de.dimm.sva.vaadingui;
+package de.dimm.vsm.vaadingui;
 
 
 

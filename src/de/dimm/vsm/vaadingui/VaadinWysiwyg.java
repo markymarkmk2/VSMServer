@@ -2,24 +2,33 @@
  * To change this template, choose Tools | Templates
  * and open the template in the editor.
  */
-package de.dimm.sva.vaadingui;
+package de.dimm.vsm.vaadingui;
 
-import com.vaadin.server.VaadinServlet;
-import de.dimm.sva.vaadin.SVAClientApplication.MyProjectServlet;
+import com.vaadin.Application;
+import com.vaadin.terminal.gwt.server.ApplicationServlet;
+import de.dimm.vsm.log.Log;
+import de.dimm.vsm.vaadin.AppServlet;
+import de.dimm.vsm.vaadin.VSMClientApplication;
+import de.dimm.vsm.vaadin.VSMSearchApplication;
 import java.io.File;
+import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.util.ArrayList;
+import javax.servlet.Servlet;
+import javax.servlet.ServletConfig;
 import javax.servlet.ServletException;
-import org.apache.commons.logging.Log;
+import javax.servlet.ServletRequest;
+import javax.servlet.ServletResponse;
 import org.eclipse.jetty.servlet.ServletHolder;
 
 
-public class VaadinWysiwyg
+
+class VaadinInterfaceServlet implements Servlet
 {
-    public static URL[] getGuiUrls()
+    static URL[] getGuiUrls()
     {
         try
         {
@@ -53,8 +62,32 @@ public class VaadinWysiwyg
         return null;
     }
     
-    
-    public final ClassLoader getClassLoader() throws ServletException
+    ApplicationServlet app;
+
+
+    VaadinInterfaceServlet()
+    {
+        try
+        {
+            ClassLoader cl = getClassLoader();
+            Class acl = cl.loadClass("de.dimm.vsm.vaadin.AppServlet");
+            
+            Class main = cl.loadClass("de.dimm.vsm.vaadin.VSMCMain");
+           
+            app = (ApplicationServlet) acl.newInstance();
+
+            String v = main.getDeclaredMethod("getVersion", (Class[])null).invoke(null, (Object[])null).toString();
+
+            System.out.println("GUI Servlet Version V" + v);
+        }
+        catch (ServletException | ClassNotFoundException | InstantiationException | IllegalAccessException | NoSuchMethodException | SecurityException | IllegalArgumentException | InvocationTargetException servletException)
+        {
+            Log.err("GUI-Servlet kann nicht geladen werden", servletException);
+        }        
+    }
+
+  
+    protected final ClassLoader getClassLoader() throws ServletException
     {
         ClassLoader ldr = null;
         try
@@ -64,21 +97,69 @@ public class VaadinWysiwyg
         }
         catch (Exception e)
         {
-            
+            Log.err("GUI-Bibliotheksliste konnte nicht geladen werden", e);
         }
         return ldr;
     }
 
+    @Override
+    public void init( ServletConfig config ) throws ServletException
+    {
+        app.init(config);
+    }
+
+    @Override
+    public ServletConfig getServletConfig()
+    {
+        return app.getServletConfig();
+    }
+
+    @Override
+    public void service( ServletRequest req, ServletResponse res ) throws ServletException, IOException
+    {
+     //   VSMCMain.setMe( ((AppServlet)app). );
+        AppServlet vapp = (AppServlet)app;
+        Application aapp = vapp.getApp();
+        if (aapp instanceof VSMClientApplication)
+        {
+            VSMClientApplication vaapp = (VSMClientApplication)aapp;
+            vaapp.getMain().setMe();
+        }
+        if (aapp instanceof VSMSearchApplication)
+        {
+            VSMSearchApplication vaapp = (VSMSearchApplication)aapp;
+            vaapp.getMain().setMe();
+        }
+        app.service(req, res);
+    }
+
+    @Override
+    public String getServletInfo()
+    {
+        return app.getServletInfo();
+    }
+
+    @Override
+    public void destroy()
+    {
+        app.destroy();
+    }
+}
+
+
+public class VaadinWysiwyg
+{
+   
     public static ServletHolder createGuiServlet( String classname )
     {
-        VaadinServlet servlet = new MyProjectServlet();
-        ServletHolder vaadinLoader = new ServletHolder(servlet);
+        ServletHolder vaadinLoader = new ServletHolder(new VaadinInterfaceServlet());
 
-        //vaadinLoader.setInitParameter("UI", classname);
-        //vaadinLoader.setInitParameter("widgetset", "com.example.testvaadin.widgetset.TestvaadinWidgetset");
-        //vaadinLoader.setInitParameter("productionMode", "true" );
+        vaadinLoader.setInitParameter("application", classname);
+        vaadinLoader.setInitParameter("widgetset", "com.example.testvaadin.widgetset.TestvaadinWidgetset");
+        vaadinLoader.setInitParameter("productionMode", "true" );
 
         return vaadinLoader;
     }
+
     
 }
