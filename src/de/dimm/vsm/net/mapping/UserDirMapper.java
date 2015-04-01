@@ -92,12 +92,15 @@ public class UserDirMapper
                         }
                         newPath += dirName;
 
-                        if (containsDir(ret, dirName))
+                        // Je nachdem ob wir abs-Path haben oder Nicht die Pfade abs oder rel eintragen
+                        String addDirName = dirName;
+                        
+                        if (containsDir(ret, addDirName))
                         {
                             continue;
                         }
 
-                        RemoteFSElem remoteNode = RemoteFSElem.createDir(newPath/*dirName*/);
+                        RemoteFSElem remoteNode = RemoteFSElem.createDir(addDirName);
                         ret.add(remoteNode);
                         //                    remoteNode = RemoteFSElem.createDir(newPath);
                     }

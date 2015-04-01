@@ -446,7 +446,7 @@ is divided into following sections:
                     <formatter type="xml"/>
                     <jvmarg value="-ea"/>
                     <customize/>
-                <jvmarg line="-agentpath:F:\PROGRA~3\YOURKI~1.1\bin\win64\yjpagent.dll=sampling,sessionname=VSM,profileruipath=YJPQUOTED463a5c50726f6772616d2046696c65732028783836295c596f75724b6974204a6176612050726f66696c65722031322e302e315c62696e5c70726f66696c65722e657865,ideport=51379,onexit=snapshot"/>
+                <jvmarg line="-agentpath:F:\PROGRA~3\YOURKI~1.1\bin\win64\yjpagent.dll=alloceach=10,allocsizelimit=1048576,sampling,sessionname=VSM,profileruipath=YJPQUOTED463a5c50726f6772616d2046696c65732028783836295c596f75724b6974204a6176612050726f66696c65722031322e302e315c62696e5c70726f66696c65722e657865,ideport=54175,onexit=snapshot"/>
 </junit>
             <delete deleteonexit="true" file="yjp-build.xml" quiet="true" verbose="false"/>
 <delete deleteonexit="true" file="nbproject/yjp-build-impl.xml" quiet="true" verbose="false"/>
@@ -479,7 +479,7 @@ is divided into following sections:
                     <formatter type="xml"/>
                     <jvmarg value="-ea"/>
                     <customize/>
-                <jvmarg line="-agentpath:F:\PROGRA~3\YOURKI~1.1\bin\win64\yjpagent.dll=sampling,sessionname=VSM,profileruipath=YJPQUOTED463a5c50726f6772616d2046696c65732028783836295c596f75724b6974204a6176612050726f66696c65722031322e302e315c62696e5c70726f66696c65722e657865,ideport=51379,onexit=snapshot"/>
+                <jvmarg line="-agentpath:F:\PROGRA~3\YOURKI~1.1\bin\win64\yjpagent.dll=alloceach=10,allocsizelimit=1048576,sampling,sessionname=VSM,profileruipath=YJPQUOTED463a5c50726f6772616d2046696c65732028783836295c596f75724b6974204a6176612050726f66696c65722031322e302e315c62696e5c70726f66696c65722e657865,ideport=54175,onexit=snapshot"/>
 </junit>
             <delete deleteonexit="true" file="yjp-build.xml" quiet="true" verbose="false"/>
 <delete deleteonexit="true" file="nbproject/yjp-build-impl.xml" quiet="true" verbose="false"/>
@@ -862,7 +862,7 @@ is divided into following sections:
             <element name="customize" optional="true"/>
             <sequential>
                 <java classname="@{classname}" dir="${work.dir}" fork="true" jvm="${platform.java}">
-                    <jvmarg line="-agentpath:F:\PROGRA~3\YOURKI~1.1\bin\win64\yjpagent.dll=sampling,sessionname=VSM,profileruipath=YJPQUOTED463a5c50726f6772616d2046696c65732028783836295c596f75724b6974204a6176612050726f66696c65722031322e302e315c62696e5c70726f66696c65722e657865,ideport=51379,onexit=snapshot ${endorsed.classpath.cmd.line.arg}"/>
+                    <jvmarg line="-agentpath:F:\PROGRA~3\YOURKI~1.1\bin\win64\yjpagent.dll=alloceach=10,allocsizelimit=1048576,sampling,sessionname=VSM,profileruipath=YJPQUOTED463a5c50726f6772616d2046696c65732028783836295c596f75724b6974204a6176612050726f66696c65722031322e302e315c62696e5c70726f66696c65722e657865,ideport=54175,onexit=snapshot ${endorsed.classpath.cmd.line.arg}"/>
                     <jvmarg value="-Dfile.encoding=${runtime.encoding}"/>
                     <redirector errorencoding="${runtime.encoding}" inputencoding="${runtime.encoding}" outputencoding="${runtime.encoding}"/>
                     <jvmarg line="${run.jvmargs}"/>

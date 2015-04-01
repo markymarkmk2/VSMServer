@@ -50,7 +50,7 @@ public class Main
 {
 
     static String source_str = "trunk";
-    static String version_str = "1.7.9";
+    static String version_str = "1.8.0";
         
     public static int writeThreads = 1;
     public static int maxOpenFiles = 1024;
