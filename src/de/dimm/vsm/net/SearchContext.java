@@ -5,16 +5,26 @@
 
 package de.dimm.vsm.net;
 
+import static de.dimm.vsm.LogicControl.getKeyPwd;
+import static de.dimm.vsm.LogicControl.getKeyStore;
+import de.dimm.vsm.Main;
+import de.dimm.vsm.auth.User;
 import de.dimm.vsm.fsengine.IndexResult;
 import de.dimm.vsm.fsengine.StoragePoolHandler;
 import de.dimm.vsm.log.Log;
 import de.dimm.vsm.records.ArchiveJob;
 import de.dimm.vsm.records.FileSystemElemAttributes;
 import de.dimm.vsm.records.FileSystemElemNode;
+import java.io.IOException;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.UUID;
+import org.eclipse.jetty.servlet.DefaultServlet;
+import org.eclipse.jetty.servlet.FilterHolder;
+import org.eclipse.jetty.servlet.ServletContextHandler;
+import org.eclipse.jetty.servlet.ServletHolder;
 
 
 /**
@@ -23,7 +33,6 @@ import java.util.List;
  */
 public class SearchContext
 {
-
     StoragePoolHandler sp_handler;
     ArrayList<SearchEntry> slist;
 //    Thread searchThread;
@@ -31,8 +40,9 @@ public class SearchContext
     List<ArchiveJob> jobResultList;
     Date lastUsage;
     int max;
-
+    NetServer webDavServer;
     
+
     public SearchContext( StoragePoolHandler handler, ArrayList<SearchEntry> slist, int max )
     {
         this.sp_handler = handler;
@@ -49,15 +59,6 @@ public class SearchContext
         SearchPathResolver resolver = new SearchPathResolver(this, handler);
         handler.setPathResolver(resolver);
         
-//        searchThread = new Thread(new Runnable()
-//        {
-//
-//            @Override
-//            public void run()
-//            {
-//                runSearch();
-//            }
-//        }, "SearchThread");
 
         lastUsage = new Date();
     }
@@ -167,6 +168,9 @@ public class SearchContext
         {
         }
         sp_handler.close_entitymanager();
+        if (webDavServer != null) {
+            webDavServer.stop_server();
+        }        
     }
 
     // THIS CALS SIZE OF OBJECTS ON FIRST LEVEL, IF WE DO IT RECURSIVELY, WE COULD END UP SCANNING THE WHOLE FS...
@@ -200,4 +204,26 @@ public class SearchContext
     {
         return lastUsage.getTime();
     }
+    
+    NetServer createWebDavServer( SearchWrapper wrapper, long loginIdx, long wrapperIdx, int webDavPort ) throws IOException {
+        // Aus dem User das Logintoken holen -> das ist unser WebDavToken: eindeutig je User 
+        User usr = Main.get_control().getLoginManager().getUser(loginIdx);              
+        wrapper.setWebDavToken(usr.getLoginToken());
+        
+        webDavServer = new NetServer();
+        DefaultServlet servlet = new DefaultServlet();
+        ServletHolder htmlSH = new ServletHolder(servlet);
+        webDavServer.addServletHolder("*", htmlSH);
+        ServletContextHandler context = webDavServer.getContext();
+        FilterHolder fh = new FilterHolder(new VSMWebDavFilter(loginIdx, wrapperIdx, /*isSearch*/ true));        
+        
+        // Filter ist UserToken
+        context.addFilter(fh, "/" + usr.getLoginToken() + "/*", null);
+                
+        if (webDavServer.start_server(webDavPort, false, getKeyStore(), getKeyPwd())) {
+            return webDavServer;
+        }
+        webDavServer.stop_server();
+        return null;
+    }    
 }

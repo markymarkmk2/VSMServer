@@ -34,13 +34,16 @@ public class SearchContextManager extends WorkerParent
     int lastCnt = -1;
     private int maxHandlers = 100;
     final Map<SearchWrapper, SearchContext> handlerMap;
-
+    final Map<Long,NetServer> webDavServerMap;
+    private static final int WEB_DAV_USER_SEARCH_PORT_BASE = 59080;
     public static long EXPIRE_MS = 3600*1000l;  // 1h
 
     public SearchContextManager()
     {
         super( "SearchContextManager" );
         handlerMap = new HashMap<>();  
+    webDavServerMap = new HashMap<>();
+
         maxHandlers = Main.get_int_prop(GeneralPreferences.MAX_OPEN_POOLHANDLERS, maxHandlers); 
 
     }
@@ -172,6 +175,7 @@ public class SearchContextManager extends WorkerParent
         {
             context.close();
         }
+        webDavServerMap.remove(wrapper.getWrapperIdx());  
     }
 
     SearchWrapper search( User user, StoragePool pool, ArrayList<SearchEntry> slist, int max )
@@ -278,6 +282,7 @@ public class SearchContextManager extends WorkerParent
                     Log.debug(Main.Txt("Entferne abgelaufenen SuchContext") + " "  + entry.getKey().qry.getUser());
                     entry.getValue().close();
                     handlerMap.remove(entry.getKey());
+                    webDavServerMap.remove(entry.getKey().getWrapperIdx());  
                     break;
                 }
             }
@@ -297,8 +302,48 @@ public class SearchContextManager extends WorkerParent
                 Log.debug("SearchContext is removed because HandlerMap is full " + handlerMap.size() + "/" + maxHandlers + ": " + oldestEntry.getKey().qry.getUser());
                 oldestEntry.getValue().close();
                 handlerMap.remove(oldestEntry.getKey());
+                webDavServerMap.remove(oldestEntry.getKey().getWrapperIdx());  
             }            
         }
     }
+
+    public int createWebDavServer( SearchWrapper wrapper, long loginIdx) throws IOException {
+        synchronized( handlerMap )
+        {
+            SearchContext ctx = handlerMap.get(wrapper);
+            int webDavPort = Main.get_int_prop(GeneralPreferences.WEB_DAV_SEARCH_PORT, WEB_DAV_USER_SEARCH_PORT_BASE) + (int)(wrapper.getWrapperIdx());       
+            
+            if (webDavServerMap.containsKey(wrapper.getWrapperIdx())){
+                webDavServerMap.get(wrapper.getWrapperIdx()).stop_server();
+            }
+            NetServer server = ctx.createWebDavServer( wrapper, loginIdx, wrapper.getWrapperIdx(), webDavPort);
+            if (server != null) {
+                webDavServerMap.put(wrapper.getWrapperIdx(), server);                        
+                return webDavPort;
+            }
+            return 0;
+        }
+    }  
     
+    public SearchWrapper getSearchWrapper( long wrIdx ) {
+        synchronized( handlerMap )
+        {
+
+            if (handlerMap.size() != lastCnt)
+            {
+                lastCnt = handlerMap.size();
+                Log.debug("Open StoragePoolHandlerContexts " + lastCnt);
+            }
+
+            Set<Entry<SearchWrapper,SearchContext>> vals = handlerMap.entrySet();
+            for (Entry<SearchWrapper,SearchContext> entry : vals)
+            {
+                if (entry.getKey().getWrapperIdx() == wrIdx)
+                {
+                    return entry.getKey();
+                }
+            }
+        }
+        return null;
+    }    
 }

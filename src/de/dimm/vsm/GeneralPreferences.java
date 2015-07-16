@@ -32,6 +32,8 @@ public class GeneralPreferences extends Preferences
     public static final String DEBUG = "Debug";
     public static final String PORT = "Port";
     public static final String SSL_PORT = "SslPort";
+    public static final String WEB_DAV_PORT = "WebDavPort";
+    public static final String WEB_DAV_SEARCH_PORT = "WebDavSearchPort";
     public static final String SERVER = "Server";
     public static final String IP = "IP";
     public static final String GW = "Gateway";
@@ -120,6 +122,10 @@ public class GeneralPreferences extends Preferences
     public static final String RETENTION_BREAKS_BACKUP = "RetentionBreaksBackup";
     public static final String MAX_COMMIT_TIMEOUT = "MaxCommitTimeout";
     public static final String KICK_JOB_TIMEOUT_S = "KickJobTimeoutS";
+    public static final String PREVIEW_ROOT = "PreviewRoot";
+    public static final String PREVIEW_GMPATH = "PreviewGmPath";
+    public static final String PREVIEW_WIDTH = "PreviewWidth";
+    public static final String PREVIEW_HEIGHT = "PreviewHeight";
     
     
     /** Creates a new instance of Preferences */
@@ -207,6 +213,14 @@ public class GeneralPreferences extends Preferences
         prop_names.add( RETENTION_BREAKS_BACKUP );
         prop_names.add( MAX_COMMIT_TIMEOUT );
         prop_names.add( KICK_JOB_TIMEOUT_S );
+        prop_names.add( PREVIEW_ROOT );
+        prop_names.add( PREVIEW_WIDTH );
+        prop_names.add( PREVIEW_HEIGHT );
+        prop_names.add( PREVIEW_GMPATH );
+        prop_names.add( WEB_DAV_PORT );
+        prop_names.add( WEB_DAV_SEARCH_PORT );
+        
+        
 
         String[] log_types = LogManager.get_log_types();
         for (int i = 0; i < log_types.length; i++)

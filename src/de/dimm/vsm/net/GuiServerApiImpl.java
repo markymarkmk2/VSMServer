@@ -24,6 +24,7 @@ import de.dimm.vsm.jobs.JobManager;
 import de.dimm.vsm.lifecycle.NodeMigrationManager;
 import de.dimm.vsm.net.interfaces.GuiServerApi;
 import de.dimm.vsm.net.interfaces.IWrapper;
+import de.dimm.vsm.preview.IPreviewData;
 import de.dimm.vsm.records.AbstractStorageNode;
 import de.dimm.vsm.records.ArchiveJob;
 import de.dimm.vsm.records.FileSystemElemNode;
@@ -53,6 +54,7 @@ import java.util.Properties;
 public class GuiServerApiImpl implements GuiServerApi
 {
     long loginTime;
+    long loginIdx;
     Role role;
     User user;
     LogicControl control;
@@ -64,12 +66,23 @@ public class GuiServerApiImpl implements GuiServerApi
         this.loginTime = loginTime;
         this.role = role;
         this.user = user;
+        this.loginIdx = -1;
         control = Main.get_control();
     }
 
     public void clear()
     {
     }
+
+    public long getLoginIdx() {
+        return loginIdx;
+    }
+
+    public void setLoginIdx( long loginIdx ) {
+        this.loginIdx = loginIdx;
+    }
+    
+        
 
     @Override
     public boolean abortBackup( final Schedule sched )
@@ -401,7 +414,7 @@ public class GuiServerApiImpl implements GuiServerApi
     
 
     @Override
-    public List<RemoteFSElem> listDir( StoragePoolWrapper wrapper, RemoteFSElem path ) throws SQLException
+    public List<RemoteFSElem> listDir( IWrapper wrapper, RemoteFSElem path ) throws SQLException
     {
         return control.getPoolHandlerServlet().get_child_nodes(wrapper, path);
     }
@@ -434,6 +447,11 @@ public class GuiServerApiImpl implements GuiServerApi
     public boolean deleteFSElem( IWrapper wrapper, RemoteFSElem path ) throws PoolReadOnlyException, SQLException
     {
         return control.getPoolHandlerServlet().deleteFSElem(wrapper, path);
+    }
+
+    @Override
+    public String checkRestoreErrFSElem( IWrapper wrapper, RemoteFSElem path )  {
+        return control.getPoolHandlerServlet().checkRestoreErrFSElem(wrapper, path);
     }
 
     @Override
@@ -784,7 +802,7 @@ public class GuiServerApiImpl implements GuiServerApi
                 return sb.toString();
             }
         }
-        return "Unknown";
+        return "/_NO_POOL_/";
     }
 
 //    @Override
@@ -907,10 +925,25 @@ public class GuiServerApiImpl implements GuiServerApi
     @Override
     public List<RemoteFSElem> listVersions( IWrapper wrapper, RemoteFSElem path ) throws SQLException, IOException
     {
-        StoragePoolHandler sp_handler = control.getPoolHandlerServlet().getPoolHandlerByWrapper(wrapper);
+        StoragePoolHandler sp_handler = StoragePoolHandlerServlet.getPoolHandlerByWrapper(wrapper);
         return control.getPoolHandlerServlet().get_versions(sp_handler, path);
     }
-    
 
+    @Override
+    public List<IPreviewData> getPreviewData( IWrapper wrapper, List<RemoteFSElem> path ) throws SQLException, IOException {
+        StoragePoolHandler sp_handler = StoragePoolHandlerServlet.getPoolHandlerByWrapper(wrapper);
+        
+        return sp_handler.getPreviewData( path );
+    }
 
+    @Override
+    public int createWebDavServer( StoragePoolWrapper wrapper ) throws IOException, PoolReadOnlyException, PathResolveException {
+        StoragePoolHandlerContextManager contextMgr = control.getPoolHandlerServlet().getContextManager();
+        return contextMgr.createWebDavServer(wrapper, getLoginIdx());        
+    }    
+    @Override
+    public int createWebDavSearchServer( SearchWrapper wrapper ) throws IOException, PoolReadOnlyException, PathResolveException {
+        SearchContextManager contextMgr = control.getPoolHandlerServlet().getSearchContextManager();
+        return contextMgr.createWebDavServer(wrapper, getLoginIdx());        
+    }    
 }

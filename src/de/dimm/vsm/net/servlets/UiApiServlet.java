@@ -29,6 +29,7 @@ import de.dimm.vsm.net.StoragePoolQry;
 import de.dimm.vsm.net.StoragePoolWrapper;
 import de.dimm.vsm.net.interfaces.GuiServerApi;
 import de.dimm.vsm.net.interfaces.IWrapper;
+import de.dimm.vsm.preview.IPreviewData;
 import de.dimm.vsm.records.AbstractStorageNode;
 import de.dimm.vsm.records.ArchiveJob;
 import de.dimm.vsm.records.FileSystemElemNode;
@@ -230,7 +231,7 @@ public class UiApiServlet  extends HessianServlet implements GuiServerApi
     }
 
     @Override
-    public List<RemoteFSElem> listDir( StoragePoolWrapper wrapper, RemoteFSElem path ) throws SQLException
+    public List<RemoteFSElem> listDir( IWrapper wrapper, RemoteFSElem path ) throws SQLException
     {
         return entry.getApi().listDir(wrapper, path);
     }
@@ -533,6 +534,27 @@ public class UiApiServlet  extends HessianServlet implements GuiServerApi
     {
          return entry.getApi().isWrapperValid(wrapper);
     }
+
+    @Override
+    public List<IPreviewData> getPreviewData( IWrapper wrapper, List<RemoteFSElem> path ) throws SQLException, IOException {
+        return entry.getApi().getPreviewData(wrapper, path);
+    }
+
+    @Override
+    public int createWebDavServer( StoragePoolWrapper wrapper ) throws IOException, PoolReadOnlyException, PathResolveException {
+        return entry.getApi().createWebDavServer(wrapper);
+    }
+
+    @Override
+    public int createWebDavSearchServer( SearchWrapper wrapper ) throws IOException, PoolReadOnlyException, PathResolveException {
+        return entry.getApi().createWebDavSearchServer(wrapper);
+    }
+
+    @Override
+    public String checkRestoreErrFSElem( IWrapper wrapper, RemoteFSElem path ) {
+        return entry.getApi().checkRestoreErrFSElem(wrapper, path);
+    }
+    
     
 
 

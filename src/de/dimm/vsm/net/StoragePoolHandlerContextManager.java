@@ -19,47 +19,11 @@ import de.dimm.vsm.records.StoragePool;
 import java.io.IOException;
 import java.sql.SQLException;
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
-
-
-class StoragePoolHandlerContext
-{
-    StoragePoolHandler handler;
-    String drive;
-    String agentIp;
-    int port;
-    Date lastUsage;
-
-    public StoragePoolHandlerContext( StoragePoolHandler handler, String drive, String agentIp, int port )
-    {
-        this.handler = handler;
-        this.drive = drive;
-        this.agentIp = agentIp;
-        this.port = port;
-        lastUsage = new Date();
-    }
-    public void touch()
-    {
-        lastUsage = new Date();
-    }
-    public boolean isExpired()
-    {
-        return (System.currentTimeMillis() - lastUsage.getTime() > StoragePoolHandlerContextManager.EXPIRE_MS);
-    }
-    void closePoolHandler()
-    {
-        handler.close_entitymanager();
-    }
-
-    long getTs()
-    {
-        return lastUsage.getTime();
-    }
-}
 
 /**
  *
@@ -67,8 +31,10 @@ class StoragePoolHandlerContext
  */
 public class StoragePoolHandlerContextManager extends WorkerParent
 {
-    final HashMap<StoragePoolWrapper, StoragePoolHandlerContext> handlerMap;
+    final Map<StoragePoolWrapper, StoragePoolHandlerContext> handlerMap;
+    final Map<Long,NetServer> webDavServerMap;
 
+    private static final int WEB_DAV_USER_PORT_BASE = 58080;
     public static long EXPIRE_MS = 3600*1000l;  // 1h
     private int maxHandlers = 100;
     int lastCnt = -1;
@@ -77,7 +43,10 @@ public class StoragePoolHandlerContextManager extends WorkerParent
     {
         super("StoragePoolHandlerContextManager");
         handlerMap = new HashMap<>();
-        maxHandlers = Main.get_int_prop(GeneralPreferences.MAX_OPEN_POOLHANDLERS, maxHandlers);        
+        webDavServerMap = new HashMap<>();
+        
+        maxHandlers = Main.get_int_prop(GeneralPreferences.MAX_OPEN_POOLHANDLERS, maxHandlers);       
+        
     }
 
     @Override
@@ -199,6 +168,7 @@ public class StoragePoolHandlerContextManager extends WorkerParent
             if (ctx != null && poolWrapper.isPoolHandlerCreated())
             {
                 ctx.closePoolHandler();
+                webDavServerMap.remove(poolWrapper.getWrapperIdx());
             }
         }
     }
@@ -351,6 +321,7 @@ public class StoragePoolHandlerContextManager extends WorkerParent
                     Log.debug(Main.Txt("Entferne abgelaufenen StoragePoolContext")  + " " + entry.getKey().qry.getUser());
                     entry.getValue().closePoolHandler();
                     handlerMap.remove(entry.getKey());
+                    webDavServerMap.remove(entry.getKey().getWrapperIdx());       
                     break;
                 }
             }
@@ -371,6 +342,7 @@ public class StoragePoolHandlerContextManager extends WorkerParent
                 Log.debug("StoragePoolWrapper is removed because HandlerMap is full " + handlerMap.size() + "/" + maxHandlers + ": " + oldestEntry.getKey().qry.getUser());
                 oldestEntry.getValue().closePoolHandler();
                 handlerMap.remove(oldestEntry.getKey());
+                webDavServerMap.remove(oldestEntry.getKey().getWrapperIdx());  
             }
         }
     }
@@ -404,6 +376,46 @@ public class StoragePoolHandlerContextManager extends WorkerParent
                 ctx.port = agentPort;
                 ctx.drive = drive;
             }
+        }
+    }
+
+    public StoragePoolWrapper getPoolWrapper( long wrIdx ) {
+        synchronized( handlerMap )
+        {
+
+            if (handlerMap.size() != lastCnt)
+            {
+                lastCnt = handlerMap.size();
+                Log.debug("Open StoragePoolHandlerContexts " + lastCnt);
+            }
+
+            Set<Entry<StoragePoolWrapper,StoragePoolHandlerContext>> vals = handlerMap.entrySet();
+            for (Entry<StoragePoolWrapper, StoragePoolHandlerContext> entry : vals)
+            {
+                if (entry.getKey().getWrapperIdx() == wrIdx)
+                {
+                    return entry.getKey();
+                }
+            }
+        }
+        return null;
+    }
+    
+    public int createWebDavServer( StoragePoolWrapper wrapper, long loginIdx) throws IOException {
+        synchronized( handlerMap )
+        {
+            StoragePoolHandlerContext ctx = handlerMap.get(wrapper);
+            int webDavPort = Main.get_int_prop(GeneralPreferences.WEB_DAV_PORT, WEB_DAV_USER_PORT_BASE) + (int)(wrapper.getWrapperIdx());       
+            
+            if (webDavServerMap.containsKey(wrapper.getWrapperIdx())){
+                webDavServerMap.get(wrapper.getWrapperIdx()).stop_server();
+            }
+            NetServer server = ctx.createWebDavServer( wrapper, loginIdx, wrapper.getWrapperIdx(), webDavPort);
+            if (server != null) {
+                webDavServerMap.put(wrapper.getWrapperIdx(), server);                        
+                return webDavPort;
+            }
+            return 0;
         }
     }
 }

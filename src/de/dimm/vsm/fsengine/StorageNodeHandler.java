@@ -44,7 +44,12 @@ public class StorageNodeHandler
     public static final String PNFL_PREFIX = "pn_";
     public static final String XATTR_PREFIX = "xa_";
     public static final String BOOTSTRAP_SUFFIX = ".xml";
+    public static final String PREVIEW_PREFIX = "pre_";
+    public static final String EXIF_PREFIX = "exf_";
+    public static final String PREVIEW_SUFFIX = ".png";
+    public static final String EXIF_SUFFIX = ".txt";
 
+    public static final String PREVIEW_PATH = "preview";
     public static final String BOOTSTRAP_PATH = "bootstrap";
     public static final String XA_PATH = "xa";
 
@@ -217,6 +222,27 @@ public class StorageNodeHandler
         sb.insert(0, BOOTSTRAP_SUFFIX );
         sb.insert(0, Hex.fromLong(attr.getIdx()));
         sb.insert(0, "/" + BOOTSTRAP_PATH + "/" + FSEA_PREFIX);
+
+        sb.insert(0, getFullParentPath( file_node ) );
+
+        sb.insert(0, PATH_FSNODES_PREFIX);
+    }
+    
+    public static void build_preview_path( FileSystemElemNode file_node, FileSystemElemAttributes attr, StringBuilder sb ) throws PathResolveException
+    {
+        sb.insert(0, PREVIEW_SUFFIX );
+        sb.insert(0, Hex.fromLong(attr.getIdx()));
+        sb.insert(0, "/" + PREVIEW_PATH + "/" + PREVIEW_PREFIX);
+
+        sb.insert(0, getFullParentPath( file_node ) );
+
+        sb.insert(0, PATH_FSNODES_PREFIX);
+    }
+    public static void build_exif_path( FileSystemElemNode file_node, FileSystemElemAttributes attr, StringBuilder sb ) throws PathResolveException
+    {
+        sb.insert(0, EXIF_SUFFIX );
+        sb.insert(0, Hex.fromLong(attr.getIdx()));
+        sb.insert(0, "/" + PREVIEW_PATH + "/" + EXIF_PREFIX);
 
         sb.insert(0, getFullParentPath( file_node ) );
 

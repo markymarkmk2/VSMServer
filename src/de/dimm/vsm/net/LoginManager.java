@@ -58,6 +58,14 @@ public class LoginManager extends WorkerParent implements GuiLoginApi
     {
         return dummyGuiServerApi;
     }
+    
+    public User getUser( long loginIdx ) {
+        GuiServerApiImpl spi = clientMap.get(loginIdx);
+        if (spi != null) {
+            return spi.getUser();
+        }
+        return null;
+    }
 
 
 
@@ -122,6 +130,7 @@ public class LoginManager extends WorkerParent implements GuiLoginApi
             lastLoginMap.put(user, new Date());
 
             clientMap.put(newLoginId, context);
+            context.setLoginIdx(newLoginId);
             return wrapper;
         }
         return null;

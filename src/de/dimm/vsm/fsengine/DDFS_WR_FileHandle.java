@@ -24,6 +24,7 @@ import de.dimm.vsm.records.DedupHashBlock;
 import de.dimm.vsm.records.FileSystemElemAttributes;
 import de.dimm.vsm.records.FileSystemElemNode;
 import de.dimm.vsm.records.HashBlock;
+import de.dimm.vsm.records.PoolNodeFileLink;
 import de.dimm.vsm.records.XANode;
 import java.io.File;
 import java.io.IOException;
@@ -312,7 +313,7 @@ class DDHandleManager
          
         if (fh.isDirectory())
         {
-            throw new IOException("ensure_open Node " + fh.fh.getName() + " -> " + fh.fh.getAbsolutePath() + " fails, is a directory");
+            throw new IOException("ensure_open Node " + fh.attrs.getName() +  " fails, is a directory");
         }
 
         // CLOSE UNNECESSARY HANDLES
@@ -347,8 +348,16 @@ class DDHandleManager
                         if (dDHandle.isUnread())
                         {
                             AbstractStorageNode snode = fh.getStorageNodeForBlock( dDHandle);
-                            if (snode == null) {
-                                throw new IOException("Speichernode für " + fh.fh.getName() + " nicht gefunden oder nicht valide"); 
+                            if (snode == null) {                                
+                                List<PoolNodeFileLink> links = fh.node.getLinks(fh.spHandler.getEm());
+                                StringBuilder sb = new StringBuilder();
+                                
+                                for (PoolNodeFileLink poolNodeFileLink : links) {
+                                    sb.append(poolNodeFileLink.getStorageNode().getName()).
+                                            append(" -> ").
+                                            append(poolNodeFileLink.getStorageNode().getNodeMode()).append("\n");
+                                }
+                                throw new IOException("Online Speichernode für " + fh.attrs.getName() + " nicht gefunden oder nicht valide:\n" + sb.toString()); 
                             }
                             dDHandle.open(snode, rafMode);
                         }
@@ -1228,10 +1237,10 @@ public final class DDFS_WR_FileHandle implements FileHandle, IBackupHelper
             return 0;
 
 
-        // SKIP READ EOF
+        // EOF DETECTED -> InputStream gives -1
         if (offset >= hm.getUnflushedLength())
         {
-            return 0;
+            return -1;
         }
         
 

@@ -7,6 +7,7 @@ package de.dimm.vsm.fsengine;
 
 import de.dimm.vsm.log.Log;
 import de.dimm.vsm.Main;
+import de.dimm.vsm.hash.StringUtils;
 import de.dimm.vsm.net.StoragePoolWrapper;
 import de.dimm.vsm.records.FileSystemElemAttributes;
 import de.dimm.vsm.records.FileSystemElemNode;
@@ -83,10 +84,19 @@ public class VSMFSInputStream extends InputStream
         {
             if (fileNo == -2)
             {
-                if (attrs != null)
+                if (attrs != null) {
                     fileNo = sp.open_versioned_fh(node, attrs);
-                else
+                }
+                else {
                     fileNo = sp.open_fh( node, /*create*/ false);
+                }
+                if (fileNo == -1) {
+                    String errText = sp.buildCheckOpenNodeErrText(node);
+                    if (StringUtils.isEmpty(errText)) {
+                        errText = "Node kann nicht geöffnet werden";
+                    }
+                    throw new IOException(errText);
+                }
             }
         }
         catch (Exception exception)

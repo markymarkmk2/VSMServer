@@ -21,6 +21,10 @@ import de.dimm.vsm.auth.UserManager;
 import de.dimm.vsm.backup.HandleWriteRunner;
 import de.dimm.vsm.net.RemoteFSElem;
 import de.dimm.vsm.net.SearchContext;
+import de.dimm.vsm.net.SearchPathResolver;
+import de.dimm.vsm.preview.IPreviewData;
+import de.dimm.vsm.preview.IPreviewReader;
+import de.dimm.vsm.preview.PreviewReader;
 import de.dimm.vsm.records.AbstractStorageNode;
 import de.dimm.vsm.records.ArchiveJob;
 import de.dimm.vsm.records.ArchiveJobFileLink;
@@ -79,6 +83,8 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
     
     HandleWriteRunner writeRunner;
     
+    private IPreviewReader previewReader;    
+    
 
     public StoragePoolHandler( StoragePool pool, StoragePoolQry qry )
     {
@@ -90,9 +96,18 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
 
         searchContext = null;
         pathResolver = new PathResolver(this);
-        writeRunner = new HandleWriteRunner();
+        writeRunner = new HandleWriteRunner();                
     }
 
+    public IPreviewReader getPreviewReader() {
+        // Lazy creation
+        if (previewReader == null) {
+            previewReader = new PreviewReader(this);
+        }
+        return previewReader;
+    }
+    
+        
 
     public static int getMinFilechangeThresholdS()
     {
@@ -1348,11 +1363,31 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
     {
         fseMapHandler.removeByFileNo(fileNo);
     }
+    
+    public String buildCheckOpenNodeErrText(FileSystemElemNode node) {
+        List<AbstractStorageNode> s_nodes = resolve_storage_nodes( node );
+        
+        if (s_nodes.isEmpty()) {
+            List<PoolNodeFileLink> links = node.getLinks(getEm());
+            StringBuilder sb = new StringBuilder("Online Speichernode für " + node.getName() + " nicht gefunden oder nicht valide:\n");
+
+            for (PoolNodeFileLink poolNodeFileLink : links) {
+                sb.append(poolNodeFileLink.getStorageNode().getName()).
+                        append(" -> ").
+                        append(poolNodeFileLink.getStorageNode().getNodeMode()).append("\n");
+            } 
+            return sb.toString();
+        }
+        return "";
+    }
  
     public FileHandle open_versioned_file_handle(FileSystemElemNode node, FileSystemElemAttributes attrs ) throws IOException, PathResolveException, SQLException
     {
         List<AbstractStorageNode> s_nodes = resolve_storage_nodes( node );
         FileHandle ret = null;
+        if (s_nodes.isEmpty()) {            
+            throw new IOException(buildCheckOpenNodeErrText(node));             
+        }
 
         for (int i = 0; i < s_nodes.size(); i++)
         {
@@ -1716,7 +1751,7 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
     }
 
 
-    private List<AbstractStorageNode> resolve_storage_nodes( StoragePool pool )
+    public List<AbstractStorageNode> resolve_storage_nodes( StoragePool pool )
     {
         List<AbstractStorageNode> nodes=  pool.getStorageNodes().getList(getEm());
         //updateLazyListsHandler(nodes);
@@ -2240,7 +2275,7 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
    
     public void updateAttributes( long fileNo,  long actTimestamp, RemoteFSElem elem ) throws SQLException, DBConnException, PoolReadOnlyException, IOException
     {
-        FileSystemElemNode fsenode = null;
+        FileSystemElemNode fsenode;
     
         if (fileNo >= 0)
         {
@@ -2500,6 +2535,10 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
 
         // TODO: ADD ACLS TO DB SO THAT WE CAN FILTER REULTS THROUGH DB
         UserManager umgr = Main.get_control().getUsermanager();
+        
+        if (pathResolver instanceof SearchPathResolver) {
+            pathResolver.getRootDir().getChildren().clear();
+        }
 
         // FILTER OUT BASED ON ACL
         StoragePoolQry qry = getPoolQry();
@@ -2511,6 +2550,9 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
             {
                 list.remove(i);
                 i--;
+            }
+            if (pathResolver instanceof SearchPathResolver) {
+                pathResolver.getRootDir().getChildren().add(fileSystemElemNode);
             }
         }
         return list;
@@ -2775,6 +2817,9 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
             }
             return path;
         }
-  
+
+    public List<IPreviewData> getPreviewData( List<RemoteFSElem> path ) throws IOException, SQLException {
+        return getPreviewReader().getPreviews(path);
+    }  
 
 }

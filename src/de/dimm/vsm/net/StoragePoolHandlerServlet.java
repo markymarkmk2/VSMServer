@@ -14,6 +14,7 @@ import de.dimm.vsm.Main;
 import de.dimm.vsm.auth.User;
 import de.dimm.vsm.backup.Restore;
 import de.dimm.vsm.fsengine.StoragePoolHandler;
+import de.dimm.vsm.hash.StringUtils;
 import de.dimm.vsm.jobs.JobInterface;
 import de.dimm.vsm.jobs.JobManager;
 import de.dimm.vsm.net.interfaces.IWrapper;
@@ -73,12 +74,24 @@ public class StoragePoolHandlerServlet extends HessianServlet implements Storage
   
 
     @Override
-    public RemoteFSElem resolve_node( StoragePoolWrapper pool, String path ) throws SQLException
+    public RemoteFSElem resolve_node( IWrapper pool, String path ) throws SQLException
     {
-        StoragePoolHandler handler = poolContextManager.getHandlerbyWrapper(pool);
+        StoragePoolHandler handler = getPoolHandlerByWrapper(pool);
         if (handler.isInsideMappingDir( path))
         {
-            RemoteFSElem elem = RemoteFSElem.createDir(path);
+            String vsmPath = handler.resolveMappingDir(  path);
+            
+            FileSystemElemNode e = handler.resolve_node(vsmPath);
+            if (e == null)
+                return RemoteFSElem.createDir(path);
+        
+            FileSystemElemAttributes attr = handler.getActualFSAttributes(e, pool.getQry() );
+            if (attr.isDeleted() && !pool.getQry().isShowDeleted())
+                return null;
+            
+            // Reales Objekt aus DB nehm n und mit virtuellem Pafd setzen
+            RemoteFSElem elem = genRemoteFSElemfromNode(e, attr);
+            elem.setPath(path);
             return elem;
         }
         path = handler.resolveMappingDir(  path);
@@ -95,27 +108,27 @@ public class StoragePoolHandlerServlet extends HessianServlet implements Storage
     }
 
     @Override
-    public long getTotalBlocks(StoragePoolWrapper pool)
+    public long getTotalBlocks(IWrapper pool)
     {
-        StoragePoolHandler handler = poolContextManager.getHandlerbyWrapper(pool);
+        StoragePoolHandler handler = getPoolHandlerByWrapper(pool);
         if (handler != null)
             return handler.getTotalBlocks();
         return 0;
     }
 
     @Override
-    public long getUsedBlocks(StoragePoolWrapper pool)
+    public long getUsedBlocks(IWrapper pool)
     {
-        StoragePoolHandler handler = poolContextManager.getHandlerbyWrapper(pool);
+        StoragePoolHandler handler = getPoolHandlerByWrapper(pool);
         if (handler != null)
             return handler.getUsedBlocks();
         return 0;
     }
 
     @Override
-    public int getBlockSize(StoragePoolWrapper pool)
+    public int getBlockSize(IWrapper pool)
     {
-        StoragePoolHandler handler = poolContextManager.getHandlerbyWrapper(pool);
+        StoragePoolHandler handler = getPoolHandlerByWrapper(pool);
         if (handler != null)
             return handler.getBlockSize();
         return 0;
@@ -133,35 +146,35 @@ public class StoragePoolHandlerServlet extends HessianServlet implements Storage
         }
     }
     @Override
-    public void mkdir( StoragePoolWrapper pool, String pathName ) throws IOException, PoolReadOnlyException, PathResolveException
+    public void mkdir( IWrapper pool, String pathName ) throws IOException, PoolReadOnlyException, PathResolveException
     {
-        StoragePoolHandler handler = poolContextManager.getHandlerbyWrapper(pool);
+        StoragePoolHandler handler = getPoolHandlerByWrapper(pool);
         handler.mkdir(pathName);
         checkCommit( handler );
     }
 
     @Override
-    public String getName(StoragePoolWrapper pool)
+    public String getName(IWrapper pool)
     {
-        StoragePoolHandler handler = poolContextManager.getHandlerbyWrapper(pool);
+        StoragePoolHandler handler = getPoolHandlerByWrapper(pool);
         if (handler != null)
             return handler.getName();
         return null;
     }
 
     @Override
-    public boolean delete_fse_node_path( StoragePoolWrapper pool, String path ) throws PoolReadOnlyException, SQLException, IOException
+    public boolean delete_fse_node_path( IWrapper pool, String path ) throws PoolReadOnlyException, SQLException, IOException
     {
-        StoragePoolHandler handler = poolContextManager.getHandlerbyWrapper(pool);
+        StoragePoolHandler handler = getPoolHandlerByWrapper(pool);
         boolean ret = handler.delete_fse_node(path);
         handler.commit_transaction();
 
         return ret;
     }
     @Override
-    public boolean delete_fse_node_idx( StoragePoolWrapper pool, long idx ) throws PoolReadOnlyException, SQLException, IOException
+    public boolean delete_fse_node_idx( IWrapper pool, long idx ) throws PoolReadOnlyException, SQLException, IOException
     {
-        StoragePoolHandler handler = poolContextManager.getHandlerbyWrapper(pool);
+        StoragePoolHandler handler = getPoolHandlerByWrapper(pool);
         boolean ret = handler.delete_fse_node(idx);
         handler.commit_transaction();
 
@@ -176,17 +189,17 @@ public class StoragePoolHandlerServlet extends HessianServlet implements Storage
     }*/
 
     @Override
-    public void move_fse_node( StoragePoolWrapper pool, String from, String to ) throws IOException, SQLException, PoolReadOnlyException, PathResolveException
+    public void move_fse_node( IWrapper pool, String from, String to ) throws IOException, SQLException, PoolReadOnlyException, PathResolveException
     {
-        StoragePoolHandler handler = poolContextManager.getHandlerbyWrapper(pool);
+        StoragePoolHandler handler = getPoolHandlerByWrapper(pool);
         handler.move_fse_node(from, to);
         handler.commit_transaction();
     }
 
     @Override
-    public void move_fse_node_idx( StoragePoolWrapper pool,long idx, String to ) throws IOException, SQLException, PoolReadOnlyException, PathResolveException
+    public void move_fse_node_idx( IWrapper pool,long idx, String to ) throws IOException, SQLException, PoolReadOnlyException, PathResolveException
     {
-        StoragePoolHandler handler = poolContextManager.getHandlerbyWrapper(pool);
+        StoragePoolHandler handler = getPoolHandlerByWrapper(pool);
         handler.move_fse_node_idx(idx, to);
         handler.commit_transaction();
     }
@@ -199,9 +212,9 @@ public class StoragePoolHandlerServlet extends HessianServlet implements Storage
 
 
     @Override
-    public long open_fh( StoragePoolWrapper pool, long nodeIdx, boolean forWrite  ) throws IOException, PoolReadOnlyException, SQLException, PathResolveException
+    public long open_fh( IWrapper pool, long nodeIdx, boolean forWrite  ) throws IOException, PoolReadOnlyException, SQLException, PathResolveException
     {
-        StoragePoolHandler handler = poolContextManager.getHandlerbyWrapper(pool);
+        StoragePoolHandler handler = getPoolHandlerByWrapper(pool);
 
         long ret = handler.open_fh(nodeIdx, forWrite);
         checkCommit( handler );
@@ -209,9 +222,9 @@ public class StoragePoolHandlerServlet extends HessianServlet implements Storage
     }
 
     @Override
-    public long open_stream( StoragePoolWrapper pool, long nodeIdx, boolean forWrite   ) throws IOException, PoolReadOnlyException, SQLException, PathResolveException
+    public long open_stream( IWrapper pool, long nodeIdx, boolean forWrite   ) throws IOException, PoolReadOnlyException, SQLException, PathResolveException
     {
-        StoragePoolHandler handler = poolContextManager.getHandlerbyWrapper(pool);
+        StoragePoolHandler handler = getPoolHandlerByWrapper(pool);
 
         return handler.open_stream(nodeIdx, 0, forWrite);
     }
@@ -224,9 +237,9 @@ public class StoragePoolHandlerServlet extends HessianServlet implements Storage
 
 
     @Override
-    public RemoteFSElem create_fse_node( StoragePoolWrapper pool, String fileName, String type ) throws IOException, PoolReadOnlyException, PathResolveException
+    public RemoteFSElem create_fse_node( IWrapper pool, String fileName, String type ) throws IOException, PoolReadOnlyException, PathResolveException
     {
-        StoragePoolHandler handler = poolContextManager.getHandlerbyWrapper(pool);
+        StoragePoolHandler handler = getPoolHandlerByWrapper(pool);
         String path = fileName; //pool.resolveRelPath(fileName);
         FileSystemElemNode e = create_fs_elem_node(handler, path, type);
         LOG.debug("Created node " + e);
@@ -236,11 +249,18 @@ public class StoragePoolHandlerServlet extends HessianServlet implements Storage
     @Override
     public long create_fh( StoragePoolWrapper pool, String vsmPath, String type) throws IOException, PoolReadOnlyException, SQLException, PathResolveException
     {        
-        StoragePoolHandler handler = poolContextManager.getHandlerbyWrapper(pool);
+        StoragePoolHandler handler = getPoolHandlerByWrapper(pool);
         String path = pool.resolveRelPath(vsmPath);
         FileSystemElemNode e = create_fs_elem_node(handler, path, type);
         LOG.debug("Created node " + e);
         long ret = handler.open_fh(e, true);
+        if (ret == -1) {
+            String errText = handler.buildCheckOpenNodeErrText(e);
+            if (StringUtils.isEmpty(errText)) {
+                errText = "Node kann nicht geöffnet werden";
+            }
+            throw new IOException(errText);
+        }
         checkCommit( handler );
         return ret;        
     }
@@ -250,7 +270,8 @@ public class StoragePoolHandlerServlet extends HessianServlet implements Storage
     @Override
     public long create_stream( StoragePoolWrapper pool,  String vsmPath, String type, int streamInfo) throws IOException, PoolReadOnlyException, SQLException, PathResolveException
     {        
-        StoragePoolHandler handler = poolContextManager.getHandlerbyWrapper(pool);
+        StoragePoolHandler handler = getPoolHandlerByWrapper(pool);
+        String path = pool.resolveRelPath(vsmPath);
         FileSystemElemNode e = handler.create_fse_node_complete ( vsmPath, type);
 
         LOG.debug("Created stream " + e);
@@ -260,9 +281,9 @@ public class StoragePoolHandlerServlet extends HessianServlet implements Storage
     }
 
     @Override
-    public List<RemoteFSElem> get_child_nodes( StoragePoolWrapper pool, RemoteFSElem node ) throws SQLException
+    public List<RemoteFSElem> get_child_nodes( IWrapper pool, RemoteFSElem node ) throws SQLException
     {
-        StoragePoolHandler handler = poolContextManager.getHandlerbyWrapper(pool);
+        StoragePoolHandler handler = getPoolHandlerByWrapper(pool);
         List<RemoteFSElem> ret = get_child_nodes(handler, node);
         return ret;
     }
@@ -270,6 +291,7 @@ public class StoragePoolHandlerServlet extends HessianServlet implements Storage
   
     public List<RemoteFSElem> get_child_nodes( StoragePoolHandler handler, RemoteFSElem node ) throws SQLException
     {        
+        
         StoragePoolQry qry = handler.getPoolQry();
         
         if (qry.isUseMappingFilter()) 
@@ -285,39 +307,39 @@ public class StoragePoolHandlerServlet extends HessianServlet implements Storage
     
      
     @Override
-    public void set_ms_times( StoragePoolWrapper pool, long fileNo, long cTime, long aTime, long mTime ) throws SQLException, DBConnException, PoolReadOnlyException
+    public void set_ms_times( IWrapper pool, long fileNo, long cTime, long aTime, long mTime ) throws SQLException, DBConnException, PoolReadOnlyException
     {
-        StoragePoolHandler handler = poolContextManager.getHandlerbyWrapper(pool);
+        StoragePoolHandler handler = getPoolHandlerByWrapper(pool);
         handler.set_ms_times(fileNo, cTime, aTime, mTime);
     }
 
     @Override
-    public boolean exists( StoragePoolWrapper pool, RemoteFSElem fseNode )
+    public boolean exists( IWrapper pool, RemoteFSElem fseNode )
     {
-        StoragePoolHandler handler = poolContextManager.getHandlerbyWrapper(pool);
+        StoragePoolHandler handler = getPoolHandlerByWrapper(pool);
         LOG.debug("exists " + fseNode.toString());
         return handler.exists(fseNode.getIdx());
     }
 
     @Override
-    public boolean isReadOnly( StoragePoolWrapper pool, long fileNo  ) throws IOException, SQLException
+    public boolean isReadOnly( IWrapper pool, long fileNo  ) throws IOException, SQLException
     {
-        StoragePoolHandler handler = poolContextManager.getHandlerbyWrapper(pool);
+        StoragePoolHandler handler = getPoolHandlerByWrapper(pool);
         LOG.debug("isReadOnly " + fileNo);
         return handler.isReadOnly(fileNo);
     }
 
     @Override
-    public void force( StoragePoolWrapper pool, long fileNo, boolean b ) throws IOException
+    public void force( IWrapper pool, long fileNo, boolean b ) throws IOException
     {
-        StoragePoolHandler handler = poolContextManager.getHandlerbyWrapper(pool);
+        StoragePoolHandler handler = getPoolHandlerByWrapper(pool);
         handler.force(fileNo, b);
     }
 
     @Override
-    public byte[] read( StoragePoolWrapper pool, long fileNo, int length, long offset ) throws IOException
+    public byte[] read( IWrapper pool, long fileNo, int length, long offset ) throws IOException
     {
-        StoragePoolHandler handler = poolContextManager.getHandlerbyWrapper(pool);
+        StoragePoolHandler handler = getPoolHandlerByWrapper(pool);
         Log.debug("read len " + length + " offs " + offset, Long.toString(fileNo));
         byte b[] = new byte[length];
         int rlen =  handler.read(fileNo, b, length, offset);
@@ -337,9 +359,9 @@ public class StoragePoolHandlerServlet extends HessianServlet implements Storage
         return b;
     }
 
-    public int read( StoragePoolWrapper pool, long fileNo, byte[] data, long offset ) throws IOException
+    public int read( IWrapper pool, long fileNo, byte[] data, long offset ) throws IOException
     {
-        StoragePoolHandler handler = poolContextManager.getHandlerbyWrapper(pool);
+        StoragePoolHandler handler = getPoolHandlerByWrapper(pool);
         int length = data.length;
         Log.debug("read len " + length + " offs " + offset, Long.toString(fileNo));
         int rlen = handler.read(fileNo, data, length, offset);
@@ -353,9 +375,9 @@ public class StoragePoolHandlerServlet extends HessianServlet implements Storage
     }
 
     @Override
-    public void create( StoragePoolWrapper pool, long fileNo ) throws IOException, PoolReadOnlyException
+    public void create( IWrapper pool, long fileNo ) throws IOException, PoolReadOnlyException
     {
-        StoragePoolHandler handler = poolContextManager.getHandlerbyWrapper(pool);
+        StoragePoolHandler handler = getPoolHandlerByWrapper(pool);
         Log.debug("create", Long.toString(fileNo));
         if (handler != null)
             handler.create(fileNo);
@@ -363,9 +385,9 @@ public class StoragePoolHandlerServlet extends HessianServlet implements Storage
             Log.err("Ungültiger Handler in Aufruf", "create");
     }
     @Override
-    public long length( StoragePoolWrapper pool, long fileNo )
+    public long length( IWrapper pool, long fileNo )
     {
-        StoragePoolHandler handler = poolContextManager.getHandlerbyWrapper(pool);
+        StoragePoolHandler handler = getPoolHandlerByWrapper(pool);
         Log.debug("length", Long.toString(fileNo));
         if (handler != null)
             return handler.getLength(fileNo);
@@ -375,9 +397,9 @@ public class StoragePoolHandlerServlet extends HessianServlet implements Storage
     }
 
     @Override
-    public void truncateFile( StoragePoolWrapper pool, long fileNo, long size ) throws IOException, SQLException, PoolReadOnlyException
+    public void truncateFile( IWrapper pool, long fileNo, long size ) throws IOException, SQLException, PoolReadOnlyException
     {
-        StoragePoolHandler handler = poolContextManager.getHandlerbyWrapper(pool);
+        StoragePoolHandler handler = getPoolHandlerByWrapper(pool);
         if (handler != null)
         {
             Log.debug("truncateFile to " + size, Long.toString(fileNo));
@@ -390,9 +412,9 @@ public class StoragePoolHandlerServlet extends HessianServlet implements Storage
     }
     
     @Override
-    public void updateAttributes( StoragePoolWrapper pool, long fileNo, RemoteFSElem elem ) throws IOException, SQLException, PoolReadOnlyException
+    public void updateAttributes( IWrapper pool, long fileNo, RemoteFSElem elem ) throws IOException, SQLException, PoolReadOnlyException
     {
-        StoragePoolHandler handler = poolContextManager.getHandlerbyWrapper(pool);
+        StoragePoolHandler handler = getPoolHandlerByWrapper(pool);
         if (handler != null)
         {
             Log.debug("updateAttributes for " + elem.getPath());
@@ -405,9 +427,9 @@ public class StoragePoolHandlerServlet extends HessianServlet implements Storage
     }
 
     @Override
-    public void close_fh( StoragePoolWrapper pool, long fileNo ) throws IOException
+    public void close_fh( IWrapper pool, long fileNo ) throws IOException
     {
-        StoragePoolHandler handler = poolContextManager.getHandlerbyWrapper(pool);
+        StoragePoolHandler handler = getPoolHandlerByWrapper(pool);
         if (handler != null)
         {
             handler.close_fh(fileNo);
@@ -419,9 +441,9 @@ public class StoragePoolHandlerServlet extends HessianServlet implements Storage
     }
 
     @Override
-    public void writeFile( StoragePoolWrapper pool, long fileNo, byte[] b, int length, long offset ) throws IOException, SQLException, PoolReadOnlyException
+    public void writeFile( IWrapper pool, long fileNo, byte[] b, int length, long offset ) throws IOException, SQLException, PoolReadOnlyException
     {
-        StoragePoolHandler handler = poolContextManager.getHandlerbyWrapper(pool);
+        StoragePoolHandler handler = getPoolHandlerByWrapper(pool);
         if (handler != null)
         {
             Log.debug("write len " + length + " offs " + offset, Long.toString(fileNo));
@@ -434,9 +456,9 @@ public class StoragePoolHandlerServlet extends HessianServlet implements Storage
         
     }
     @Override
-    public void writeBlock( StoragePoolWrapper pool, long fileNo, String hash, byte[] b, int length, long offset ) throws IOException, SQLException, PoolReadOnlyException, PathResolveException
+    public void writeBlock( IWrapper pool, long fileNo, String hash, byte[] b, int length, long offset ) throws IOException, SQLException, PoolReadOnlyException, PathResolveException
     {
-        StoragePoolHandler handler = poolContextManager.getHandlerbyWrapper(pool);
+        StoragePoolHandler handler = getPoolHandlerByWrapper(pool);
         if (handler != null)
         {
             Log.debug("write len " + length + " offs " + offset, Long.toString(fileNo));
@@ -449,9 +471,9 @@ public class StoragePoolHandlerServlet extends HessianServlet implements Storage
         
     }
     @Override
-    public boolean checkBlock( StoragePoolWrapper pool, String hash) throws IOException, SQLException
+    public boolean checkBlock( IWrapper pool, String hash) throws IOException, SQLException
     {
-        StoragePoolHandler handler = poolContextManager.getHandlerbyWrapper(pool);
+        StoragePoolHandler handler = getPoolHandlerByWrapper(pool);
         if (handler != null)
         {
             Log.debug("CheckBlock " + hash + " offs ");
@@ -470,42 +492,42 @@ public class StoragePoolHandlerServlet extends HessianServlet implements Storage
     }
 */
     @Override
-    public void set_attribute( StoragePoolWrapper pool, RemoteFSElem fseNode, String string, Integer valueOf )
+    public void set_attribute( IWrapper pool, RemoteFSElem fseNode, String string, Integer valueOf )
     {
         Log.err("Noch nicht implementiert", "set_attribute");
     }
 
     @Override
-    public String read_symlink( StoragePoolWrapper pool, RemoteFSElem fseNode )
+    public String read_symlink( IWrapper pool, RemoteFSElem fseNode )
     {
         Log.err("Noch nicht implementiert", "read_symlink");
         return null;
     }
 
     @Override
-    public void create_symlink( StoragePoolWrapper pool, RemoteFSElem fseNode, String to )
+    public void create_symlink( IWrapper pool, RemoteFSElem fseNode, String to )
     {
         Log.err("Noch nicht implementiert", "create_symlink");
     }
 
     @Override
-    public void truncate( StoragePoolWrapper pool, RemoteFSElem fseNode, long size )
+    public void truncate( IWrapper pool, RemoteFSElem fseNode, long size )
     {
         Log.err("Noch nicht implementiert", "truncate");
     }
 
     @Override
-    public void set_last_modified( StoragePoolWrapper pool, RemoteFSElem fseNode, long l )
+    public void set_last_modified( IWrapper pool, RemoteFSElem fseNode, long l )
     {
         Log.err("Noch nicht implementiert", "set_last_modified");
     }
 
     @Override
-    public String get_xattribute( StoragePoolWrapper pool, RemoteFSElem fseNode, String name ) throws SQLException
+    public String get_xattribute( IWrapper pool, RemoteFSElem fseNode, String name ) throws SQLException
     {
         Log.err("Noch nicht implementiert", "set_last_modified");
 
-//        StoragePoolHandler handler = poolContextManager.getHandlerbyWrapper(pool);
+//        StoragePoolHandler handler = getPoolHandlerByWrapper(pool);
 //        if (fseNode.getIdx() > 0)
 //        {
 //            FileSystemElemNode elem = handler.resolve_fse_node_from_db( fseNode.getIdx() );
@@ -516,46 +538,46 @@ public class StoragePoolHandlerServlet extends HessianServlet implements Storage
     }
 
     @Override
-    public void set_last_accessed( StoragePoolWrapper pool, RemoteFSElem fseNode, long l )
+    public void set_last_accessed( IWrapper pool, RemoteFSElem fseNode, long l )
     {
         Log.err("Noch nicht implementiert", "set_last_accessed");
     }
 
     @Override
-    public List<String> list_xattributes( StoragePoolWrapper pool, RemoteFSElem fseNode )
+    public List<String> list_xattributes( IWrapper pool, RemoteFSElem fseNode )
     {
         Log.err("Noch nicht implementiert", "list_xattributes");
         return null;
     }
 
     @Override
-    public void add_xattribute( StoragePoolWrapper pool, RemoteFSElem fseNode, String name, String valStr )
+    public void add_xattribute( IWrapper pool, RemoteFSElem fseNode, String name, String valStr )
     {
         Log.err("Noch nicht implementiert", "add_xattribute");
     }
 
     @Override
-    public void set_mode( StoragePoolWrapper pool, RemoteFSElem fseNode, int mode )
+    public void set_mode( IWrapper pool, RemoteFSElem fseNode, int mode )
     {
         Log.err("Noch nicht implementiert", "set_mode");
     }
 
     @Override
-    public void set_owner_id( StoragePoolWrapper pool, RemoteFSElem fseNode, int uid )
+    public void set_owner_id( IWrapper pool, RemoteFSElem fseNode, int uid )
     {
         Log.err("Noch nicht implementiert", "set_owner_id");
     }
 
     @Override
-    public void set_group_id( StoragePoolWrapper pool, RemoteFSElem fseNode, int gid )
+    public void set_group_id( IWrapper pool, RemoteFSElem fseNode, int gid )
     {
         Log.err("Noch nicht implementiert", "set_group_id");
     }
 
     @Override
-    public boolean isReadOnly(StoragePoolWrapper pool)
+    public boolean isReadOnly(IWrapper pool)
     {
-        StoragePoolHandler handler = poolContextManager.getHandlerbyWrapper(pool);
+        StoragePoolHandler handler = getPoolHandlerByWrapper(pool);
         return handler.isReadOnly();
     }
 
@@ -747,7 +769,7 @@ public class StoragePoolHandlerServlet extends HessianServlet implements Storage
     }
 
     @Override
-    public void set_ms_filetimes( StoragePoolWrapper wrapper, RemoteFSElem node, long ctime, long atime, long mtime ) throws IOException, SQLException, PoolReadOnlyException
+    public void set_ms_filetimes( IWrapper wrapper, RemoteFSElem node, long ctime, long atime, long mtime ) throws IOException, SQLException, PoolReadOnlyException
     {
         StoragePoolHandler handler = getPoolHandlerByWrapper( wrapper );
         FileSystemElemNode fseNode = handler.resolve_node_by_remote_elem( node);
@@ -826,6 +848,23 @@ public class StoragePoolHandlerServlet extends HessianServlet implements Storage
         
         return ret;
     }    
+
+    String checkRestoreErrFSElem( IWrapper wrapper, RemoteFSElem path ) {
+        
+        StoragePoolHandler sp = getPoolHandlerByWrapper( wrapper );
+        FileSystemElemNode fseNode = null;
+        try {
+            fseNode = sp.resolve_node_by_remote_elem(path);
+            if (fseNode == null) {
+                return "Kein Eintrag in VSM-DB für: " + path.getName();
+            }
+        }
+        catch (SQLException sQLException) {
+            return "Abbruch beim Lesen von Eintrag in VSM-DB für: " + path.getName() + ": " + sQLException.getMessage();
+        }
+        
+        return sp.buildCheckOpenNodeErrText(fseNode);
+    }
  
 
 }

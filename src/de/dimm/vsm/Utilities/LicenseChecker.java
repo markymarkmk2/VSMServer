@@ -15,6 +15,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.text.ParseException;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.GregorianCalendar;
@@ -38,11 +39,27 @@ public class LicenseChecker
     public LicenseChecker(String productBase, int demo_units, int demo_modules)
     {
         this.productBase = productBase;
-        ticket_list = new ArrayList<ValidTicketContainer>();
+        ticket_list = new ArrayList<>();
         
         check_create_demo_ticket(demo_units, demo_modules);
 
         
+    }
+    public void create_ticket(int serial, int demo_units, int demo_modules) throws IOException {
+        // CREATE        
+        HWIDLicenseTicket ticket = new HWIDLicenseTicket();
+        
+        try
+        {
+            ticket.createTicket(productBase, serial, demo_units, demo_modules, HWIDLicenseTicket.generate_hwid());
+
+            write_ticket(ticket);
+        }
+        catch (IOException  iOException)
+        {
+            LogManager.msg_license( LogManager.LVL_ERR, "Cannot create ticket:", iOException);
+            throw new IOException("Cannot create ticket:" + iOException.getMessage(), iOException);
+        }
     }
 
     private void check_create_demo_ticket(int demo_units, int demo_modules)
@@ -72,16 +89,18 @@ public class LicenseChecker
                 Date exp = new Date(System.currentTimeMillis() + (long) DEMO_TICKET_DAYS * 86400 * 1000);
                 GregorianCalendar cal = new GregorianCalendar();
                 cal.setTime(exp);
+                // 1 Monat Demo
+                cal.add(GregorianCalendar.MONTH, 1);
                 DemoLicenseTicket ticket = new DemoLicenseTicket();
                 try
                 {
                     ticket.createTicket(productBase, demo_units,  demo_modules,
-                            cal.get(GregorianCalendar.DAY_OF_MONTH), cal.get(GregorianCalendar.MONTH) + 1,
+                            cal.get(GregorianCalendar.DAY_OF_MONTH), cal.get(GregorianCalendar.MONTH),
                             cal.get(GregorianCalendar.YEAR));
 
                     write_ticket(ticket);
                 }
-                catch (Exception iOException)
+                catch (IOException | ParseException iOException)
                 {
                     LogManager.msg_license( LogManager.LVL_ERR, "Cannot create demo ticket:", iOException);
                 }

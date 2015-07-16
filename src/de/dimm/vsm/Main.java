@@ -5,14 +5,20 @@
 
 package de.dimm.vsm;
 
+import static de.dimm.vsm.LogicControl.LTM_FTP;
+import static de.dimm.vsm.LogicControl.LTM_PREVIEW;
+import static de.dimm.vsm.LogicControl.LTM_S3;
+import static de.dimm.vsm.LogicControl.PRODUCT_BASE;
 import static de.dimm.vsm.LogicControl.getDbPath;
 import de.dimm.vsm.Utilities.DefaultTextProvider;
+import de.dimm.vsm.Utilities.LicenseChecker;
 import de.dimm.vsm.Utilities.SizeStr;
 import de.dimm.vsm.Utilities.VariableResolver;
 import de.dimm.vsm.log.Log;
 import de.dimm.vsm.log.LogManager;
 import de.dimm.vsm.backup.Backup;
 import de.dimm.vsm.fsengine.JDBCEntityManager;
+import de.dimm.vsm.license.HWIDLicenseTicket;
 import de.dimm.vsm.lifecycle.RetentionManager;
 import de.dimm.vsm.mail.NotificationEntry;
 import de.dimm.vsm.net.IpResolver;
@@ -50,7 +56,7 @@ public class Main
 {
 
     static String source_str = "trunk";
-    static String version_str = "1.8.0";
+    static String version_str = "1.8.3";
         
     public static int writeThreads = 1;
     public static int maxOpenFiles = 1024;
@@ -174,7 +180,12 @@ public class Main
         DefaultTextProvider.setProvider(textManager);
 
         Log.info( "VSM Server Version",  get_version_str() );
-
+        try {
+            Log.info("HW-ID: " + HWIDLicenseTicket.generate_hwid());
+        }
+        catch (IOException iOException) {
+            Log.err("HW-ID fail: ", iOException);
+        }
         work_dir = new File(".").getAbsolutePath();
         if (work_dir.endsWith("."))
             work_dir = work_dir.substring(0, work_dir.length() - 2);
@@ -189,6 +200,7 @@ public class Main
         print_system_property( "os.arch");
         print_system_property( "os.version");
         print_system_property( "user.dir");
+        
 
         create_prefs();
         
@@ -331,6 +343,13 @@ public class Main
     {
         return get_int_prop(GeneralPreferences.SSL_PORT, 8443);
     }
+    public static boolean isOwnDavServer() {
+        return true;
+    }
+
+    public static int getWebDavPort() {
+        return get_int_prop(GeneralPreferences.WEB_DAV_PORT, 8084);
+    }
 
     public static void checkJavaVersion()
     {
@@ -349,6 +368,14 @@ public class Main
     {
         boolean changeLog = false;
         boolean doStat = false;
+        
+//        IPreviewRenderer renderer = new IMPreviewRenderer();
+//        try {
+//            renderer.renderPreviewFile(null);
+//        }
+//        catch (Exception iOException) {
+//            iOException.printStackTrace();
+//        }
         
         for (int i = 0; i < args.length; i++)
         {
@@ -441,10 +468,82 @@ public class Main
             if (string.equals("-no-retention") )
             {
                 RetentionManager.enabled = false;
-            }    
-            
-            
-            
+            }  
+            if (string.equals("-write-lic") )
+            {
+                // We need 5 args:
+                // Serial, TBs, FLAGS, HWID, KEY
+                // String[] args
+                /*
+                 *  public static final int LTM_FTP = 0x0001;
+                    public static final int LTM_S3 = 0x0002;
+                    public static final int LTM_PREVIEW = 0x0004;
+                 */
+                int nArgs = 5;
+                if (i+ 1 + nArgs > args.length) {
+                    System.out.println("Usage -write-lic Serial TBS FLAGS HWID KEY");
+                    System.exit(-1);
+                }
+                for (int l = 0; l < nArgs; l++ ) {
+                    if (args[i + 1 + l].startsWith("-")) {
+                        System.out.println("Usage -write-lic Serial TBS FLAGS HWID KEY ");
+                        System.exit(-1);
+                    }
+                }
+                try {
+                    int serial = Integer.parseInt(args[i + 1]);
+                    int units = Integer.parseInt(args[i + 2]);
+                    int mod = Integer.parseInt(args[i + 3]);
+                    String hwid = args[i + 4];
+                    String key = args[i + 5];
+                    HWIDLicenseTicket ticket = new HWIDLicenseTicket();
+                    ticket.createTicket(PRODUCT_BASE, serial, units, mod, hwid);
+                    ticket.setKey(key);
+                    LicenseChecker lch = new LicenseChecker(PRODUCT_BASE, units, mod);
+                    lch.write_ticket(ticket);
+                }
+                catch (Exception exception) {
+                    System.out.println(exception.getMessage());
+                    exception.printStackTrace(System.err);
+                }
+                System.exit(0);
+            }            
+            if (string.equals("-calc-key") )
+            {
+                // We need 4 args:
+                // Serial, TBs, FLAGS, HWID
+                // String[] args
+                /*
+                 *  public static final int LTM_FTP = 0x0001;
+                    public static final int LTM_S3 = 0x0002;
+                    public static final int LTM_PREVIEW = 0x0004;
+                 */
+                int nArgs = 4;
+                if (i+ 1 + nArgs > args.length) {
+                    System.out.println("Usage -calc-key Serial TBS FLAGS HWID");
+                    System.exit(-1);
+                }
+                for (int l = 0; l < nArgs; l++ ) {
+                    if (args[i + 1 + l].startsWith("-")) {
+                        System.out.println("Usage -calc-key Serial TBS FLAGS HWID ");
+                        System.exit(-1);
+                    }
+                }
+                try {
+                    int serial = Integer.parseInt(args[i + 1]);
+                    int units = Integer.parseInt(args[i + 2]);
+                    int mod = Integer.parseInt(args[i + 3]);
+                    String hwid = args[i + 4];
+                    HWIDLicenseTicket ticket = new HWIDLicenseTicket();
+                    ticket.createTicket(PRODUCT_BASE, serial, units, mod, hwid);
+                    System.out.println(ticket.calculate_key());
+                }
+                catch (Exception exception) {
+                    System.out.println(exception.getMessage());
+                    exception.printStackTrace(System.err);
+                }
+                System.exit(0);
+            }  
         }
         
         // SETUP PATH FOR GUI JAR
