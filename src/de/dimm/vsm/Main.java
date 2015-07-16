@@ -5,9 +5,6 @@
 
 package de.dimm.vsm;
 
-import static de.dimm.vsm.LogicControl.LTM_FTP;
-import static de.dimm.vsm.LogicControl.LTM_PREVIEW;
-import static de.dimm.vsm.LogicControl.LTM_S3;
 import static de.dimm.vsm.LogicControl.PRODUCT_BASE;
 import static de.dimm.vsm.LogicControl.getDbPath;
 import de.dimm.vsm.Utilities.DefaultTextProvider;
