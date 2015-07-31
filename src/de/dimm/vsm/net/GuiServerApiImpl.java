@@ -930,11 +930,12 @@ public class GuiServerApiImpl implements GuiServerApi
     }
 
     @Override
-    public List<IPreviewData> getPreviewData( IWrapper wrapper, List<RemoteFSElem> path ) throws SQLException, IOException {
+    public List<IPreviewData> getPreviewData( IWrapper wrapper, List<RemoteFSElem> path, Properties props ) throws SQLException, IOException {
         StoragePoolHandler sp_handler = StoragePoolHandlerServlet.getPoolHandlerByWrapper(wrapper);
         
-        return sp_handler.getPreviewData( path );
+        return sp_handler.getPreviewData( path, props );
     }
+    
 
     @Override
     public int createWebDavServer( StoragePoolWrapper wrapper ) throws IOException, PoolReadOnlyException, PathResolveException {

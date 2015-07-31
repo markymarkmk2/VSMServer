@@ -19,6 +19,8 @@ import de.dimm.vsm.license.HWIDLicenseTicket;
 import de.dimm.vsm.lifecycle.RetentionManager;
 import de.dimm.vsm.mail.NotificationEntry;
 import de.dimm.vsm.net.IpResolver;
+import de.dimm.vsm.preview.imagemagick.GMPreviewRenderer;
+import de.dimm.vsm.preview.imagemagick.IMPreviewRenderer;
 import de.dimm.vsm.txtscan.TxtScan;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
@@ -241,8 +243,8 @@ public class Main
 
         setDerbyProperties();
 
-        JDBCEntityManager.MAX_CONNECTIONS = get_int_prop(GeneralPreferences.MAX_CONNECTIONS, JDBCEntityManager.MAX_CONNECTIONS);
-        JDBCEntityManager.MAX_COMMIT_TIMEOUT = get_int_prop(GeneralPreferences.MAX_COMMIT_TIMEOUT, JDBCEntityManager.MAX_COMMIT_TIMEOUT);
+        // statische Prefs setzen
+        setStaticPreferences();
 
         control = new LogicControl(this);
 
@@ -497,6 +499,7 @@ public class Main
                     ticket.createTicket(PRODUCT_BASE, serial, units, mod, hwid);
                     ticket.setKey(key);
                     LicenseChecker lch = new LicenseChecker(PRODUCT_BASE, units, mod);
+                    lch.setOverrideLicPath(new File(".").getAbsolutePath());
                     lch.write_ticket(ticket);
                 }
                 catch (Exception exception) {
@@ -864,6 +867,7 @@ public class Main
                 general_prefs.read_props();
                 // Reset IP-Cache
                 IpResolver.resetCache();
+                setStaticPreferences();
             }
             
             File f = new File("shutdown.txt");
@@ -1088,6 +1092,12 @@ public class Main
         
 
         return rebuild;
+    }
+
+    private void setStaticPreferences() {
+        
+        JDBCEntityManager.MAX_CONNECTIONS = get_int_prop(GeneralPreferences.MAX_CONNECTIONS, JDBCEntityManager.MAX_CONNECTIONS);
+        JDBCEntityManager.MAX_COMMIT_TIMEOUT = get_int_prop(GeneralPreferences.MAX_COMMIT_TIMEOUT, JDBCEntityManager.MAX_COMMIT_TIMEOUT);        
     }
 
 

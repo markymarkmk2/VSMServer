@@ -4,6 +4,7 @@
  */
 package de.dimm.vsm.net.webdav;
 
+import de.dimm.vsm.preview.IPreviewData;
 import de.dimm.vsm.records.FileSystemElemNode;
 import io.milton.http.Auth;
 import io.milton.http.LockInfo;

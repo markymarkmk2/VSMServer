@@ -5,6 +5,7 @@
 package de.dimm.vsm.net.rwebdav;
 
 import de.dimm.vsm.net.RemoteFSElem;
+import de.dimm.vsm.preview.IPreviewData;
 import io.milton.common.ContentTypeUtils;
 import io.milton.common.RangeUtils;
 import io.milton.common.ReadingException;
@@ -22,12 +23,16 @@ import io.milton.resource.GetableResource;
 import io.milton.resource.MoveableResource;
 import io.milton.resource.PropFindableResource;
 import io.milton.resource.ReplaceableResource;
+import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.sql.SQLException;
+import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
+import java.util.Properties;
 import java.util.logging.Level;
 import org.apache.commons.io.IOUtils;
 import org.slf4j.Logger;
@@ -41,6 +46,13 @@ public class VsmFileResource extends VsmResource implements CopyableResource, De
 
     private static final Logger log = LoggerFactory.getLogger(io.milton.http.fs.FsFileResource.class);
     private final IVsmContentService contentService;
+    
+    protected IPreviewData previewData;
+    
+    static final Properties previewProps = new Properties();
+    static {
+        previewProps.setProperty(IPreviewData.ONLY_CACHED, IPreviewData.TRUE);
+    }
 
     /**
      *
@@ -51,6 +63,14 @@ public class VsmFileResource extends VsmResource implements CopyableResource, De
     public VsmFileResource( String host, VsmDavResourceFactory factory, RemoteFSElem file, IVsmContentService contentService ) {
         super(host, factory, file);
         this.contentService = contentService;
+        try {
+            final List<IPreviewData> pData = factory.spHandler.getPreviewData(Arrays.asList(file), previewProps);
+            if (pData != null && !pData.isEmpty()) {
+                previewData = pData.get(0);
+            }
+        }
+        catch (IOException | SQLException iOException) {
+        }
     }
 
     @Override
@@ -77,7 +97,12 @@ public class VsmFileResource extends VsmResource implements CopyableResource, De
     public void sendContent( OutputStream out, Range range, Map<String, String> params, String contentType ) throws IOException, NotFoundException {
         InputStream in = null;
         try {
-            in = contentService.getFileContent(file);
+            if (params.containsKey("preview") && previewData != null) {
+                in = new FileInputStream(previewData.getPreviewImageFile());
+            }
+            else {
+                in = contentService.getFileContent(file);
+            }
             if (range != null) {
                 log.debug("sendContent: ranged content: " + file.getName());
                 RangeUtils.writeRange(in, range, out);
@@ -136,4 +161,14 @@ public class VsmFileResource extends VsmResource implements CopyableResource, De
 //			throw new BadRequestException("Couldnt write to: " + file.getAbsolutePath(), ex);
 //		}
     }
+
+    public IPreviewData getPreviewData() {
+        return previewData;
+    }
+
+    public void setPreviewData( IPreviewData previewData ) {
+        this.previewData = previewData;
+    }
+    
+    
 }

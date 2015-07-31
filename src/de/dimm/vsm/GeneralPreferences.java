@@ -124,8 +124,13 @@ public class GeneralPreferences extends Preferences
     public static final String KICK_JOB_TIMEOUT_S = "KickJobTimeoutS";
     public static final String PREVIEW_ROOT = "PreviewRoot";
     public static final String PREVIEW_GMPATH = "PreviewGmPath";
+    public static final String PREVIEW_IMPATH = "PreviewImPath";
     public static final String PREVIEW_WIDTH = "PreviewWidth";
     public static final String PREVIEW_HEIGHT = "PreviewHeight";
+    public static final String IM_CMD_OPTS = "ImCmdOptions";
+    public static final String GM_CMD_OPTS = "GmCmdOptions";
+    public static final String IM_SUFFIXES = "ImSuffixes";
+    public static final String GM_SUFFIXES = "GmSuffixes";
     
     
     /** Creates a new instance of Preferences */
@@ -217,8 +222,13 @@ public class GeneralPreferences extends Preferences
         prop_names.add( PREVIEW_WIDTH );
         prop_names.add( PREVIEW_HEIGHT );
         prop_names.add( PREVIEW_GMPATH );
+        prop_names.add( PREVIEW_IMPATH );
         prop_names.add( WEB_DAV_PORT );
         prop_names.add( WEB_DAV_SEARCH_PORT );
+        prop_names.add( IM_CMD_OPTS );
+        prop_names.add( GM_CMD_OPTS );
+        prop_names.add( IM_SUFFIXES );
+        prop_names.add( GM_SUFFIXES );
         
         
 

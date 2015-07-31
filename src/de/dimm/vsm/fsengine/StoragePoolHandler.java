@@ -43,6 +43,7 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Properties;
 
 
 
@@ -771,6 +772,20 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
         catch (PathResolveException | PoolReadOnlyException | UnsupportedEncodingException exc)
         {
             Log.err( "Löschen schlug fehl", node.toString(), exc);
+        }
+        
+        // Entfernen der Previews
+        try {
+            List<FileSystemElemAttributes> attrs = node.getHistory(getEm());
+            for (FileSystemElemAttributes attr : attrs) {
+                File f = PreviewReader.getExistingPreviewFile(node, this, attr);
+                if (f != null && f.exists()) {
+                    f.delete();
+                }
+            }
+        }
+        catch (Exception exc) {
+            Log.err( "Entfernen der  Previews schlug fehl", node.toString(), exc);
         }
         return false;
     }
@@ -2818,8 +2833,8 @@ public abstract class StoragePoolHandler /*implements RemoteFSApi*/
             return path;
         }
 
-    public List<IPreviewData> getPreviewData( List<RemoteFSElem> path ) throws IOException, SQLException {
-        return getPreviewReader().getPreviews(path);
-    }  
+    public List<IPreviewData> getPreviewData( List<RemoteFSElem> path, Properties props ) throws IOException, SQLException {
+        return getPreviewReader().getPreviews(path, props);
+    }      
 
 }

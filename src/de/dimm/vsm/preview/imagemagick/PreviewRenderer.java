@@ -5,15 +5,15 @@
 package de.dimm.vsm.preview.imagemagick;
 
 import de.dimm.vsm.Exceptions.PathResolveException;
-import de.dimm.vsm.GeneralPreferences;
 import de.dimm.vsm.Main;
 import de.dimm.vsm.fsengine.StorageNodeHandler;
 import de.dimm.vsm.fsengine.StoragePoolHandler;
-import de.dimm.vsm.fsengine.VSMFSInputStream;
+import de.dimm.vsm.fsengine.VSMInputStream;
 import de.dimm.vsm.log.Log;
 import de.dimm.vsm.preview.IPreviewData;
 import de.dimm.vsm.preview.IPreviewRenderer;
 import de.dimm.vsm.preview.IRenderer;
+import static de.dimm.vsm.preview.PreviewReader.getPreviewRoot;
 import de.dimm.vsm.preview.RenderEngineManager;
 import de.dimm.vsm.records.AbstractStorageNode;
 import de.dimm.vsm.records.FileSystemElemNode;
@@ -65,7 +65,7 @@ public class PreviewRenderer implements IPreviewRenderer {
         File outFile = getOutFile(node);
            
         try {
-             try (InputStream fis = new VSMFSInputStream(sp_handler, node)) {
+             try (InputStream fis = new VSMInputStream(sp_handler, node)) {
                  
                  renderer.render(suffix, fis, outFile);
                  return outFile;
@@ -121,10 +121,9 @@ public class PreviewRenderer implements IPreviewRenderer {
     @Override
     public File getOutFile( FileSystemElemNode node ) throws IOException {
         StringBuilder sb = new StringBuilder();
-        String previewRoot = Main.get_prop(GeneralPreferences.PREVIEW_ROOT);
-        if (previewRoot != null) {
-            previewRoot += File.separatorChar + sp_handler.getPool().getIdx();
-        } else {
+        String previewRoot = getPreviewRoot(sp_handler);
+
+        if (previewRoot == null) {
              AbstractStorageNode snode = sp_handler.get_primary_dedup_node_for_write();
              if (snode != null) {
                 previewRoot = snode.getMountPoint();

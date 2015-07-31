@@ -4,12 +4,12 @@
  */
 package de.dimm.vsm.preview.imagemagick;
 
-import de.dimm.vsm.preview.IRenderer;
+import de.dimm.vsm.GeneralPreferences;
+import de.dimm.vsm.Main;
+import static de.dimm.vsm.Main.get_prop;
 import java.io.File;
 import java.io.InputStream;
 import java.util.Arrays;
-import java.util.HashSet;
-import java.util.Set;
 import org.im4java.core.ConvertCmd;
 import org.im4java.core.IMOperation;
 import org.im4java.process.Pipe;
@@ -18,57 +18,84 @@ import org.im4java.process.Pipe;
  *
  * @author Administrator
  */
-public class IMPreviewRenderer implements IRenderer {
+public class IMPreviewRenderer extends AbstractRenderer {
 
-    ConvertCmd cmd;
-    IMOperation streamOp;
+    //ConvertCmd cmd;
+    //IMOperation streamOp;
+    
+    
+    public IMPreviewRenderer( int width, int height) {
+                
+        super(width, height);
         
-    static final Set<String> supportedSuffixes = new HashSet<>();
-    static {
-        System.setProperty("im4java.useGM", "true" );
-        supportedSuffixes.addAll(Arrays.asList(
-           "bmp", "dcm", "epdf", "eps", "fax", "gif", "ico", "jng", "jpeg", "jpg", 
-           "pct", "pcx", "pict", "png", "ps", "svg", "svgz", "tga", "tiff", "tif",
-           "wmf"
-                ));
-    }
-   
-    public IMPreviewRenderer( String imPath, int width, int height) {
+        String[] suffixes = get_prop(GeneralPreferences.IM_SUFFIXES, "").split("[ ,]");
+        if (suffixes.length > 1) {
+            setSupportedSuffixes(suffixes);
+        }
+        else  {
+            setSupportedSuffixes(Arrays.asList( "psd" ));
+        }
         
-        System.setProperty("im4java.useGM", "true" );
-        cmd = new ConvertCmd();        
-        cmd.setSearchPath(imPath);
+        this.width = width;
+        this.height = height;
         
-        // create the operation, add images and operators/options
-        streamOp = new IMOperation();
-        streamOp.addRawArgs("-limit", "memory", "8192" );  // Max 8GB Ram
-        streamOp.addImage("-"); // Input from Stream
-//        streamOp.thumbnail(640, 480);
-        //op.resize(640, 480);
-        streamOp.scale(width, height);
-        streamOp.gravity("center");
-        streamOp.extent(width, height);
-        streamOp.addImage();
+//        cmd = new ConvertCmd(false);        
+//        cmd.setSearchPath(imPath);
+//        
+//        // create the operation, add images and operators/options
+//        streamOp = new IMOperation();
+//        streamOp.addRawArgs("-limit", "memory", "8192" );  // Max 8GB Ram
+//        streamOp.addImage("-"); // Input from Stream
+//        
+//        
+//        String[] im_opts = Main.get_prop(GeneralPreferences.IM_CMD_OPTS, "").split(" ");
+//        if (im_opts.length > 1) {
+//            streamOp.addRawArgs(im_opts);
+//        } else {
+//            streamOp.addRawArgs("-flatten");
+//        }
+//        
+//        streamOp.scale(width, height);
+//        streamOp.gravity("center");
+//        streamOp.extent(width, height);
+//        streamOp.addImage();
     }
     
     static boolean _pdf = true;
 
     @Override
     public void render( String suffix, InputStream fis, File outFile ) throws Exception {
+        
+// create the operation, add images and operators/options
+        IMOperation streamOp = new IMOperation();
+        //streamOp.addRawArgs("-limit", "memory", "8192" );  // Max 8GB Ram
+        streamOp.addImage("-"); // Input from Stream
+//        streamOp.thumbnail(640, 480);
+        //op.resize(640, 480);
+        
+        
+        String[] im_opts = Main.get_prop(GeneralPreferences.IM_CMD_OPTS, "").split(" ");
+        if (im_opts.length > 1) {
+            streamOp.addRawArgs(im_opts);
+        } else {
+            streamOp.addRawArgs("-flatten");
+        }
+        
+        streamOp.scale(width, height);
+        streamOp.gravity("center");
+        streamOp.extent(width, height);
+        
+        streamOp.addImage();        
         Pipe pipeIn  = new Pipe(fis,null);
 
         // set up command
-        ConvertCmd convert = new ConvertCmd();
+        String imPath = Main.get_prop(GeneralPreferences.PREVIEW_IMPATH);        
+        ConvertCmd convert = new ConvertCmd(false);
+        convert.setSearchPath(imPath);
         convert.setInputProvider(pipeIn);
 
         convert.run(streamOp, outFile.getAbsolutePath());
 
         fis.close();
-    }
-
-   
-    @Override
-    public boolean supportsSuffix( String suffix ) {
-        return supportedSuffixes.contains(suffix.toLowerCase());
     }
 }

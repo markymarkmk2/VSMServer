@@ -35,6 +35,7 @@ public class LicenseChecker
     final String lic_mtx = "lic_lock";
 
     String productBase;
+    String overrideLicPath;
 
     public LicenseChecker(String productBase, int demo_units, int demo_modules)
     {
@@ -45,6 +46,16 @@ public class LicenseChecker
 
         
     }
+
+    public void setOverrideLicPath( String overrideLicPath ) {
+        this.overrideLicPath = overrideLicPath;
+    }
+
+    public String getOverrideLicPath() {
+        return overrideLicPath;
+    }
+    
+    
     public void create_ticket(int serial, int demo_units, int demo_modules) throws IOException {
         // CREATE        
         HWIDLicenseTicket ticket = new HWIDLicenseTicket();
@@ -210,6 +221,9 @@ public class LicenseChecker
 
     File get_lic_file( String product )
     {
+        if (overrideLicPath != null) {            
+            return new File(overrideLicPath, product + "_" + LICFILE_NAME);
+        }
         File lic_path = new File(Main.LICENSE_PATH + product + "_" + LICFILE_NAME);
         return lic_path;
     }

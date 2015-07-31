@@ -46,7 +46,9 @@ public class VsmDirectoryResource  extends VsmResource implements MakeCollection
 
     private static final Logger log = LoggerFactory.getLogger(FsDirectoryResource.class);
     
-    private final IVsmContentService contentService;
+    public static final String MAGIC_PREVIEW_FOLDER = "_VSMPreview_";
+    
+    protected final IVsmContentService contentService;
 
     public VsmDirectoryResource(String host, VsmDavResourceFactory factory, RemoteFSElem dir, IVsmContentService contentService) {
         super(host, factory, dir);
@@ -95,6 +97,20 @@ public class VsmDirectoryResource  extends VsmResource implements MakeCollection
                 }
             }
         }
+        boolean hasPreviews = false;
+        for (Resource r : list) {
+            if (r instanceof VsmFileResource) {
+                VsmFileResource vsmFile = (VsmFileResource)r;
+                if (vsmFile.getPreviewData() != null) {
+                    hasPreviews = true;
+                }
+            }
+        }
+        
+        if (hasPreviews) {
+            VsmPreviewDirectoryResource prevDir = new VsmPreviewDirectoryResource(host, factory, file, contentService);
+            list.add(0, prevDir);
+        }        
         return list;
     }
 
@@ -252,18 +268,25 @@ public class VsmDirectoryResource  extends VsmResource implements MakeCollection
         w.begin("col").writeAtt("id","spalteSize").close(true);
         w.close("colgroup");
         
-        for (Resource r : getChildren()) {
+      
+        
+        List<? extends Resource> resList = getChildren();
+        
+        
+        for (Resource r : resList) {
             w.open("tr");
 
             // Name
             w.open("td");
-            String path = buildHref(uri, r.getName());
-            w.begin("a").writeAtt("href", path).open().writeText(r.getName()).close();
+            String name = r.getName();                       
+            String path = buildHref(uri, name);
+            
+            w.begin("a").writeAtt("href", path).open().writeText(name).close();
             //String absPath = "file:////192.168.1.145@58080\\\\DavWWWRoot\\\\" + path.substring(1);
             //w.begin("a").writeAtt("href", "#").writeAtt("onclick", "CallMe('" + absPath + "')").open().writeText("   (DateiSystem)").close();
 
             w.close("td");
-            
+                       
             // Date
             w.begin("td").open().writeText(fmt.format(r.getModifiedDate())).close();
 
@@ -298,7 +321,7 @@ public class VsmDirectoryResource  extends VsmResource implements MakeCollection
         return null;
     }
 
-    private String buildHref(String uri, String name) {
+    protected String buildHref(String uri, String name) {
         String abUrl = uri;
 
         if (!abUrl.endsWith("/")) {
@@ -313,6 +336,23 @@ public class VsmDirectoryResource  extends VsmResource implements MakeCollection
             // This is to match up with the prefix set on SimpleSSOSessionProvider in MyCompanyDavServlet
             String s = insertSsoPrefix(abUrl, ssoPrefix);
             return s += name;
+        }
+    }
+    protected String buildPreviewHref(String uri, String name) {
+        String abUrl = uri;
+
+        if (!abUrl.endsWith("/")) {
+            abUrl += "/";
+        }
+        if (!abUrl.startsWith("/")) {
+            abUrl = "/" + abUrl;
+        }
+        if (ssoPrefix == null) {
+            return "/" + factory.wrapper.getWebDavToken() + abUrl + name + "?preview=true";
+        } else {
+            // This is to match up with the prefix set on SimpleSSOSessionProvider in MyCompanyDavServlet
+            String s = insertSsoPrefix(abUrl, ssoPrefix);
+            return s += name + "?preview=true";
         }
     }
 

@@ -12,6 +12,7 @@ import de.dimm.vsm.fsengine.StoragePoolHandler;
 import de.dimm.vsm.net.RemoteFSElem;
 import de.dimm.vsm.net.mapping.UserDirMapper;
 import de.dimm.vsm.preview.imagemagick.PreviewRenderer;
+import de.dimm.vsm.records.FileSystemElemAttributes;
 import de.dimm.vsm.records.FileSystemElemNode;
 import de.dimm.vsm.records.PoolNodeFileLink;
 import java.io.File;
@@ -19,6 +20,7 @@ import java.io.IOException;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Properties;
 
 /**
  *
@@ -28,6 +30,8 @@ public class PreviewReader implements IPreviewReader {
 
     StoragePoolHandler handler;
     IPreviewRenderer renderer;
+    static boolean async = true;
+    boolean abortCurrentDir;
     
     
     public PreviewReader( StoragePoolHandler handler ) {
@@ -35,23 +39,22 @@ public class PreviewReader implements IPreviewReader {
         renderer = new PreviewRenderer(handler);             
     }
     
-    IPreviewData readPreviewData(  FileSystemElemNode node ) throws IOException {
+    IPreviewData readPreviewData(  FileSystemElemNode node, FileSystemElemAttributes attr  ) throws IOException {
         if (!renderer.canRenderFile(node.getName())) {
             return null;
         }            
         
         StringBuilder fsPath = new StringBuilder();
         File f = null;
-        String previewRoot = Main.get_prop(GeneralPreferences.PREVIEW_ROOT);
         try {
-            StorageNodeHandler.build_preview_path(node, node.getAttributes(), fsPath);
+            StorageNodeHandler.build_preview_path(node, attr, fsPath);
         }
         catch (PathResolveException ex) {
             throw new IOException("build_preview_path", ex);
         }
         
+        String previewRoot = getPreviewRoot(handler);
         if (previewRoot != null) {
-            previewRoot += File.separatorChar + handler.getPool().getIdx();
             f = new File(previewRoot, fsPath.toString());
         }
         if (f == null || !f.exists()) {
@@ -73,25 +76,33 @@ public class PreviewReader implements IPreviewReader {
         IPreviewData data = new PreviewData(node.getAttributes().getIdx(), f, metaData, node.getName());
         return data;    
     }
+    public File getExistingPreviewFile(FileSystemElemNode node, FileSystemElemAttributes attr) throws IOException {
+        return getExistingPreviewFile(node, handler, attr);
+    }
     
-    @Override
-    public IPreviewData getPreviewDataFile( FileSystemElemNode node ) throws IOException {
-        if (!renderer.canRenderFile(node.getName())) {
-            return null;
-        }  
+    public static String getPreviewRoot(StoragePoolHandler handler) throws IOException {
+        String previewRoot = Main.get_prop(GeneralPreferences.PREVIEW_ROOT);
+        if (previewRoot != null) {
+            previewRoot +="/" + handler.getPool().getIdx();            
+        } 
+        return previewRoot;
+    }
+    
+    
+    public static File getExistingPreviewFile(FileSystemElemNode node, StoragePoolHandler handler, FileSystemElemAttributes attr) throws IOException {
         
         StringBuilder fsPath = new StringBuilder();
         File f = null;
-        String previewRoot = Main.get_prop(GeneralPreferences.PREVIEW_ROOT);
+        
         try {
-            StorageNodeHandler.build_preview_path(node, node.getAttributes(), fsPath);
+            StorageNodeHandler.build_preview_path(node, attr, fsPath);
         }
         catch (PathResolveException ex) {
             throw new IOException("build_preview_path", ex);
         }
         
-        if (previewRoot != null) {
-            previewRoot += File.separatorChar + handler.getPool().getIdx();
+        String previewRoot = getPreviewRoot(handler);
+        if (previewRoot != null) {            
             f = new File(previewRoot, fsPath.toString());
         }
         if (f == null || !f.exists()) {
@@ -102,6 +113,16 @@ public class PreviewReader implements IPreviewReader {
                 }
             }
         }
+        return f;        
+    }
+    
+    @Override
+    public IPreviewData getPreviewDataFile( FileSystemElemNode node, FileSystemElemAttributes attr ) throws IOException {
+        if (!renderer.canRenderFile(node.getName())) {
+            return null;
+        }  
+                
+        File f = getExistingPreviewFile(node, attr);
         if (f == null || !f.exists()) {
             f = renderer.renderPreviewFile( node);   
             if (f == null || !f.exists()) {
@@ -115,24 +136,24 @@ public class PreviewReader implements IPreviewReader {
         return data;
     }
     
+
     @Override
-    public IPreviewData getPreviewDataFileAsync( FileSystemElemNode node ) throws IOException {
+    public IPreviewData getPreviewDataFileAsync( FileSystemElemNode node, FileSystemElemAttributes attr, Properties props ) throws IOException {
         if (!renderer.canRenderFile(node.getName())) {
             return null;
         }  
         
         StringBuilder fsPath = new StringBuilder();
         File f = null;
-        String previewRoot = Main.get_prop(GeneralPreferences.PREVIEW_ROOT);
         try {
-            StorageNodeHandler.build_preview_path(node, node.getAttributes(), fsPath);
+            StorageNodeHandler.build_preview_path(node, attr, fsPath);
         }
         catch (PathResolveException ex) {
             throw new IOException("build_preview_path", ex);
         }
         
+        String previewRoot = getPreviewRoot(handler);        
         if (previewRoot != null) {
-            previewRoot += File.separatorChar + handler.getPool().getIdx();
             f = new File(previewRoot, fsPath.toString());
         }
         if (f == null || !f.exists()) {
@@ -146,11 +167,30 @@ public class PreviewReader implements IPreviewReader {
         if (f == null || !f.exists()) {
             f = renderer.getOutFile(node);
         }
+        // Delete? preview file entfernen
+        if (isPropTrue(props, IPreviewData.DELETE)) {
+            if (f != null && f.exists()) {
+                f.delete();
+            }
+            return null;
+        }        
+        // Ohne Caching? preview file entfernen
+        if (isPropTrue(props, IPreviewData.NOT_CACHED)) {
+            if (f != null && f.exists()) {
+                f.delete();
+            }
+        }
+        // Nur Cached files?
+        if (isPropTrue(props, IPreviewData.ONLY_CACHED)) {
+            if (f == null || !f.exists()) {
+                return null;
+            }
+        }
+        
         MetaData metaData = new MetaData();
         IPreviewData data = new PreviewData(node.getAttributes().getIdx(), f, metaData, node.getName());
         
         if (f == null || !f.exists()) {
-            
             renderer.startRenderPreviewFile( node, data);   
         }
         else {
@@ -165,7 +205,8 @@ public class PreviewReader implements IPreviewReader {
         List<IPreviewData> result = new ArrayList<>();
         List<FileSystemElemNode> children = UserDirMapper.filter_child_nodes(handler, node);
         for (FileSystemElemNode child: children) {
-            IPreviewData data =  getPreviewDataFile(child);
+            FileSystemElemAttributes attr = handler.getActualFSAttributes(child, handler.getPoolQry());     
+            IPreviewData data =  getPreviewDataFile(child, attr);
             if (data != null) {
                 result.add(data);
             }
@@ -174,11 +215,14 @@ public class PreviewReader implements IPreviewReader {
     }
 
     @Override
-    public List<IPreviewData> getPreviewDataDirAsync(  FileSystemElemNode node ) throws IOException, SQLException {
+    public List<IPreviewData> getPreviewDataDirAsync(  FileSystemElemNode node, Properties props ) throws IOException, SQLException {
         List<IPreviewData> result = new ArrayList<>();
         List<FileSystemElemNode> children = UserDirMapper.filter_child_nodes(handler, node);
         for (FileSystemElemNode child: children) {
-            IPreviewData data =  getPreviewDataFileAsync(child);
+            
+            // THIS IS THE NEWEST ENTRY FOR THIS FILE
+            FileSystemElemAttributes attr = handler.getActualFSAttributes(child, handler.getPoolQry());            
+            IPreviewData data =  getPreviewDataFileAsync(child, attr,  props);
             if (data != null) {
                 result.add(data);
             }
@@ -186,18 +230,23 @@ public class PreviewReader implements IPreviewReader {
         return result;
     }
     
-    static boolean async = true;
 
     @Override
-    public List<IPreviewData> getPreviews( List<RemoteFSElem> path ) throws SQLException, IOException {
+    public List<IPreviewData> getPreviews( List<RemoteFSElem> path, Properties props ) throws SQLException, IOException {
         List<IPreviewData> result = new ArrayList<>();
+        if (isPropTrue(props, IPreviewData.RECURSIVE)) {
+            createRecursivePreviewJob( path, props);
+            return result;
+        }
+        
         for (RemoteFSElem remoteFSElem : path) {
-            FileSystemElemNode node = handler.resolve_node_by_remote_elem(remoteFSElem);
+            FileSystemElemNode node = handler.resolve_node_by_remote_elem(remoteFSElem);            
             if (node.isDirectory()) {
-                result.addAll(async ? getPreviewDataDirAsync(node) : getPreviewDataDir(node) );
+                result.addAll(async ? getPreviewDataDirAsync(node, props) : getPreviewDataDir(node) );
             }
             else {
-                IPreviewData data =  async ? getPreviewDataFileAsync(node) : getPreviewDataFile(node);
+                FileSystemElemAttributes attr = handler.getActualFSAttributes(node, handler.getPoolQry());                 
+                IPreviewData data =  async ? getPreviewDataFileAsync(node, attr, props) : getPreviewDataFile(node, attr);
                 if (data != null) {
                     result.add(data);
                 }                
@@ -213,10 +262,34 @@ public class PreviewReader implements IPreviewReader {
 
     @Override
     public void abortPreview( List<IPreviewData> list ) throws IOException {
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+        for (IPreviewData iPreviewData : list) {
+            if (iPreviewData.getMetaData().isBusy()) {
+                iPreviewData.getMetaData().setError("Aborted");            
+            }
+        }
     }
-    
-    
-    
-   
+
+    private boolean isPropTrue( Properties props, String key ) {
+        if (props == null)
+            return false;
+        
+        String val = props.getProperty(key, IPreviewData.FALSE );
+        return val.equals( IPreviewData.TRUE);
+    }
+
+    private void createRecursivePreviewJob( List<RemoteFSElem> path, Properties props ) throws SQLException {
+        for (RemoteFSElem remoteFSElem : path) {
+            FileSystemElemNode node = handler.resolve_node_by_remote_elem(remoteFSElem);
+            RenderEngineManager renderEngine = Main.get_control().getRenderEngineManager();
+            renderEngine.addRecursiveJob(handler, node, props);            
+        }
+    }
+
+    @Override
+    public void deletePreviewDataFile( FileSystemElemNode node, FileSystemElemAttributes attr ) throws IOException {
+        File f = getExistingPreviewFile(node, attr);
+        if (f != null && f.exists()) {
+            f.delete();
+        }        
+    }
 }

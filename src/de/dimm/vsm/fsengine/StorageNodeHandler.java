@@ -104,7 +104,7 @@ public class StorageNodeHandler
         return initNode(storageNode);
     }
 
-    public static Cache getCache()
+    public static synchronized Cache getCache()
     {
         CacheManager.create();
         if (!CacheManager.getInstance().cacheExists(NODECACHE))

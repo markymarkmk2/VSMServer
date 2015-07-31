@@ -21,11 +21,12 @@ public class RenderFactory {
     public static void init() {
         int width =  Main.get_int_prop(GeneralPreferences.PREVIEW_WIDTH, 640); 
         int height = Main.get_int_prop(GeneralPreferences.PREVIEW_HEIGHT, 480);
-        String gmPath = Main.get_prop(GeneralPreferences.PREVIEW_GMPATH);
+        
         
         renderers = new ArrayList<>();
-        renderers.add( new IMPreviewRenderer(gmPath, width, height));
-        renderers.add( new IMPdfRenderer(gmPath, width, height));
+        renderers.add( new GMPreviewRenderer( width, height));
+        renderers.add( new IMPreviewRenderer( width, height));
+        renderers.add( new GMPdfRenderer( width, height));
     }
     
     

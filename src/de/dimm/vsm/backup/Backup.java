@@ -1588,7 +1588,7 @@ public class Backup
             return true;
         }
         if (verboseCheckLogging) {
-            Log.debug( " ", remoteFSElem.getName() + " DS FS/VSM:" + remoteFSElem.getDataSize()+ "/" +  node.getFsize() +
+            Log.debug( " ", "     " + remoteFSElem.getName() + " DS FS/VSM:" + remoteFSElem.getDataSize()+ "/" +  node.getFsize() +
                       " SS FS/VSM:" + remoteFSElem.getStreamSize()+ "/" +  node.getStreamSize() );
         }
 

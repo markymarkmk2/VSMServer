@@ -43,7 +43,6 @@ import de.dimm.vsm.net.ScheduleStatusEntry;
 import de.dimm.vsm.net.SearchContextManager;
 import de.dimm.vsm.net.StoragePoolHandlerContextManager;
 import de.dimm.vsm.net.StoragePoolHandlerServlet;
-import de.dimm.vsm.net.VSMWebDavFilter;
 import de.dimm.vsm.net.interfaces.GuiLoginApi;
 import de.dimm.vsm.net.interfaces.GuiServerApi;
 import de.dimm.vsm.net.servlets.ServerApiServlet;
@@ -76,9 +75,6 @@ import java.util.List;
 import javax.persistence.EntityManager;
 import javax.persistence.EntityManagerFactory;
 import javax.persistence.Persistence;
-import org.eclipse.jetty.servlet.DefaultServlet;
-import org.eclipse.jetty.servlet.FilterHolder;
-import org.eclipse.jetty.servlet.ServletContextHandler;
 import org.eclipse.jetty.servlet.ServletHolder;
 
 /**

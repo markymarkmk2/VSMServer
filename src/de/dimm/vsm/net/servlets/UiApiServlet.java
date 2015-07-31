@@ -536,8 +536,8 @@ public class UiApiServlet  extends HessianServlet implements GuiServerApi
     }
 
     @Override
-    public List<IPreviewData> getPreviewData( IWrapper wrapper, List<RemoteFSElem> path ) throws SQLException, IOException {
-        return entry.getApi().getPreviewData(wrapper, path);
+    public List<IPreviewData> getPreviewData( IWrapper wrapper, List<RemoteFSElem> path, Properties props ) throws SQLException, IOException {
+        return entry.getApi().getPreviewData(wrapper, path, props);
     }
 
     @Override

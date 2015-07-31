@@ -94,6 +94,27 @@ public final class VsmDavResourceFactory  implements ResourceFactory {
     public Resource getResource(String host, String url) {
         log.debug("getResource: host: " + host + " - url:" + url);
         url = stripContext(url);
+        
+        if (url.endsWith(VsmDirectoryResource.MAGIC_PREVIEW_FOLDER)) {
+            url = url.substring(0, url.length() - VsmDirectoryResource.MAGIC_PREVIEW_FOLDER.length() );
+            RemoteFSElem requested = resolvePath(root, url);
+            if (requested == null) {
+                return null;
+            }
+            return new VsmPreviewDirectoryResource(host, this, requested, contentService);            
+        }
+        if (url.contains(VsmDirectoryResource.MAGIC_PREVIEW_FOLDER)) {
+            url = url.replace("/" + VsmDirectoryResource.MAGIC_PREVIEW_FOLDER, "");
+            if (url.endsWith(".png")) {
+                url = url.substring(0, url.length() - 4);
+            }
+            RemoteFSElem requested = resolvePath(root, url);
+            if (requested == null) {
+                return null;
+            }
+            return new VsmPreviewFileResource(host, this, requested, contentService);            
+        }
+        
         RemoteFSElem requested = resolvePath(root, url);
         if (requested == null) {
             return null;
