@@ -6,6 +6,7 @@
             <name>VSM</name>
             <explicit-platform explicit-source-supported="true"/>
             <source-roots>
+                <root id="src.firefox_addon_local_filesystem_links-0.9.dir"/>
                 <root id="src.src.dir"/>
             </source-roots>
             <test-roots>
