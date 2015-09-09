@@ -1316,6 +1316,6 @@ public final class DDFS_WR_FileHandle implements FileHandle, IBackupHelper
 
     private long getNodelLen()
     {
-        return isStream() ? node.getAttributes().getStreamSize() : node.getAttributes().getFsize();
+        return isStream() ? attrs.getStreamSize() : attrs.getFsize();
     }
 }
