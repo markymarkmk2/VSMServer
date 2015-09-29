@@ -139,13 +139,19 @@ public class ArchiveJobContext extends GenericContext
     @Override
     public boolean isCompressed()
     {
-        return hotfolder.isHfcompression();
+        if (hotfolder != null) {
+            return hotfolder.isHfcompression();
+        }
+        return false;        
     }
 
     @Override
     public boolean isEncrypted()
     {
-        return hotfolder.isHfencryption();
+        if (hotfolder != null) {
+            return hotfolder.isHfencryption();
+        }
+        return false;     
     }
 
 }

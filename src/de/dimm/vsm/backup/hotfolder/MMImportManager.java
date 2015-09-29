@@ -66,7 +66,7 @@ public class MMImportManager
     {
         this.api = new MMapi(hotFolder.getIp(), 11112);
         
-        nokList = new ArrayList<JobError>();
+        nokList = new ArrayList<>();
         this.fromIdx = fromIdx;
         this.tillIdx = tillIdx;
         this.hotFolder = hotFolder;
