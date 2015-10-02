@@ -24,6 +24,7 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.document.Field;
@@ -672,6 +673,7 @@ public class FSEIndexer
                 sb_where.append(")");
 
         }
+        Log.debug("Suchschlüssel", sb_where.toString());
         return sb_where.toString();
     }
     // Nur für Test
@@ -686,72 +688,90 @@ public class FSEIndexer
     public List<IndexResult> searchNodes(StoragePoolHandler sp, ArrayList<SearchEntry> slist, ArchiveJob job, int maxCnt) throws SQLException
     {
         String qry = buildLuceneQry( slist );
+        Log.debug("LuceneQuery", qry);
         return searchNodes(sp, qry, job, maxCnt);
     }
 
     List<IndexResult> searchNodes(StoragePoolHandler sp, String qry, ArchiveJob job, int maxCnt) throws SQLException
     {
         List<IndexResult> ret = new ArrayList<>();
+        Map<Long,FileSystemElemNode> nodeMap = new HashMap<>();
         
         try
         {
-            Query q;
-            if (qry.length() > 0)
-                q = qParser.parse(qry);
-            else
-                q = new MatchAllDocsQuery();
-
-
-            Filter filter;
-            TermsFilter f = new TermsFilter();
-            f.addTerm( new Term(f_typ.name(), FileSystemElemNode.FT_FILE));
-            f.addTerm( new Term(f_typ.name(), FileSystemElemNode.FT_DIR));
-
-
-            if (job == null)
-                filter = f;
-            else
-            {
-                BooleanFilter bf = new BooleanFilter();
-                TermsFilter jobtf = new TermsFilter();
-                jobtf.addTerm( new Term(f_jobidx.name(), IndexImpl.to_hex_field(job.getIdx())));
-                bf.add( new FilterClause(jobtf, Occur.MUST));
-                bf.add( new FilterClause(f, Occur.MUST));
-                filter = bf;
-            }
-
-            //Sort sort = new Sort( new SortField(f_modificationDateMs.name(), SortField.STRING_VAL, true));
-            //index.searchDocument(q, null, maxCnt, Sort.INDEXORDER);
-
-            List<Document> l = indexImpl.searchDocument(q, filter, maxCnt, Sort.INDEXORDER);
-
+            boolean enoughResults = false;
+            String fidxStart = "0";
             
-            for (int i = 0; i < l.size(); i++)
-            {
-                Document document = l.get(i);
+            while (!enoughResults) {
+                Query q;
+                if (qry.length() > 0)
+                    q = qParser.parse(qry + " AND " + f_nodeidx.name() + ":[" + fidxStart + " TO " + IndexImpl.to_hex_field(Long.MAX_VALUE) + "]");
+                else
+                    q = new MatchAllDocsQuery();
+                
 
-                long nodeIdx = IndexImpl.doc_get_hex_long(document, f_nodeidx.name() );
-                FileSystemElemNode node = sp.resolve_fse_node_from_db(nodeIdx);
-                if (node != null)
+
+                Filter filter;
+                TermsFilter f = new TermsFilter();
+                f.addTerm( new Term(f_typ.name(), FileSystemElemNode.FT_FILE));
+                f.addTerm( new Term(f_typ.name(), FileSystemElemNode.FT_DIR));
+
+
+                if (job == null)
+                    filter = f;
+                else
                 {
-                    // Set found attribute (ts vegleichen)
-                    long ts = IndexImpl.doc_get_hex_long(document, f_ts.name() );
-                    if (ts > 0) {
-                        LazyList<FileSystemElemAttributes> attrs = node.getHistory();
-                        attrs.realize(sp.getEm());
-                        for (FileSystemElemAttributes attr : attrs) {
-                            if (attr.getTs() == ts) {
-                                node.setAttributes(attr);
-                                break;
+                    BooleanFilter bf = new BooleanFilter();
+                    TermsFilter jobtf = new TermsFilter();
+                    jobtf.addTerm( new Term(f_jobidx.name(), IndexImpl.to_hex_field(job.getIdx())));
+                    bf.add( new FilterClause(jobtf, Occur.MUST));
+                    bf.add( new FilterClause(f, Occur.MUST));
+                    filter = bf;
+                }
+
+                //Sort sort = new Sort( new SortField(f_modificationDateMs.name(), SortField.STRING_VAL, true));
+                //index.searchDocument(q, null, maxCnt, Sort.INDEXORDER);
+
+                List<Document> l = indexImpl.searchDocument(q, filter, maxCnt, Sort.INDEXORDER);
+
+
+                for (int i = 0; i < l.size() && !enoughResults; i++)
+                {
+                    Document document = l.get(i);
+
+                    long nodeIdx = IndexImpl.doc_get_hex_long(document, f_nodeidx.name() );
+                    FileSystemElemNode node = sp.resolve_fse_node_from_db(nodeIdx);
+                    if (node != null)
+                    {
+                        // Set found attribute (ts vegleichen)
+                        long ts = IndexImpl.doc_get_hex_long(document, f_ts.name() );
+                        if (ts > 0) {
+                            LazyList<FileSystemElemAttributes> attrs = node.getHistory();
+                            attrs.realize(sp.getEm());
+                            for (FileSystemElemAttributes attr : attrs) {
+                                if (attr.getTs() == ts) {
+                                    node.setAttributes(attr);
+                                    break;
+                                }
                             }
                         }
+                        // Doppelte übergehen
+                        IndexResult res = new IndexResult(node, document);
+                        if (!ret.contains(res)) {
+                            ret.add(new IndexResult(node, document));
+                        }
+                        if (!nodeMap.containsKey(nodeIdx)) {
+                            nodeMap.put(nodeIdx, node);
+                        }
+                        if (nodeMap.size() >= maxCnt) {
+                            enoughResults = true;    //nodeMap.remove(nodeIdx);
+                        }
                     }
-                    // Doppelte übergehen
-                    IndexResult res = new IndexResult(node, document);
-                    if (!ret.contains(res)) {
-                        ret.add(new IndexResult(node, document));
-                    }
+                    fidxStart = document.get(f_nodeidx.name());
                 }
+                if (l.size() < maxCnt) {
+                    break;
+                }                
             }
             return ret;
         }
@@ -958,97 +978,93 @@ public class FSEIndexer
         try
         {
             open();
-
-            Statement st = conn.createStatement();
-
-
-            HashMap<Long,Long> archiveLinkMap = new HashMap<Long, Long>();
-            String qry = "select fileNode_idx, archiveJob_idx from ArchiveJobFileLink";
-            ResultSet rs = st.executeQuery(qry);
-            int n = 0;
-            while (rs.next())
-            {
-                long nodeidx = rs.getLong(1);
-                long jobidx = rs.getLong(2);
-                archiveLinkMap.put(nodeidx, jobidx);
-                n++;
-                if (n % 1000 == 0)
+            try (Statement st = conn.createStatement()) {
+                HashMap<Long,Long> archiveLinkMap = new HashMap<>();
+                String qry = "select fileNode_idx, archiveJob_idx from ArchiveJobFileLink";
+                ResultSet rs = st.executeQuery(qry);
+                int n = 0;
+                while (rs.next())
                 {
-                    System.out.println("Added " + n + " job links");
-                    flushSync();
+                    long nodeidx = rs.getLong(1);
+                    long jobidx = rs.getLong(2);
+                    archiveLinkMap.put(nodeidx, jobidx);
+                    n++;
+                    if (n % 1000 == 0)
+                    {
+                        System.out.println("Added " + n + " job links");
+                        flushSync();
+                    }
                 }
-            }
-            rs.close();
+                rs.close();
 
-            qry = "select a.idx, a.file_idx, f.typ, a.name, a.creationDateMs, a.modificationDateMs, a.accessDateMs, a.ts, a.fsize from FileSystemElemAttributes a, FileSystemElemNode f where f.idx=a.file_idx";
-            rs = st.executeQuery(qry);
+                qry = "select a.idx, a.file_idx, f.typ, a.name, a.creationDateMs, a.modificationDateMs, a.accessDateMs, a.ts, a.fsize from FileSystemElemAttributes a, FileSystemElemNode f where f.idx=a.file_idx";
+                rs = st.executeQuery(qry);
 
-            n = 0;
-            while (rs.next())
-            {
-                long idx = rs.getLong(1);
-                long nodeidx = rs.getLong(2);
-                String typ = rs.getString(3);
-                String name = rs.getString(4);
-                long cdate = rs.getLong(5);
-                long mdate = rs.getLong(6);
-                long adate = rs.getLong(7);
-                long ts = rs.getLong(8);
-                long size = rs.getLong(9);
-
-                long jobidx = 0;
-                boolean isJob = false;
-                Long job = archiveLinkMap.get(idx);
-                if (job != null)
+                n = 0;
+                while (rs.next())
                 {
-                    jobidx = job.longValue();
-                    isJob = true;
+                    long idx = rs.getLong(1);
+                    long nodeidx = rs.getLong(2);
+                    String typ = rs.getString(3);
+                    String name = rs.getString(4);
+                    long cdate = rs.getLong(5);
+                    long mdate = rs.getLong(6);
+                    long adate = rs.getLong(7);
+                    long ts = rs.getLong(8);
+                    long size = rs.getLong(9);
+
+                    long jobidx = 0;
+                    boolean isJob = false;
+                    Long job = archiveLinkMap.get(idx);
+                    if (job != null)
+                    {
+                        jobidx = job.longValue();
+                        isJob = true;
+                    }
+
+
+                    addToIndex(idx, nodeidx, jobidx, isJob, typ, name, cdate, mdate, adate, ts, size);
+                    n++;
+                    if (n % 1000 == 0)
+                    {
+                        System.out.println("Added " + n + " entries");
+                        flushSync();
+                    }
                 }
-
-
-                addToIndex(idx, nodeidx, jobidx, isJob, typ, name, cdate, mdate, adate, ts, size);
-                n++;
-                if (n % 1000 == 0)
-                {
-                    System.out.println("Added " + n + " entries");
-                    flushSync();
-                }
-            }
-            rs.close();
-            
-            String aqry = "select idx, name, startTime, endTime, totalSize, ok, sourceType, sourceIdx from ArchiveJob";
-            rs = st.executeQuery(aqry);
-
-            n = 0;
-            while (rs.next())
-            {
-                long idx = rs.getLong(1);
+                rs.close();
                 
-                String typ = "job";
-                String name = rs.getString(2);
-                Date startTime = rs.getTimestamp(3);
-                Date endTime = rs.getTimestamp(4);
-                long size = rs.getLong(5);
-                boolean ok = rs.getBoolean(6);
-                String sourceType = rs.getString(7);
-                long sourceIdx = rs.getLong(8);
-                long lst = 0;
-                if (startTime != null)
-                    lst = startTime.getTime();
-                long let = 0;
-                if (endTime != null)
-                    let = endTime.getTime();
-                               
-                addJobToIndex(idx, typ, name, lst, let, size, ok, sourceType, sourceIdx);
-                n++;
-                if (n % 1000 == 0)
+                String aqry = "select idx, name, startTime, endTime, totalSize, ok, sourceType, sourceIdx from ArchiveJob";
+                rs = st.executeQuery(aqry);
+
+                n = 0;
+                while (rs.next())
                 {
-                    System.out.println("Added " + n + " jobs");
-                    flushSync();
+                    long idx = rs.getLong(1);
+                    String typ = "job";
+                    String name = rs.getString(2);
+                    Date startTime = rs.getTimestamp(3);
+                    Date endTime = rs.getTimestamp(4);
+                    long size = rs.getLong(5);
+                    boolean ok = rs.getBoolean(6);
+                    String sourceType = rs.getString(7);
+                    long sourceIdx = rs.getLong(8);
+                    long lst = 0;
+                    if (startTime != null)
+                        lst = startTime.getTime();
+                    long let = 0;
+                    if (endTime != null)
+                        let = endTime.getTime();
+                                   
+                    addJobToIndex(idx, typ, name, lst, let, size, ok, sourceType, sourceIdx);
+                    n++;
+                    if (n % 1000 == 0)
+                    {
+                        System.out.println("Added " + n + " jobs");
+                        flushSync();
+                    }
                 }
+                rs.close();
             }
-            rs.close();
-            st.close();
             
         }
         catch (Exception sQLException)

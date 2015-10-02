@@ -102,6 +102,9 @@ public class RetentionEntry implements JobInterface {
     ExecutorService remoteQryExecutor;
     PreparedStatement psHasAttribHistory;
     
+    long retentionStartIdx;
+    long retentionMaxIdx;
+    
 
     public RetentionEntry( IStoragePoolNubHandler nubHandler, StoragePool pool, List<RetentionJob> jobs, RetentionManager manager ) {
         this.jobList = jobs;
@@ -111,6 +114,14 @@ public class RetentionEntry implements JobInterface {
         js = JobInterface.JOBSTATE.SLEEPING;
         nodeAttrQryCnt = Main.get_int_prop(GeneralPreferences.NODE_ATTR_QRY_CNT, DEF_NODE_ATTR_QRY_CNT);
         remoteQryExecutor = Executors.newFixedThreadPool(1, new NamedThreadFactory());
+    }
+
+    private void updateRetentionJobToDb( RetentionJob retentionJob ) throws SQLException {
+        // Hier denselben EM verwenden, der auch beim Lesen verwednet wurde in RetentionManager.handleRetention!!!
+         GenericEntityManager em = nubHandler.getUtilEm(pool);
+         em.check_open_transaction();
+         em.em_merge(retentionJob);
+         em.commit_transaction();
     }
     class NamedThreadFactory implements  ThreadFactory
     {
@@ -160,9 +171,9 @@ public class RetentionEntry implements JobInterface {
         inited = true;
     }
     
-    List<Long> getUnusedDHBs(long startidx, int maxQryCount ) throws SQLException {
+    long getUnusedDHBs(long startidx, int maxQryCount, List<Long> oListresult ) throws SQLException {
         final GenericEntityManager em = nubHandler.getUtilEm(pool);
-        List<Long> oListresult = new ArrayList<>();        
+           
         
         while (oListresult.size() < maxQryCount && !isShutdown()) {
             setStatusTxt("Suche freien DedupSpeicher ab Block " + startidx);   
@@ -210,7 +221,7 @@ public class RetentionEntry implements JobInterface {
             oListresult.addAll(set);
         }
         Collections.sort(oListresult);
-        return oListresult;
+        return startidx;
     }
     
     public void setStatusTxt( String statusTxt ) {
@@ -255,14 +266,18 @@ public class RetentionEntry implements JobInterface {
         statIdx = retentionJob.getStatIdx();
         statSize = retentionJob.getDedupSize();        
     }
-    void writeStatToJob( RetentionJob retentionJob) {
+    void writeStatToJob( RetentionJob retentionJob) throws SQLException {
          retentionJob.setStatNodes(statNodes);
          retentionJob.setStatHashes(statHashes);
          retentionJob.setStatDedups(statDedups);
          retentionJob.setDedupSize(dedupSize);
          retentionJob.setStatAttribs(statAttribs);
          retentionJob.setStatIdx(statIdx);
-         retentionJob.setDedupSize(statSize);        
+         retentionJob.setDedupSize(statSize);   
+         
+         // Update actual progress to DB
+         updateRetentionJobToDb(retentionJob);
+
     }
 
     long getStartTS() {
@@ -304,13 +319,21 @@ public class RetentionEntry implements JobInterface {
             if (retention.isClearFreeBlocks()) {
                 clearBlocks = true;
             }
+            retentionMaxIdx = -1;
+            List<Object[]> idxlist = sp_handler.getEm().createNativeQuery("select max(idx) from FileSystemElemNode", 1);
+            if (idxlist.size() > 0) {
+                retentionMaxIdx = (Long)(idxlist.get(0)[0]);
+            }
+            if (retentionMaxIdx == -1) {
+                throw new RetentionException("cannot determine max FileSystemElemNode");
+            }
 
             boolean done = false;
             int qryCount = nodeAttrQryCnt;
             // Statistikdaten lesen
             readStatFromJob(retentionJob);
             // STartIndex setzen
-            long startIdx = retentionJob.getStartIdx();
+            retentionStartIdx = retentionJob.getStartIdx();
             while (!done && !isShutdown()) {
                 while (manager.isPaused() && !isShutdown()) {
                     setStatusTxt(Main.Txt("Pause bei Eintrag") + " " + actFseIdx );                    
@@ -322,15 +345,15 @@ public class RetentionEntry implements JobInterface {
 
                 // CREATE A LIST OF ALL ENTRIES TO BE REMOVED BASED ON RETENTION PARAMS
                 Log.debug("Lese createRetentionResult für", " " + pool.getName() + " " + retention.toString());
-                setStatusTxt("Suche " + qryCount + " Einträge ab Index " + startIdx);
-                RetentionResultList<Object[]> retentionResult = createRetentionResult(retention, startIdx, qryCount, absTs);
+                setStatusTxt("Suche " + qryCount + " Einträge ab Index " + retentionStartIdx);
+                RetentionResultList<Object[]> retentionResult = createRetentionResult(retention, qryCount, absTs);
                 Log.debug("Size createRetentionResult für", " " + pool.getName() + " " + retention.toString() + " Cnt:" + retentionResult.list.size());
 
                 if (retentionResult.list.isEmpty()) {
                     done = true;
                     break;
                 }
-                long endIdx = startIdx;
+                long endIdx = retentionStartIdx;
                 if (!retentionResult.list.isEmpty()) {
                     String endIdxStr = retentionResult.list.get(retentionResult.list.size() - 1)[fIdxCol].toString();
                     endIdx = Long.parseLong(endIdxStr);
@@ -338,19 +361,16 @@ public class RetentionEntry implements JobInterface {
 
                 // CREATE SUBLIST OF RETENTION ENTRIES WHICH CAN BE REMOVED REGARDING SNAPSHOTS
                 Log.debug("Lese createSnapshotRetentionList für", " " + pool.getName() + " " + retention.toString());
-                setStatusTxt("Berechne Snapshots für " + qryCount + " Einträge ab Index " + startIdx);
+                setStatusTxt("Berechne Snapshots für " + qryCount + " Einträge ab Index " + retentionStartIdx);
                 RetentionResultList snapshotRetentionResult = RetentionManager.createSnapshotRetentionList(snapshots, retentionResult, pool);
                 Log.debug("Size createSnapshotRetentionList für", " " + pool.getName() + " " + retention.toString() + " Cnt:" + snapshotRetentionResult.list.size());
 
 
                 // DO RETENTION WITH THE FINAL LIST
-                setStatusTxt("Einträge " + startIdx + " bis " + endIdx);
+                setStatusTxt("Einträge " + retentionStartIdx + " bis " + endIdx);
                 RetentionResult localret = handleRetentionList(sp_handler, snapshotRetentionResult);
-                Log.debug("Result: " + startIdx, localret.toString());
+                Log.debug("Result: " + retentionStartIdx, localret.toString());
                 ret.add(localret);
-
-                // Mutliple Results per IDX, daher start at last End
-                startIdx = endIdx + 1;
 
                 // Leaving Active Window?
                 if (!retention.isInStartWindow(System.currentTimeMillis())) {
@@ -364,18 +384,13 @@ public class RetentionEntry implements JobInterface {
                 retentionJob.setFinished(true);
             }
             else {
-                Log.debug("Retention unterbrochen bei Node " + startIdx + " für ", retention.getName());
-                retentionJob.setStartIdx(startIdx);
+                Log.debug("Retention unterbrochen bei Node " + retentionStartIdx + " für ", retention.getName());
+                retentionJob.setStartIdx(retentionStartIdx);
             }
             // Statistikdaten -> Job schreiben
             writeStatToJob(retentionJob);
-
             
-            // Update actual progress
-            sp_handler.check_open_transaction();
-            sp_handler.em_merge(retentionJob);
-            sp_handler.commit_transaction();
-
+           
             // NOW REMOVE UNUSED DEDUPBLOCKS
             // TODO, THIS SHOULD BE HANDLED FROM OWN SCHEDULER -> SPACE USED x%. AGE or SIMPLY IMMEDIATELY
             if (done && clearBlocks && !isShutdown()) {
@@ -747,45 +762,45 @@ public class RetentionEntry implements JobInterface {
     }
 
     
-    public RetentionResultList<Object[]> createRetentionResult( Retention retention, long startIdx, int qryCount, long absTs ) throws IOException, SQLException {
+    public RetentionResultList<Object[]> createRetentionResult( Retention retention, int qryCount, long absTs ) throws IOException, SQLException {
         GenericEntityManager em = nubHandler.getUtilEm(pool);
 
         // THE FIELDS MUST BE FIXED TO THE RESULT!!!!
         // SELECT ALL DIRECT LINKED ATTRIBUTE RESULTS
-        long endIdx = startIdx + qryCount;
-        String select_str = "select " + qryFieldStr + " from FileSystemElemNode f, FileSystemElemAttributes a "
-                + "where f.idx = a.file_idx and f.idx between " + startIdx + " and " + endIdx ;
-
-        StringBuilder retention_where = new StringBuilder();
-        RetentionManager.buildRetentionWhereString(em, retention, retention_where, absTs);
-
-        if (retention_where.length() == 0) {
-            throw new IOException("Invalid Retention query");
-        }
-        // ADD RETENTION QUERY
-        select_str += " and " + retention_where.toString();
-
-        // Call
-        List<Object[]> nres = em.createNativeQuery(select_str, qryCount);
         
-        // Leere Menge kann auch bedeutet: Upper Limit too low 
-        if (nres.isEmpty()) {
-            // Dann ohne Upperlimit, ist zwar langsamer aber geht nicht anders
-            select_str = "select " + qryFieldStr + " from FileSystemElemNode f, FileSystemElemAttributes a "
-                + "where f.idx = a.file_idx and f.idx >= " + startIdx;
+        List<Object[]> nres = new ArrayList<>();
+        
+        // Solange iterieren, bis wir irgendwas haben oder ausserhalb  Wertebereich sind
+        while (nres.isEmpty() && !isShutdown()) {
+            long endIdx = retentionStartIdx + qryCount;
+            String select_str = "select " + qryFieldStr + " from FileSystemElemNode f, FileSystemElemAttributes a "
+                    + "where f.idx = a.file_idx and f.idx between " + retentionStartIdx + " and " + endIdx ;
 
-            retention_where = new StringBuilder();
+            StringBuilder retention_where = new StringBuilder();
             RetentionManager.buildRetentionWhereString(em, retention, retention_where, absTs);
 
             if (retention_where.length() == 0) {
                 throw new IOException("Invalid Retention query");
             }
-
             // ADD RETENTION QUERY
             select_str += " and " + retention_where.toString();
 
-            nres = em.createNativeQuery(select_str, qryCount);
+            Log.debug("retention Query (cnt=" + qryCount + "): " + select_str );
+
+            // Call
+            nres.addAll( em.createNativeQuery(select_str, qryCount) );
+            
+            Log.debug("retention Query result: " + nres.size() );
+            retentionStartIdx = endIdx + 1;
+            
+            // Ausserhalb dees Wertebereichs?
+            // Dann habe fertig
+            if (retentionStartIdx > retentionMaxIdx) {
+                break;
+            }
         }
+        
+        // Leere Menge kann auch bedeutet: Upper Limit too low 
 
         Comparator<Object[]> comp = new Comparator<Object[]>() {
             @Override
@@ -818,15 +833,19 @@ public class RetentionEntry implements JobInterface {
         long startIdx = 0;
         
         
+        List<Long> oList = new ArrayList<>();    
+         
         while (!isShutdown() && !done) {
             // SEARCH FÜR DEDUP NODES NOT NEEDED AS HASHBLOCK OR AS XANODE
                      
-            List<Long> oList = getUnusedDHBs(startIdx, maxQryCount);
+            oList.clear();
+            long endIdx = getUnusedDHBs(startIdx, maxQryCount, oList);
                         
-            if (oList.isEmpty()) {
+            if (oList.isEmpty() && endIdx == startIdx) {
                 done = true;
                 break;
             }
+            startIdx = endIdx;
 
             long size = 0;
             long localCnt = 0;

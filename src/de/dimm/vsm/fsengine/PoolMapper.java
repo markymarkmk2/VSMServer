@@ -157,7 +157,8 @@ public class PoolMapper
                 Log.debug("Berechne Anzahl freier Hash Blöcke...");
                 rs = st.executeQuery("select DEDUPHASHBLOCK.BLOCKLEN from DEDUPHASHBLOCK"                      
                         + " left outer join hashblock on DEDUPHASHBLOCK.idx = hashblock.dedupblock_idx"
-                        + " where hashblock.idx is null");
+                        + " LEFT OUTER JOIN XANODE  ON DEDUPHASHBLOCK.idx = XANODE.dedupblock_idx"      
+                        + " where hashblock.idx is null and XANODE.idx is null");
 
                 while (rs.next())
                 {
@@ -166,7 +167,7 @@ public class PoolMapper
                 }
                 rs.close();
                 
-                Log.debug("Berechne Anzahl freier XA Blöcke...");
+                /*Log.debug("Berechne Anzahl freier XA Blöcke...");
                 rs = st.executeQuery("select DEDUPHASHBLOCK.BLOCKLEN from DEDUPHASHBLOCK"
                         + " LEFT OUTER JOIN XANODE  ON DEDUPHASHBLOCK.idx = XANODE.dedupblock_idx"                       
                         + " where XANODE.idx is null");
@@ -177,6 +178,7 @@ public class PoolMapper
                     removeDDLen += rs.getLong(1);
                 }
                 rs.close();
+                * */
             }
 
             lastStatus = new PoolStatusResult(dedupDataLen, actFsDataLen, actFileCnt, totalFsDataLen, totalFileCnt, 

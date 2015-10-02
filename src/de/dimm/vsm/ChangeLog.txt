@@ -1,3 +1,15 @@
+Veränderungen in V1.8.8
+FIX: Racecondition bei Ermittlung der aktiven Jobs behoben
+
+Veränderungen in V1.8.7
+FIX: Suche liefert Anzahl Nodes, nicht mehr Anzahl Attribute
+
+Veränderungen in V1.8.6
+FIX: Retention bei großen Datenmengen endet nicht mehr zu früh
+
+Veränderungen in V1.8.4
+UPD: WebDav + Previews
+
 Veränderungen in V1.8.0
 FIX: Dateisystem Anzeige berücksichtigt User-Dir-Mapping
 

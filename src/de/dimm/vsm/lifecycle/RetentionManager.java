@@ -73,7 +73,7 @@ public class RetentionManager extends WorkerParent {
     List<RetentionEntry> getActiveRetentions() {
         List<RetentionEntry> reEntries = new ArrayList<>();
 
-        List<JobEntry> jobs = Main.get_control().getJobManager().getJobList();
+        JobEntry[] jobs = Main.get_control().getJobManager().getJobArray(null);        
         for (JobEntry entry : jobs) {
             if (entry.getJob() instanceof RetentionEntry) {
                 reEntries.add((RetentionEntry) entry.getJob());
@@ -325,6 +325,7 @@ public class RetentionManager extends WorkerParent {
 
     @Override
     public void run() {
+        int lastCheck = -1;
         is_started = true;
         GregorianCalendar cal = new GregorianCalendar();        
 
@@ -348,6 +349,11 @@ public class RetentionManager extends WorkerParent {
             if (check % 5 != 0) {
                 continue;
             }
+            // Innerhalb dieser Minute nur einmal starten!
+            if (lastCheck == check) {
+                continue;
+            }
+            lastCheck = check;
 
             // OK, WE HAVE A NEW MINUTE, CHECK ALL SCHEDS            
             List<StoragePool> list = nubHandler.listStoragePools();

@@ -335,13 +335,6 @@ public class JobManager extends WorkerParent
         return true;
     }
 
-
-
-    public List<JobEntry> getJobList()
-    {
-        return list;
-    }
-
     public JobEntry[] getJobArray(User user)
     {
         synchronized(list)
@@ -582,6 +575,15 @@ public class JobManager extends WorkerParent
                 }
             }
         }    
+    }
+    public int getActJobsRunnung() {
+        int cnt = 0;
+        JobEntry[] jobs = getJobArray(null);
+        for (JobEntry job: jobs) {
+            if (job.getJobStatus() == JobInterface.JOBSTATE.RUNNING)
+                cnt++;
+        }
+        return cnt;
     }
 
 }

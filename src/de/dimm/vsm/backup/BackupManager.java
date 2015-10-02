@@ -41,6 +41,7 @@ import java.util.Date;
 import java.util.GregorianCalendar;
 import java.util.List;
 import net.sf.ehcache.Cache;
+import net.sf.ehcache.CacheException;
 import net.sf.ehcache.CacheManager;
 
 class ScheduleStart
@@ -373,66 +374,64 @@ public class BackupManager extends WorkerParent
             if (now - lastCheck < 5*1000)
                 continue;
             
-            int actJobsRunning = getActJobsRunnung();
-            if (actJobsRunning == 0 && lastJobsRunning > 0) {
-                if (CacheManager.getInstance().cacheExists(JDBCEntityManager.OBJECT_CACHE))
-                {
-                    Cache ch = CacheManager.getInstance().getCache(JDBCEntityManager.OBJECT_CACHE);
-                    Log.debug("ObjectCache wird gelöscht (N=" + ch.getSize() + ")");
-                    ch.removeAll();
+            try {
+                int actJobsRunning = Main.get_control().getJobManager().getActJobsRunnung();
+                if (actJobsRunning == 0 && lastJobsRunning > 0) {
+                    if (CacheManager.getInstance().cacheExists(JDBCEntityManager.OBJECT_CACHE)) {
+                        Cache ch = CacheManager.getInstance().getCache(JDBCEntityManager.OBJECT_CACHE);
+                        Log.debug("ObjectCache wird gelöscht (N=" + ch.getSize() + ")");
+                        ch.removeAll();
+                    }
                 }
-            }
-            lastJobsRunning = actJobsRunning;
-            
-            // Einmal täglich Startliste neu berechnen
-            updateStartListDaily();
+                lastJobsRunning = actJobsRunning;
 
-            setStatusTxt(Main.Txt("Prüfe Zyklusstarts"));
-            lastCheck = now;
-
-            synchronized(startList)
-            {
-                for (int i = 0; i < startList.size(); i++)
-                {
-                    ScheduleStart scheduleStart = startList.get(i);
-                    
-                    long realStartWindow = startWindowS * 1000;
-                    // Startwindow muss kleiner als Cycle sein!!
-                    if (realStartWindow > scheduleStart.sched.getCycleLengthMs()/2)
-                        realStartWindow = scheduleStart.sched.getCycleLengthMs()/2;
+                // Einmal täglich Startliste neu berechnen
+                updateStartListDaily();
+                
+                setStatusTxt(Main.Txt("Prüfe Zyklusstarts"));
+                lastCheck = now;
+                
+                synchronized (startList) {
+                    for (int i = 0; i < startList.size(); i++) {
+                        ScheduleStart scheduleStart = startList.get(i);
                         
+                        long realStartWindow = startWindowS * 1000;
+                        // Startwindow muss kleiner als Cycle sein!!
+                        if (realStartWindow > scheduleStart.sched.getCycleLengthMs() / 2) {
+                            realStartWindow = scheduleStart.sched.getCycleLengthMs() / 2;
+                        }
 
-                    // ARE WE INSIDE STARTWINDOW BEGINNING AT NOW?
-                    if (scheduleStart.nextStart > (now  - realStartWindow) && scheduleStart.nextStart < now)
-                    {                        
-                        // ASK FOR FLAG
-                        if (!scheduleStart.started)
-                        {
-                            Log.debug("Betrete Startfenster " + scheduleStart.toString());
-                            scheduleStart.started = true;
-                            
-                            // AND DB RESULT
-                            if (!checkDbSchedWasStarted( scheduleStart.sched, realStartWindow, now))
-                            {                               
-                                setStatusTxt(Main.Txt("Starte") + " " + scheduleStart.sched.toString());
-                                startSchedule(scheduleStart.sched, User.createSystemInternal());                                
-                            }
-                            else
-                            {
-                                Log.debug("Job wurde bereits gestartet " + scheduleStart.toString());
+
+                        // ARE WE INSIDE STARTWINDOW BEGINNING AT NOW?
+                        if (scheduleStart.nextStart > (now - realStartWindow) && scheduleStart.nextStart < now) {
+                            // ASK FOR FLAG
+                            if (!scheduleStart.started) {
+                                Log.debug("Betrete Startfenster " + scheduleStart.toString());
+                                scheduleStart.started = true;
+
+                                // AND DB RESULT
+                                if (!checkDbSchedWasStarted(scheduleStart.sched, realStartWindow, now)) {                                    
+                                    setStatusTxt(Main.Txt("Starte") + " " + scheduleStart.sched.toString());
+                                    startSchedule(scheduleStart.sched, User.createSystemInternal());                                    
+                                }
+                                else {
+                                    Log.debug("Job wurde bereits gestartet " + scheduleStart.toString());
+                                }
                             }
                         }
-                    }
-                    // CATCH STARTED JOB AND RECALC NEW START TIME AFTER ELAPS OF STARTWINDOW
-                    else if ( scheduleStart.started && scheduleStart.nextStart < (now - realStartWindow))
-                    {
-                        // WE RECALC IF JOB WAS STARTED
-                        ScheduleStart nextScheduleStart = calcNextStart(scheduleStart.sched, System.currentTimeMillis());
-                        scheduleStart.nextStart = nextScheduleStart.nextStart;
-                        scheduleStart.started = false;
-                        Log.debug("Neuer Startzeitpunkt " + scheduleStart.toString());
+                        // CATCH STARTED JOB AND RECALC NEW START TIME AFTER ELAPS OF STARTWINDOW
+                        else if (scheduleStart.started && scheduleStart.nextStart < (now - realStartWindow)) {
+                            // WE RECALC IF JOB WAS STARTED
+                            ScheduleStart nextScheduleStart = calcNextStart(scheduleStart.sched, System.currentTimeMillis());
+                            scheduleStart.nextStart = nextScheduleStart.nextStart;
+                            scheduleStart.started = false;
+                            Log.debug("Neuer Startzeitpunkt " + scheduleStart.toString());
+                        }
                     }
                 }
+            }
+            catch (CacheException | IllegalStateException | ClassCastException exception) {
+                Log.err("Unerwartere Fehler in BackuManager runLoop", exception);
             }
             setStatusTxt("");
         }
@@ -774,15 +773,7 @@ public class BackupManager extends WorkerParent
         }        
     }
 
-    private int getActJobsRunnung() {
-        int cnt = 0;
-        JobManager jm = Main.get_control().getJobManager();
-        for (JobEntry job: jm.getJobList()) {
-            if (job.getJobStatus() == JobInterface.JOBSTATE.RUNNING)
-                cnt++;
-        }
-        return cnt;
-    }
+    
 
    
 }
