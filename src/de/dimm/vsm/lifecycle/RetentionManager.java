@@ -4,13 +4,14 @@
  */
 package de.dimm.vsm.lifecycle;
 
+import de.dimm.vsm.Exceptions.PathResolveException;
 import de.dimm.vsm.Exceptions.PoolReadOnlyException;
 import de.dimm.vsm.Exceptions.RetentionException;
 import de.dimm.vsm.GeneralPreferences;
-import de.dimm.vsm.log.Log;
 import de.dimm.vsm.LogicControl;
 import de.dimm.vsm.Main;
 import de.dimm.vsm.WorkerParent;
+import de.dimm.vsm.auth.User;
 import de.dimm.vsm.backup.Backup.BackupJobInterface;
 import de.dimm.vsm.backup.jobinterface.CDPJobInterface;
 import de.dimm.vsm.backup.jobinterface.VfsJobInterface;
@@ -18,8 +19,11 @@ import de.dimm.vsm.fsengine.GenericEntityManager;
 import de.dimm.vsm.fsengine.IStoragePoolNubHandler;
 import de.dimm.vsm.fsengine.JDBCEntityManager;
 import de.dimm.vsm.fsengine.StoragePoolHandler;
+import de.dimm.vsm.fsengine.StoragePoolHandlerFactory;
 import de.dimm.vsm.jobs.JobEntry;
 import de.dimm.vsm.jobs.JobInterface.JOBSTATE;
+import de.dimm.vsm.log.Log;
+import de.dimm.vsm.records.DedupHashBlock;
 import de.dimm.vsm.records.FileSystemElemAttributes;
 import de.dimm.vsm.records.FileSystemElemNode;
 import de.dimm.vsm.records.HashBlock;
@@ -27,7 +31,11 @@ import de.dimm.vsm.records.Retention;
 import de.dimm.vsm.records.RetentionJob;
 import de.dimm.vsm.records.Snapshot;
 import de.dimm.vsm.records.StoragePool;
+import java.io.IOException;
+import java.sql.Connection;
+import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.Date;
@@ -273,6 +281,7 @@ public class RetentionManager extends WorkerParent {
         }
 
         boolean started = false;
+        long minMsSinceLastStart = 6 * 60 * 60 * 1000l;  // 6h TODO -> Make Pref
         for (Retention retention : retentions) {
             // ONLY HANDLE ROOT NODES
             if (retention.getParent() != null) {
@@ -285,6 +294,17 @@ public class RetentionManager extends WorkerParent {
             }
             // Mehrfacher Neustart in einem Startfenster sperren über JobInfo
             if (retention.existJobInStartWindow()) {
+                continue;
+            }
+
+            // Start innerhalb der Sperrzeit (now - minMsSinceLastStart)
+            boolean skipTooYoung = false;
+            for (RetentionJob job : retention.getRetentionJobs()) {
+                if (job.getStart() != null && job.getStart().after(new Date(System.currentTimeMillis() - minMsSinceLastStart))) {
+                    skipTooYoung = true;
+                }
+            }
+            if (skipTooYoung) {
                 continue;
             }
             
@@ -663,13 +683,75 @@ public class RetentionManager extends WorkerParent {
         return remove_hash_block_list;
     }
 
-    
+    boolean abortDeleteFreeBlocks = false;
 
-    public long handleDeleteFreeBlocks( StoragePool pool ) {
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+    public long handleDeleteFreeBlocks( StoragePool pool ) throws IOException {
+        abortDeleteFreeBlocks = false;
+        Connection conn = null;
+        Statement st = null;
+        int cnt = 0;
+        try {
+            // Schreibenden PoolHandler erstellen
+            StoragePoolHandler sp_handler = StoragePoolHandlerFactory.createStoragePoolHandler(pool, User.createSystemInternal(), /*rdonly*/ false);
+            if (pool.getStorageNodes().isEmpty(sp_handler.getEm())) {
+                throw new RetentionException("No Storage for pool defined");
+            }
+
+            JDBCEntityManager em = (JDBCEntityManager) sp_handler.getEm();
+
+            conn = em.getConnection();
+            st = conn.createStatement();
+            List<Long> hashBlockIdList = new ArrayList<>();
+            Log.debug("Lese freier Hash Blöcke...");
+            try (ResultSet rs = st.executeQuery("select DEDUPHASHBLOCK.idx from DEDUPHASHBLOCK"
+                    + " left outer join hashblock on DEDUPHASHBLOCK.idx = hashblock.dedupblock_idx"
+                    + " LEFT OUTER JOIN XANODE  ON DEDUPHASHBLOCK.idx = XANODE.dedupblock_idx"
+                    + " where hashblock.idx is null and XANODE.idx is null")) {
+                while (rs.next() && !abortDeleteFreeBlocks) {
+                    hashBlockIdList.add(rs.getLong(1));
+                }
+            }
+            if (abortDeleteFreeBlocks) {
+                return 0;
+            }
+
+            em.check_open_transaction();
+
+            
+            for (Long hashBlockId : hashBlockIdList) {
+                if (abortDeleteFreeBlocks) {
+                    break;
+                }
+                DedupHashBlock dhb = em.em_find(DedupHashBlock.class, hashBlockId);
+                sp_handler.removeDedupBlock(dhb, null);
+
+
+                em.check_commit_transaction();
+                cnt++;
+            }
+
+            em.commit_transaction();
+
+            sp_handler.close_entitymanager();
+        }
+        catch (IOException | SQLException | PathResolveException | PoolReadOnlyException exc) {
+            Log.err("Fehler beim Löschen von freien Blöcken", exc);
+            try {
+                if (st != null) {
+                    st.close();
+                }
+                if (conn != null) {
+                    conn.close();
+                }
+            }
+            catch (SQLException sQLException) {
+            }
+            throw new IOException("Fehler beim Löschen von freien Blöcken: " + exc.getMessage());
+        }
+        return cnt;
     }
 
     public void abortDeleteFreeBlocks() {
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+        abortDeleteFreeBlocks = true;
     }
 }

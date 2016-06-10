@@ -181,7 +181,9 @@ public class DBHashCache extends HashCache
     {
         try
         {
-            ps.close();
+            if (ps != null) {
+                ps.close();
+            }
         }
         catch (SQLException sQLException)
         {

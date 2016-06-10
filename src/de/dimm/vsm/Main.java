@@ -11,20 +11,17 @@ import de.dimm.vsm.Utilities.DefaultTextProvider;
 import de.dimm.vsm.Utilities.LicenseChecker;
 import de.dimm.vsm.Utilities.SizeStr;
 import de.dimm.vsm.Utilities.VariableResolver;
-import de.dimm.vsm.log.Log;
-import de.dimm.vsm.log.LogManager;
 import de.dimm.vsm.backup.Backup;
 import de.dimm.vsm.fsengine.JDBCEntityManager;
 import de.dimm.vsm.license.HWIDLicenseTicket;
 import de.dimm.vsm.lifecycle.RetentionManager;
+import de.dimm.vsm.log.Log;
+import de.dimm.vsm.log.LogManager;
 import de.dimm.vsm.mail.NotificationEntry;
 import de.dimm.vsm.net.IpResolver;
-import de.dimm.vsm.preview.imagemagick.GMPreviewRenderer;
-import de.dimm.vsm.preview.imagemagick.IMPreviewRenderer;
 import de.dimm.vsm.txtscan.TxtScan;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
-
 import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
@@ -55,7 +52,7 @@ public class Main
 {
 
     static String source_str = "trunk";
-    static String version_str = "1.8.8";
+    static String version_str = "1.8.9";
         
     public static int writeThreads = 1;
     public static int maxOpenFiles = 1024;

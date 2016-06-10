@@ -1,3 +1,7 @@
+Veränderungen in V1.8.9
+FIX: Beim DBHashCache keine NPE beim Shutdown
+UPD: RetentionManager
+
 Veränderungen in V1.8.8
 FIX: Racecondition bei Ermittlung der aktiven Jobs behoben
 
