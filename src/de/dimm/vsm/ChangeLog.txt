@@ -1,3 +1,7 @@
+Veränderungen in V1.9.1
+UPD: FixDoubleDirs im Optionmenu des Filesystemviewers (Admin only)
+FIX: fehlende Icons für gelöschte Ordner mit Versionen
+
 Veränderungen in V1.8.9
 FIX: Beim DBHashCache keine NPE beim Shutdown
 UPD: RetentionManager

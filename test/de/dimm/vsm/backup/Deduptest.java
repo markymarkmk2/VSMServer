@@ -30,7 +30,6 @@ import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.util.List;
 import de.dimm.vsm.Exceptions.PoolReadOnlyException;
-import de.dimm.vsm.Main;
 import de.dimm.vsm.fsengine.StoragePoolHandler;
 import de.dimm.vsm.fsengine.StoragePoolHandlerTest;
 import de.dimm.vsm.lifecycle.RetentionEntry;
@@ -332,14 +331,14 @@ get_fs_handle_for_dedupblock(hb_orig.get(0));
             // S2
  // CREATE RETENTIONRESULT
             // public RetentionResultList<Object[]> createRetentionResult( Retention retention, long startIdx, int qryCount, long absTs ) throws IOException, SQLException {    
-            RetentionResultList retentionResult = entry.createRetentionResult(retention, 0, 100, System.currentTimeMillis());
+            RetentionResultList retentionResult = entry.createRetentionResult(retention, 100, System.currentTimeMillis());
             // THIS SHOULD BE NOTHING, RETENTION IS OLDER THAN OLDEST FILE
             assertEquals(filterRetentionResultList(retentionResult, fileNode.getIdx()), 0);
 
             // EVERYTHING OLDER THAN NOW WILL BE HANDLED
             retention.setArgValue( Long.toString(0) );
 
-            retentionResult = entry.createRetentionResult(retention, 0, 100, System.currentTimeMillis());
+            retentionResult = entry.createRetentionResult(retention, 100, System.currentTimeMillis());
 
             // THIS SHOULD BE ALL ENTRIES, ORIG + 2 UPDATES
             assertEquals(filterRetentionResultList(retentionResult, fileNode.getIdx()), 3);

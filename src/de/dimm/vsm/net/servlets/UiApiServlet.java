@@ -554,6 +554,12 @@ public class UiApiServlet  extends HessianServlet implements GuiServerApi
     public String checkRestoreErrFSElem( IWrapper wrapper, RemoteFSElem path ) {
         return entry.getApi().checkRestoreErrFSElem(wrapper, path);
     }
+
+    @Override
+    public boolean fixDoubleDir( IWrapper wrapper, RemoteFSElem path ) throws SQLException, IOException {
+        return entry.getApi().fixDoubleDir(wrapper, path);
+    }
+
     
     
 

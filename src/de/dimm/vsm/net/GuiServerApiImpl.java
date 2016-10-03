@@ -4,11 +4,9 @@
  */
 package de.dimm.vsm.net;
 
-import de.dimm.vsm.net.servlets.AgentApiEntry;
 import de.dimm.vsm.Exceptions.PathResolveException;
 import de.dimm.vsm.Exceptions.PoolReadOnlyException;
 import de.dimm.vsm.LogicControl;
-import de.dimm.vsm.log.Log;
 import de.dimm.vsm.Main;
 import de.dimm.vsm.auth.User;
 import de.dimm.vsm.backup.Backup;
@@ -18,12 +16,15 @@ import de.dimm.vsm.fsengine.StorageNodeHandler;
 import de.dimm.vsm.fsengine.StoragePoolHandler;
 import de.dimm.vsm.fsengine.VSMFSInputStream;
 import de.dimm.vsm.fsengine.fixes.FixBootstrapEntries;
+import de.dimm.vsm.fsengine.fixes.FixDoubleDirNames;
 import de.dimm.vsm.jobs.JobEntry;
 import de.dimm.vsm.jobs.JobInterface;
 import de.dimm.vsm.jobs.JobManager;
 import de.dimm.vsm.lifecycle.NodeMigrationManager;
+import de.dimm.vsm.log.Log;
 import de.dimm.vsm.net.interfaces.GuiServerApi;
 import de.dimm.vsm.net.interfaces.IWrapper;
+import de.dimm.vsm.net.servlets.AgentApiEntry;
 import de.dimm.vsm.preview.IPreviewData;
 import de.dimm.vsm.records.AbstractStorageNode;
 import de.dimm.vsm.records.ArchiveJob;
@@ -36,7 +37,6 @@ import de.dimm.vsm.records.Schedule;
 import de.dimm.vsm.records.StoragePool;
 import de.dimm.vsm.recovery.RecoveryManager;
 import de.dimm.vsm.tasks.TaskEntry;
-
 import java.io.IOException;
 import java.io.InputStream;
 import java.lang.reflect.UndeclaredThrowableException;
@@ -923,10 +923,17 @@ public class GuiServerApiImpl implements GuiServerApi
     }
 
     @Override
-    public List<RemoteFSElem> listVersions( IWrapper wrapper, RemoteFSElem path ) throws SQLException, IOException
-    {
+    public List<RemoteFSElem> listVersions( IWrapper wrapper, RemoteFSElem path ) throws SQLException, IOException {
         StoragePoolHandler sp_handler = StoragePoolHandlerServlet.getPoolHandlerByWrapper(wrapper);
         return control.getPoolHandlerServlet().get_versions(sp_handler, path);
+    }
+
+    @Override
+    public boolean fixDoubleDir( IWrapper wrapper, RemoteFSElem path ) throws SQLException, IOException {
+        StoragePoolHandler sp_handler = StoragePoolHandlerServlet.getPoolHandlerByWrapper(wrapper);
+        FixDoubleDirNames fixDoubleDirNames = new FixDoubleDirNames(sp_handler.getPool(), sp_handler.getEm());
+
+        return fixDoubleDirNames.runDirectoryFix(sp_handler, path);
     }
 
     @Override

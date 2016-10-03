@@ -32,7 +32,6 @@ import de.dimm.vsm.fsengine.FS_FileHandle;
 import de.dimm.vsm.fsengine.StoragePoolHandler;
 import de.dimm.vsm.fsengine.StoragePoolHandlerTest;
 import de.dimm.vsm.fsengine.DerbyStoragePoolNubHandler;
-import de.dimm.vsm.log.Log;
 import de.dimm.vsm.net.RemoteFSElem;
 import de.dimm.vsm.net.StoragePoolQry;
 import de.dimm.vsm.records.FileSystemElemNode;
@@ -453,7 +452,7 @@ public class RetentionManagerTest {
 
             // DO RETENTION WITH THE FINAL LIST
 
-            RetentionResultList retentionResult = entry.createRetentionResult(retention, 0, 100,now);
+            RetentionResultList retentionResult = entry.createRetentionResult(retention, 100, now);
             RetentionResultList snapshotRetentionResult = RetentionManager.createSnapshotRetentionList(snapshots, retentionResult, pool);
             entry.handleRetentionList(pool_handler, snapshotRetentionResult);
             entry.writeStatToJob(job);
@@ -464,7 +463,7 @@ public class RetentionManagerTest {
             // EVERYTHING OLDER THAN NOW WILL BE HANDLED
             retention.setArgValue( Long.toString(0) );
 
-            retentionResult = entry.createRetentionResult(retention, 0, 100, now);
+            retentionResult = entry.createRetentionResult(retention, 100, now);
             snapshotRetentionResult = RetentionManager.createSnapshotRetentionList(snapshots, retentionResult, pool);
             entry.handleRetentionList(pool_handler, snapshotRetentionResult);
             entry.writeStatToJob(job);

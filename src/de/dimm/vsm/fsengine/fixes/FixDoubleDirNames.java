@@ -5,8 +5,11 @@
 
 package de.dimm.vsm.fsengine.fixes;
 
+import de.dimm.vsm.fsengine.GenericEntityManager;
 import de.dimm.vsm.fsengine.JDBCEntityManager;
+import de.dimm.vsm.fsengine.StoragePoolHandler;
 import de.dimm.vsm.log.Log;
+import de.dimm.vsm.net.RemoteFSElem;
 import de.dimm.vsm.records.AbstractStorageNode;
 import de.dimm.vsm.records.FileSystemElemAttributes;
 import de.dimm.vsm.records.FileSystemElemNode;
@@ -14,6 +17,7 @@ import de.dimm.vsm.records.HashBlock;
 import de.dimm.vsm.records.PoolNodeFileLink;
 import de.dimm.vsm.records.StoragePool;
 import de.dimm.vsm.records.XANode;
+import java.io.IOException;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
@@ -29,16 +33,16 @@ import java.util.Map;
  * @author Administrator
  */
 public class FixDoubleDirNames implements IFix {
-    JDBCEntityManager em;
-    StoragePool pool;
-    long cnt = 0;
-    long actCnt = 0;
-    int lastPercent = 0;
-    int level = 0;
-    boolean abort;
+    private final GenericEntityManager em;
+    private final StoragePool pool;
+    private long cnt = 0;
+    private long actCnt = 0;
+    private long correctedCnt = 0;
+    private int lastPercent = 0;
+    private int level = 0;
+    private boolean abort;
 
-    public FixDoubleDirNames( StoragePool pool, JDBCEntityManager em )
-    {
+    public FixDoubleDirNames( StoragePool pool, GenericEntityManager em )    {
         this.em = em;
         this.pool = pool;
     }
@@ -49,11 +53,11 @@ public class FixDoubleDirNames implements IFix {
     public boolean runFix() throws SQLException
     {
         Log.info("Fixing duplicate names started");
-        try (Statement st = em.getConnection().createStatement(); ResultSet rs = st.executeQuery("select count(idx) from Filesystemelemnode"))
-        {
-            if (rs.next())
-            {
-                cnt = rs.getLong(1);
+        if (em instanceof JDBCEntityManager) {
+            try (Statement st = ((JDBCEntityManager) em).getConnection().createStatement(); ResultSet rs = st.executeQuery("select count(idx) from Filesystemelemnode")) {
+                if (rs.next()) {
+                    cnt = rs.getLong(1);
+                }
             }
         }
         Log.info("Nodes to check: " + cnt);
@@ -67,6 +71,35 @@ public class FixDoubleDirNames implements IFix {
         em.commit_transaction();
         
         return true;
+    }
+
+    public boolean runDirectoryFix( StoragePoolHandler sp, RemoteFSElem path ) throws SQLException, IOException {
+
+        FileSystemElemNode fseNode = null;
+        try {
+            fseNode = sp.resolve_node_by_remote_elem(path);
+            if (fseNode == null) {
+                throw new IOException("Kein Eintrag in VSM-DB für: " + path.getName());
+
+            }
+        }
+        catch (SQLException sQLException) {
+            throw new IOException("Abbruch beim Lesen von Eintrag in VSM-DB für: " + path.getName() + ": " + sQLException.getMessage());
+
+        }
+
+        em.check_open_transaction();
+
+        FileSystemElemNode root = em.em_find(FileSystemElemNode.class, pool.getRootDir().getIdx());
+
+        checkDuplicates(fseNode, /**
+                 * recurse
+                 */
+                false);
+
+        em.commit_transaction();
+
+        return correctedCnt > 0;
     }
 
     private void checkDuplicates( FileSystemElemNode node, boolean recurse ) throws SQLException
@@ -134,18 +167,34 @@ public class FixDoubleDirNames implements IFix {
                     throw new SQLException("Objekt ist nicht leer");
                 }
 
-                em.em_merge(keepNode);
+                try {
+                    em.em_merge(keepNode);
+                    em.commit_transaction();
+                    correctedCnt++;
+                }
+                catch (SQLException sQLException) {
+                    Log.err("Mergen des Original Nodes fehlgeschlagen: " + keepNode.getName() + " Parent:" + node.getName(), sQLException);
+                }
+
+                // Parent entfernen
                 actNode.setParent(null);
                 
-                em.em_merge(actNode);
-                try
-                {
-                    em.em_remove(actNode);
+                try {
+                    em.em_merge(actNode);
+                    em.commit_transaction();
                 }
-                catch (SQLException sQLException)
-                {
-                    Log.err("Mist");
-                    throw sQLException;
+                catch (SQLException sQLException) {
+                    Log.err("Mergen des duplizierten Nodes fehlgeschlagen: " + actNode.getName() + " Parent:" + node.getName(), sQLException);
+                }
+                try {
+                    em.em_remove(actNode);
+                    em.commit_transaction();
+                }
+                catch (SQLException sQLException) {
+                    Log.err("Löschen des duplizierten Nodes fehlgeschlagen: "
+                            + "Node :" + actNode.getName() + " " + actNode.getIdx()
+                            + " Parent:" + node.getName() + " " + node.getIdx(),
+                            sQLException);
                 }
                 // OKAY, DUPLICATE NODE WAS MERGED, FINALLY UPDATE CHILDLIST
                 children.remove(actNode);
@@ -307,7 +356,12 @@ public class FixDoubleDirNames implements IFix {
     @Override
     public void close()
     {
-        em.close_transaction();
+        try {
+            em.close_transaction();
+        }
+        catch (SQLException sQLException) {
+            Log.err("Closing EM", sQLException);
+        }
         em.close_entitymanager();
     }
 }
