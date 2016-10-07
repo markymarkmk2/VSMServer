@@ -208,7 +208,11 @@ public class FixDoubleDirNames implements IFix {
                 em.check_commit_transaction();
 
                 // CLEAN UP NEW MERGED CHILDLIST
-                checkDuplicates(keepNode, /*recurse*/ false);
+                if (recurse) {
+                    checkDuplicates(keepNode, /*
+                             * recurse
+                             */ false);
+                }
             }
             else
             {
