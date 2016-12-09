@@ -1,4 +1,7 @@
 Veränderungen in V1.9.1
+Changed to GitHub
+
+Veränderungen in V1.9.1
 UPD: FixDoubleDirs im Optionmenu des Filesystemviewers (Admin only)
 FIX: fehlende Icons für gelöschte Ordner mit Versionen
 
