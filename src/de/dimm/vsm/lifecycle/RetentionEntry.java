@@ -306,8 +306,13 @@ public class RetentionEntry implements JobInterface {
         js = JobInterface.JOBSTATE.RUNNING;
 
         try {
-            // Schreibenden PoolHandler erstellen
-            sp_handler = StoragePoolHandlerFactory.createStoragePoolHandler(pool, user, /*rdonly*/ false);
+            // Schreibenden PoolHandler erstellen 21.12.2016: mit deleted FS-Nodes
+            sp_handler = StoragePoolHandlerFactory.createStoragePoolHandler(LogicControl.getStorageNubHandler(), pool, user,
+                    /*
+                     * rdonly
+                     */ false, /*
+                     * showDeleted
+                     */ true);
             if (pool.getStorageNodes().isEmpty(sp_handler.getEm())) {
                 throw new RetentionException("No Storage for pool defined");
             }
@@ -732,7 +737,9 @@ public class RetentionEntry implements JobInterface {
         StoragePoolHandler sp_handler = null;
 
         try {
-            sp_handler = StoragePoolHandlerFactory.createStoragePoolHandler(pool, user, /*rdonly*/ false);
+            sp_handler = StoragePoolHandlerFactory.createStoragePoolHandler(pool, user, /*
+                     * rdonly
+                     */ false);
             if (pool.getStorageNodes().isEmpty(sp_handler.getEm())) {
                 throw new RetentionException("No Storage for pool defined");
             }

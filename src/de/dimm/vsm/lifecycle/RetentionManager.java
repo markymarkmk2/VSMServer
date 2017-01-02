@@ -692,7 +692,10 @@ public class RetentionManager extends WorkerParent {
         int cnt = 0;
         try {
             // Schreibenden PoolHandler erstellen
-            StoragePoolHandler sp_handler = StoragePoolHandlerFactory.createStoragePoolHandler(pool, User.createSystemInternal(), /*rdonly*/ false);
+            StoragePoolHandler sp_handler = StoragePoolHandlerFactory.createStoragePoolHandler(pool, User.createSystemInternal(),
+                    /*
+                     * rdonly
+                     */ false);
             if (pool.getStorageNodes().isEmpty(sp_handler.getEm())) {
                 throw new RetentionException("No Storage for pool defined");
             }

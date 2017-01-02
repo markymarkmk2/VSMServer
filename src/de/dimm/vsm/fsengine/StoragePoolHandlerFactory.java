@@ -6,9 +6,9 @@
 package de.dimm.vsm.fsengine;
 
 import de.dimm.vsm.LogicControl;
-import de.dimm.vsm.log.Log;
 import de.dimm.vsm.Main;
 import de.dimm.vsm.auth.User;
+import de.dimm.vsm.log.Log;
 import de.dimm.vsm.net.StoragePoolQry;
 import de.dimm.vsm.records.StoragePool;
 import java.io.IOException;
@@ -28,8 +28,13 @@ public class StoragePoolHandlerFactory
     {
         return createStoragePoolHandler( LogicControl.getStorageNubHandler(), pool, user, rdonly);
     }
-    public static StoragePoolHandler createStoragePoolHandler(IStoragePoolNubHandler nubHandler, StoragePool _pool, User user, boolean rdonly) throws IOException
-    {
+    public static StoragePoolHandler createStoragePoolHandler( IStoragePoolNubHandler nubHandler, StoragePool _pool, User user, boolean rdonly ) throws IOException {
+        return createStoragePoolHandler(nubHandler, _pool, user, rdonly, /*
+                 * showDeleted
+                 */ false);
+    }
+
+    public static StoragePoolHandler createStoragePoolHandler( IStoragePoolNubHandler nubHandler, StoragePool _pool, User user, boolean rdonly, boolean showDeleted ) throws IOException    {
         try
         {
             StoragePool pool;
@@ -48,9 +53,9 @@ public class StoragePoolHandlerFactory
                  
             StoragePoolQry qry;
             if (rdonly)
-                qry = StoragePoolQry.createActualRdOnlyStoragePoolQry(user, /*showDeleted*/ false);
+                qry = StoragePoolQry.createActualRdOnlyStoragePoolQry(user, showDeleted);
             else
-                qry = StoragePoolQry.createActualRdWrStoragePoolQry(user, /*showDeleted*/ false);
+                qry = StoragePoolQry.createActualRdWrStoragePoolQry(user, showDeleted);
             
             JDBCStoragePoolHandler sp_handler = createStoragePoolHandlerbyQry( em, pool, qry );
 
