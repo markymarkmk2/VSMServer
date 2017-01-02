@@ -1,0 +1,9 @@
+#VSM Properties, please do not edit
+#Mon Jan 02 13:09:23 CET 2017
+EncryptionPassword=tcuXefypJBU\=
+StatusRenderEngine=RUNNING
+StatusRetentionManager=RUNNING
+StatusBackupManager=RUNNING
+StatusAutoMountManager=STARTED
+StatusCDPManager=RUNNING
+StatusHotFolderManager=RUNNING

@@ -64,7 +64,6 @@ public class Main
     public static final String LOG_PATH = "logs/";
     public static final String SCRIPT_PATH = "scripts/";
     public static final String DATABASEPATH = "db/";
-    public static final String LICENSE_PATH = "license/";
 
     private static String work_dir;
 
@@ -215,11 +214,6 @@ public class Main
                 f.mkdirs();
 
             f = new File( PREFS_PATH );
-            if (!f.exists())
-                f.mkdirs();
-
-
-            f = new File( LICENSE_PATH );
             if (!f.exists())
                 f.mkdirs();
 

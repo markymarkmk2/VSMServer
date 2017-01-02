@@ -4,13 +4,13 @@
  */
 package de.dimm.vsm.Utilities;
 
-import de.dimm.vsm.log.LogManager;
 import com.thoughtworks.xstream.XStream;
 import de.dimm.vsm.Main;
 import de.dimm.vsm.license.DemoLicenseTicket;
 import de.dimm.vsm.license.HWIDLicenseTicket;
 import de.dimm.vsm.license.LicenseTicket;
 import de.dimm.vsm.license.ValidTicketContainer;
+import de.dimm.vsm.log.LogManager;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
@@ -19,6 +19,7 @@ import java.text.ParseException;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.GregorianCalendar;
+import java.util.List;
 
 /**
  *
@@ -27,24 +28,41 @@ import java.util.GregorianCalendar;
 public class LicenseChecker
 {
 
-    private static long DEMO_TICKET_DAYS = 30;  // 30 DAYS DEMO AT STARTUP
+    private static final String LICENSE_PATH = "license/";
+    private static final String NEW_LICENSE_PATH = "licenses/";
 
-    ArrayList<ValidTicketContainer> ticket_list;
-    public static final String LICFILE_NAME = "license.xml";
+    private static final long DEMO_TICKET_DAYS = 30;  // 30 DAYS DEMO AT STARTUP
+
+    private final List<ValidTicketContainer> ticket_list;
+    private static final String LICFILE_NAME = "license.xml";
 
     final String lic_mtx = "lic_lock";
 
-    String productBase;
-    String overrideLicPath;
+    private final String productBase;
+    private String overrideLicPath;
 
     public LicenseChecker(String productBase, int demo_units, int demo_modules)
     {
         this.productBase = productBase;
         ticket_list = new ArrayList<>();
-        
-        check_create_demo_ticket(demo_units, demo_modules);
 
-        
+        File lic_path = getRealLicPath();
+
+        if (!lic_path.exists()) {
+            lic_path.mkdir();
+        }
+        check_create_demo_ticket(demo_units, demo_modules);
+    }
+
+    private File getRealLicPath() {
+        File lic_path = new File(NEW_LICENSE_PATH);
+        if (!lic_path.exists()) {
+            File old_lic_path = new File(LICENSE_PATH);
+            if (old_lic_path.exists() && old_lic_path.isDirectory()) {
+                lic_path = old_lic_path;
+            }
+        }
+        return lic_path;
     }
 
     public void setOverrideLicPath( String overrideLicPath ) {
@@ -175,8 +193,7 @@ public class LicenseChecker
         read_licenses();
         
      }
-    public ArrayList<ValidTicketContainer> get_ticket_list()
-    {
+    public List<ValidTicketContainer> get_ticket_list()    {
         return ticket_list;
     }
 
@@ -224,7 +241,7 @@ public class LicenseChecker
         if (overrideLicPath != null) {            
             return new File(overrideLicPath, product + "_" + LICFILE_NAME);
         }
-        File lic_path = new File(Main.LICENSE_PATH + product + "_" + LICFILE_NAME);
+        File lic_path = new File(getRealLicPath(), product + "_" + LICFILE_NAME);
         return lic_path;
     }
     File get_lic_file( LicenseTicket ticket )
@@ -349,16 +366,20 @@ public class LicenseChecker
             ticket_list.clear();
 
             File lic_dir = get_lic_file("1234").getParentFile();
-            File[] lic_list = lic_dir.listFiles();
-            for (int i = 0; i < lic_list.length; i++)
-            {
-                File file = lic_list[i];
-                if (!file.getName().endsWith("_license.xml"))
-                    continue;
 
-                ValidTicketContainer vtck = read_license(file);
-                if (vtck != null)
-                    ticket_list.add(vtck);
+            if (lic_dir.exists()) {
+                File[] lic_list = lic_dir.listFiles();
+                for (int i = 0; i < lic_list.length; i++) {
+                    File file = lic_list[i];
+                    if (!file.getName().endsWith("_license.xml")) {
+                        continue;
+                    }
+
+                    ValidTicketContainer vtck = read_license(file);
+                    if (vtck != null) {
+                        ticket_list.add(vtck);
+                    }
+                }
             }
         }
     }
