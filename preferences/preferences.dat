@@ -1,0 +1,44 @@
+SIUnits=0
+SysAdminName=wurzel
+SysAdminPwd=12345
+IgnoreACL=1
+HashUrlFormatFix=0
+HashUrlFormatAllowEmptyHashLinks=1
+MinFreeNodeSpaceGB=1
+#UseNoCache=1
+BootstrapFixOverwrite=1
+#DatabasePath=G:/Service/VSM/Otterbach/db
+#TextBaseEdit=1
+Language=EN
+#DatabaseServer=localhost
+#DatabasePort=51527
+#DatabaseServer_22=localhost
+#DatabasePort_22=51528
+#DatabaseServer_18=localhost
+#DatabasePort_18=51527
+#DatabaseServer_17=localhost
+#DatabasePort_17=51529
+#DatabasePath_22=J:/Develop/VSM/V1.0/VSMServer/db/db_22
+# OTTERBACH 
+#DatabasePath_2=G:/Service/VSM/Otterbach/db/db_2
+#UseRedisCache_2=1
+UseNoCache_2=1
+
+#AgentTxTimeout=10
+#AgentConnTimeout=60
+#DatabaseServer=localhost
+#DatabasePort=1530
+#UseLazyCache=1
+#HashLazyLoadGrenzeMB=0
+WithBootstrap=0
+HashLazyLoadGrenzeMB=10000
+NoIpResolve=1
+#FixDuplNames=1
+
+KickJobTimeoutS=180
+PreviewRoot=previews
+PreviewGmPath=F:/Program Files/GraphicsMagick-1.3.20-Q16
+PreviewImPath=F:/Program Files/ImageMagick-6.9.1-Q16
+#ImSuffixes=psd,ai
+#ImCmdOptions=-coalesce
+
